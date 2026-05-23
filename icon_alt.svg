@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient (Sleek Obsidian & Cyber Indigo) -->
+    <linearGradient id="bg-grad-alt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050515" />
+      <stop offset="50%" stop-color="#0a0927" />
+      <stop offset="100%" stop-color="#020208" />
+    </linearGradient>
+
+    <!-- Outer Border Glow Gradient -->
+    <linearGradient id="border-grad-alt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+
+    <!-- Left Wing Gradient (Royal Indigo-Violet Glass) -->
+    <linearGradient id="left-wing-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="70%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+
+    <!-- Right Wing Gradient (Electric Cyan Glass) -->
+    <linearGradient id="right-wing-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0891b2" />
+      <stop offset="60%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+
+    <!-- Neon Progress Track Gradient (Pink-Purple-Cyan Ascent) -->
+    <linearGradient id="track-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="50%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+
+    <!-- Ambient Background Radial Lighting -->
+    <radialGradient id="radial-glow-alt" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.18" />
+      <stop offset="60%" stop-color="#06b6d4" stop-opacity="0.04" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Drop Shadow Filter for 3D Layering -->
+    <filter id="drop-shadow-alt" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000000" flood-opacity="0.65" />
+    </filter>
+
+    <!-- Intense Neon Glow Filter -->
+    <filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Subtle Glow Filter -->
+    <filter id="subtle-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Canvas Squircle Background -->
+  <rect width="496" height="496" x="8" y="8" rx="248" fill="url(#bg-grad-alt)" stroke="url(#border-grad-alt)" stroke-width="4" />
+
+  <!-- Radial Background Lighting Overlay -->
+  <circle cx="256" cy="256" r="230" fill="url(#radial-glow-alt)" />
+
+  <!-- Technical Orbit Grids (Structured Syllabus Tracking Theme) -->
+  <g opacity="0.25">
+    <circle cx="256" cy="256" r="160" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4 8" />
+    <circle cx="256" cy="256" r="120" fill="none" stroke="#06b6d4" stroke-width="1" stroke-dasharray="12 6" />
+    <line x1="256" y1="50" x2="256" y2="462" stroke="#475569" stroke-width="0.5" stroke-dasharray="4 4" />
+    <line x1="50" y1="256" x2="462" y2="256" stroke="#475569" stroke-width="0.5" stroke-dasharray="4 4" />
+  </g>
+
+  <!-- Main Floating Content Group -->
+  <g filter="url(#drop-shadow-alt)">
+    
+    <!-- Left Wing (Syllabus Structure Base) -->
+    <path d="M 170,160 
+             C 155,160 145,172 148,187 
+             L 218,362 
+             C 224,377 238,385 250,385 
+             C 256,385 262,382 266,377 
+             L 224,225 
+             C 220,210 206,160 170,160 Z" 
+          fill="url(#left-wing-grad)" 
+          opacity="0.85" />
+
+    <!-- Right Wing (Active Execution & Completion) -->
+    <path d="M 342,160 
+             C 357,160 367,172 364,187 
+             L 294,362 
+             C 288,377 274,385 262,385 
+             C 256,385 250,382 246,377 
+             L 288,225 
+             C 292,210 306,160 342,160 Z" 
+          fill="url(#right-wing-grad)" 
+          opacity="0.85" />
+
+    <!-- Neon Progress Track Spline (Winding through the structured V wings) -->
+    <path d="M 160,290 
+             C 185,330 225,360 256,360 
+             C 290,360 325,270 360,130" 
+          fill="none" 
+          stroke="url(#track-grad)" 
+          stroke-width="7" 
+          stroke-linecap="round" 
+          filter="url(#neon-glow)" />
+
+    <!-- Progress Nodes (Representing modular milestones / lessons completed) -->
+    <!-- Node 1: Completed Start Point -->
+    <circle cx="160" cy="290" r="10" fill="#ec4899" filter="url(#subtle-glow)" />
+    <circle cx="160" cy="290" r="4" fill="#ffffff" />
+
+    <!-- Node 2: Mid-point Progress -->
+    <circle cx="225" cy="342" r="10" fill="#a855f7" filter="url(#subtle-glow)" />
+    <circle cx="225" cy="342" r="4" fill="#ffffff" />
+
+    <!-- Node 3: Current Study Goal Active -->
+    <circle cx="295" cy="310" r="12" fill="#06b6d4" filter="url(#neon-glow)" />
+    <circle cx="295" cy="310" r="5" fill="#ffffff" />
+
+    <!-- Ultimate Target Goal / Star of Achievement (Top-Right Destination) -->
+    <g transform="translate(360, 130)" filter="url(#neon-glow)">
+      <!-- Pulsing Halo -->
+      <circle cx="0" cy="0" r="22" fill="#22d3ee" opacity="0.25" />
+      <circle cx="0" cy="0" r="14" fill="#a855f7" opacity="0.4" />
+      <!-- High-Tech Star Shape -->
+      <path d="M 0,-12 
+               L 3,-3 
+               L 12,0 
+               L 3,3 
+               L 0,12 
+               L -3,3 
+               L -12,0 
+               L -3,-3 Z" 
+            fill="#ffffff" />
+    </g>
+  </g>
+</svg>

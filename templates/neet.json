@@ -1,0 +1,68 @@
+{
+  "examName": "NEET",
+  "subjects": [
+    {
+      "name": "Physics",
+      "chapters": [
+        { "name": "Physical World & Measurement" },
+        { "name": "Kinematics" },
+        { "name": "Laws of Motion" },
+        { "name": "Work, Energy & Power" },
+        { "name": "Motion of System of Particles & Rigid Body" },
+        { "name": "Gravitation" },
+        { "name": "Properties of Bulk Matter" },
+        { "name": "Thermodynamics" },
+        { "name": "Behavior of Perfect Gas & Kinetic Theory" },
+        { "name": "Oscillations & Waves" },
+        { "name": "Electrostatics" },
+        { "name": "Current Electricity" },
+        { "name": "Magnetic Effects of Current & Magnetism" },
+        { "name": "Electromagnetic Induction & Alternating Currents" },
+        { "name": "Electromagnetic Waves" },
+        { "name": "Optics" },
+        { "name": "Dual Nature of Matter & Radiation" },
+        { "name": "Atoms & Nuclei" },
+        { "name": "Electronic Devices" }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "chapters": [
+        { "name": "Some Basic Concepts of Chemistry" },
+        { "name": "Structure of Atom" },
+        { "name": "Classification of Elements & Periodicity" },
+        { "name": "Chemical Bonding & Molecular Structure" },
+        { "name": "Chemical Thermodynamics" },
+        { "name": "Equilibrium" },
+        { "name": "Redox Reactions" },
+        { "name": "d- and f-Block Elements" },
+        { "name": "Coordination Compounds" },
+        { "name": "Organic Chemistry - Basic Principles & Techniques" },
+        { "name": "Hydrocarbons" },
+        { "name": "Solutions" },
+        { "name": "Electrochemistry" },
+        { "name": "Chemical Kinetics" },
+        { "name": "Haloalkanes & Haloarenes" },
+        { "name": "Alcohols, Phenols & Ethers" },
+        { "name": "Aldehydes, Ketones & Carboxylic Acids" },
+        { "name": "Organic Compounds Containing Nitrogen" },
+        { "name": "Biomolecules" }
+      ]
+    },
+    {
+      "name": "Biology",
+      "chapters": [
+        { "name": "Diversity in Living World" },
+        { "name": "Structural Organisation in Animals & Plants" },
+        { "name": "Cell Structure & Function" },
+        { "name": "Plant Physiology" },
+        { "name": "Human Physiology" },
+        { "name": "Reproduction" },
+        { "name": "Genetics & Evolution" },
+        { "name": "Biology & Human Welfare" },
+        { "name": "Biotechnology & Its Applications" },
+        { "name": "Ecology & Environment" }
+      ]
+    }
+  ]
+}

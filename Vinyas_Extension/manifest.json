@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Vinyas Tracker",
+  "version": "1.0",
+  "description": "Tracks PW activity and syncs it to Vinyas Dashboard",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "*://*.pw.live/*",
+    "*://pw.live/*",
+    "*://*.physicswallah.live/*",
+    "*://physicswallah.live/*",
+    "http://localhost:3000/*",
+    "https://*.vercel.app/*"
+  ],
+  "icons": {
+    "16": "icon.svg",
+    "32": "icon.svg",
+    "48": "icon.svg",
+    "128": "icon.svg"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.pw.live/*",
+        "*://pw.live/*",
+        "*://*.physicswallah.live/*",
+        "*://physicswallah.live/*"
+      ],
+      "js": ["content_script.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": ["dashboard_connector.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

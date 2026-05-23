@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vinyas Tracker</title>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+      background-color: #060a13;
+      color: #f8fafc;
+      margin: 0;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h2 {
+      margin: 0 0 4px 0;
+      color: #10b981;
+      font-size: 20px;
+      font-weight: 850;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .subtitle {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    /* Auto-Detect Panel Card */
+    .detect-card {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
+      border: 1px dashed rgba(16, 185, 129, 0.4);
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      display: none; /* Shown dynamically in popup.js */
+      animation: popIn 0.3s ease-out;
+    }
+
+    .detect-title {
+      font-weight: 800;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .detect-details {
+      color: #94a3b8;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .detect-btn {
+      width: 100%;
+      padding: 6px 12px;
+      background: #10b981;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 750;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    .detect-btn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-group {
+      position: relative;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      background: #0b1324;
+      border: 1px solid #1e293b;
+      color: white;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+    }
+
+    input.mono {
+      font-family: monospace;
+      font-size: 11px;
+      color: #34d399;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: linear-gradient(to right, #10b981, #059669);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 9px;
+      background: #0f172a;
+      color: #94a3b8;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: #1e293b;
+      color: white;
+      border-color: #334155;
+    }
+
+    #status {
+      min-height: 18px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h2>Vinyas Sync</h2>
+      <div class="subtitle">Chrome Extension Tracker</div>
+    </div>
+
+    <!-- Active Tab Configuration Auto-Detect Panel -->
+    <div id="detectCard" class="detect-card">
+      <div class="detect-title">
+        ✨ Active Dashboard Detected
+      </div>
+      <div class="detect-details">
+        We found <strong><span id="detectUser">Kishlay</span></strong> targeting <strong><span id="detectCohort">BITSAT</span></strong>. Click below to pair instantly.
+      </div>
+      <button id="detectBtn" class="detect-btn">Auto-Pair Configuration</button>
+    </div>
+    
+    <div>
+      <label for="syncId">Device Sync ID:</label>
+      <input type="text" id="syncId" class="mono" placeholder="vny_sec_..." />
+    </div>
+    
+    <div>
+      <label for="apiUrl">API Server URL:</label>
+      <input type="text" id="apiUrl" placeholder="https://vinyas-dashboard.vercel.app" />
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button id="saveBtn" class="btn-primary">Save Configuration</button>
+      <button id="testBtn" class="btn-secondary">Test Connection</button>
+    </div>
+    
+    <div id="status"></div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

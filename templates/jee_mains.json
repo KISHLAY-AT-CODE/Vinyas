@@ -1,0 +1,305 @@
+{
+  "examName": "JEE Mains",
+  "subjects": [
+    {
+      "name": "Physics",
+      "chapters": [
+        {
+          "name": "Mathematical Tools"
+        },
+        {
+          "name": "Motion in a Straight Line"
+        },
+        {
+          "name": "Motion in a Plane"
+        },
+        {
+          "name": "Relative Motion"
+        },
+        {
+          "name": "Laws of Motion"
+        },
+        {
+          "name": "Work, Energy and Power"
+        },
+        {
+          "name": "Circular Motion"
+        },
+        {
+          "name": "Centre of Mass & System of Particles"
+        },
+        {
+          "name": "Rotational Motion"
+        },
+        {
+          "name": "Oscillations"
+        },
+        {
+          "name": "Ray Optics and Optical Instruments"
+        },
+        {
+          "name": "Dual Nature"
+        },
+        {
+          "name": "Atoms"
+        },
+        {
+          "name": "Nuclei"
+        },
+        {
+          "name": "Thermal Properties of Matter"
+        },
+        {
+          "name": "Kinetic Theory"
+        },
+        {
+          "name": "Thermodynamics"
+        },
+        {
+          "name": "Mechanical Properties of Solids"
+        },
+        {
+          "name": "Mechanical Properties of Fluids"
+        },
+        {
+          "name": "Electric Charges and Fields & Potential"
+        },
+        {
+          "name": "Gravitation"
+        },
+        {
+          "name": "Current Electricity"
+        },
+        {
+          "name": "Electrostatic Potential and Capacitance"
+        },
+        {
+          "name": "Moving Charges and Magnetism"
+        },
+        {
+          "name": "Magnetism and Matter"
+        },
+        {
+          "name": "Electromagnetic Induction"
+        },
+        {
+          "name": "Alternating Current"
+        },
+        {
+          "name": "Waves"
+        },
+        {
+          "name": "Electromagnetic Waves"
+        },
+        {
+          "name": "Wave Optics"
+        },
+        {
+          "name": "Semiconductor Electronics: Materials, Devices and Simple Circuits"
+        },
+        {
+          "name": "Units and Measurements"
+        }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "chapters": [
+        {
+          "name": "Some Basic Concepts of Chemistry"
+        },
+        {
+          "name": "Redox Reaction"
+        },
+        {
+          "name": "Solutions"
+        },
+        {
+          "name": "Chemical Kinetics"
+        },
+        {
+          "name": "Thermodynamics"
+        },
+        {
+          "name": "Chemical Equilibrium"
+        },
+        {
+          "name": "Ionic Equilibrium"
+        },
+        {
+          "name": "Structure of Atom"
+        },
+        {
+          "name": "Electrochemistry"
+        },
+        {
+          "name": "State of matter (Recorded)"
+        },
+        {
+          "name": "The Solid State (Recorded)"
+        },
+        {
+          "name": "SURFACE CHEMISTRY (Recorded)"
+        },
+        {
+          "name": "Classification of Elements and Periodicity in Properties"
+        },
+        {
+          "name": "Chemical Bonding and Molecular Structure"
+        },
+        {
+          "name": "Coordination Compounds"
+        },
+        {
+          "name": "Principles of Qualitative Analysis: Salt analysis"
+        },
+        {
+          "name": "P-block Elements"
+        },
+        {
+          "name": "The d and f-Block Elements"
+        },
+        {
+          "name": "GENERAL PRINCIPLES AND PROCESSES OF ISOLATION OF METALS (Recorded)"
+        },
+        {
+          "name": "Hydrogen and its Compound (Recorded)"
+        },
+        {
+          "name": "S-block Element (Recorded)"
+        },
+        {
+          "name": "Some Basic Principles and Techniques: IUPAC Nomenclature"
+        },
+        {
+          "name": "Some Basic Principles and Techniques: General Organic Chemistry"
+        },
+        {
+          "name": "Some Basic Principles and Techniques: Isomerism"
+        },
+        {
+          "name": "Hydrocarbon"
+        },
+        {
+          "name": "Haloalkanes and Haloarenes"
+        },
+        {
+          "name": "Alcohols, Phenols and Ethers"
+        },
+        {
+          "name": "Aldehydes, Ketones and Carboxylic Acids"
+        },
+        {
+          "name": "Amines"
+        },
+        {
+          "name": "Biomolecules"
+        },
+        {
+          "name": "POLYMERS (Recorded)"
+        },
+        {
+          "name": "CHEMISTRY IN EVERYDAY LIFE (Recorded)"
+        },
+        {
+          "name": "Environmental Chemistry (Recorded)"
+        }
+      ]
+    },
+    {
+      "name": "Mathematics",
+      "chapters": [
+        {
+          "name": "Application of Derivatives"
+        },
+        {
+          "name": "Application of integrals"
+        },
+        {
+          "name": "Basic Mathematics"
+        },
+        {
+          "name": "Binomial theorem"
+        },
+        {
+          "name": "Circles"
+        },
+        {
+          "name": "Complex Number"
+        },
+        {
+          "name": "Conic Sections:Ellipse"
+        },
+        {
+          "name": "Conic Sections:Hyperbola"
+        },
+        {
+          "name": "Conic Sections:Parabola"
+        },
+        {
+          "name": "Definite Integration"
+        },
+        {
+          "name": "Determinants"
+        },
+        {
+          "name": "Differential Equation"
+        },
+        {
+          "name": "Indefinite Integration"
+        },
+        {
+          "name": "Inverse Trigonometric Functions"
+        },
+        {
+          "name": "Limit, Continuity and Differentiability"
+        },
+        {
+          "name": "Matrices"
+        },
+        {
+          "name": "Method of Differentiation"
+        },
+        {
+          "name": "Permutations and Combinations"
+        },
+        {
+          "name": "Probability"
+        },
+        {
+          "name": "Quadratic Equations"
+        },
+        {
+          "name": "Relations and Functions"
+        },
+        {
+          "name": "Sequence and Series"
+        },
+        {
+          "name": "Sets"
+        },
+        {
+          "name": "Solution of Triangle"
+        },
+        {
+          "name": "Statistics"
+        },
+        {
+          "name": "Straight Lines"
+        },
+        {
+          "name": "Three Dimensional Geometry"
+        },
+        {
+          "name": "Trigonometric Equation"
+        },
+        {
+          "name": "Trigonometric Functions"
+        },
+        {
+          "name": "Vector Algebra"
+        }
+      ]
+    }
+  ]
+}

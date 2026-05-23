@@ -1,0 +1,73 @@
+{
+  "examName": "BITSAT",
+  "subjects": [
+    {
+      "name": "Physics",
+      "chapters": [
+        { "name": "Units & Measurement" },
+        { "name": "Kinematics" },
+        { "name": "Newton's Laws of Motion" },
+        { "name": "Work, Energy & Power" },
+        { "name": "Rotational Motion" },
+        { "name": "Gravitation" },
+        { "name": "Mechanics of Solids & Fluids" },
+        { "name": "Oscillations & Waves" },
+        { "name": "Heat & Thermodynamics" },
+        { "name": "Electrostatics" },
+        { "name": "Current Electricity" },
+        { "name": "Magnetic Effects of Current" },
+        { "name": "Electromagnetic Induction & AC" },
+        { "name": "Optics" },
+        { "name": "Modern Physics" }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "chapters": [
+        { "name": "States of Matter" },
+        { "name": "Atomic Structure" },
+        { "name": "Chemical Bonding" },
+        { "name": "Thermodynamics" },
+        { "name": "Physical & Chemical Equilibria" },
+        { "name": "Electrochemistry" },
+        { "name": "Chemical Kinetics" },
+        { "name": "Hydrogen & s-Block Elements" },
+        { "name": "p-, d- and f-Block Elements" },
+        { "name": "Principles of Organic Chemistry" },
+        { "name": "Hydrocarbons" },
+        { "name": "Stereochemistry" },
+        { "name": "Organic Compounds with Functional Groups" },
+        { "name": "Biological & Environmental Chemistry" }
+      ]
+    },
+    {
+      "name": "Mathematics",
+      "chapters": [
+        { "name": "Algebra" },
+        { "name": "Trigonometry" },
+        { "name": "Two-Dimensional Coordinate Geometry" },
+        { "name": "Three-Dimensional Coordinate Geometry" },
+        { "name": "Differential Calculus" },
+        { "name": "Integral Calculus" },
+        { "name": "Ordinary Differential Equations" },
+        { "name": "Vectors" },
+        { "name": "Statistics & Probability" }
+      ]
+    },
+    {
+      "name": "English Proficiency",
+      "chapters": [
+        { "name": "Grammar & Vocabulary" },
+        { "name": "Reading Comprehension" },
+        { "name": "Composition & Corrections" }
+      ]
+    },
+    {
+      "name": "Logical Reasoning",
+      "chapters": [
+        { "name": "Verbal Reasoning" },
+        { "name": "Non-Verbal Reasoning" }
+      ]
+    }
+  ]
+}
