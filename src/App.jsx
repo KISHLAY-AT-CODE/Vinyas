@@ -842,6 +842,53 @@ const App = () => {
         );
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('vinyasBitsatSyncId');
+        localStorage.removeItem('vinyasUserName');
+        localStorage.removeItem('vinyasCohort');
+        setSyncId('');
+        setUserName('');
+        setCohort('BITSAT');
+        setIsSyncIdSet(false);
+        setIsLoaded(false);
+        setData([...initialSyllabus]);
+        setRoutines([]);
+        setTestLogs([]);
+        showToast("Logged out successfully.", "success");
+    };
+
+    const handleDeleteAccount = () => {
+        requestConfirm(
+            "Permanently Delete Account",
+            "Are you sure you want to permanently delete your account and all syllabus progress? This will nuke your database record and cannot be undone.",
+            async () => {
+                try {
+                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        localStorage.removeItem('vinyasBitsatSyncId');
+                        localStorage.removeItem('vinyasUserName');
+                        localStorage.removeItem('vinyasCohort');
+                        setSyncId('');
+                        setUserName('');
+                        setCohort('BITSAT');
+                        setIsSyncIdSet(false);
+                        setIsLoaded(false);
+                        setData([...initialSyllabus]);
+                        setRoutines([]);
+                        setTestLogs([]);
+                        showToast("Account deleted and reset successfully.", "success");
+                    } else {
+                        throw new Error("Failed to delete account from server.");
+                    }
+                } catch (err) {
+                    showToast("Error deleting account: " + err.message, "error");
+                }
+            }
+        );
+    };
+
 
 
 
@@ -865,10 +912,10 @@ const App = () => {
 
     const handleSetSyncId = (isGenerating = false) => {
         const name = tempUserName.trim();
-        const cohortVal = tempCohort.trim();
+        const cohortVal = isGenerating ? 'BITSAT' : tempCohort.trim() || 'BITSAT';
         
-        if (!name || !cohortVal) {
-            showToast("Please enter your name and cohort/exam target.", "error");
+        if (!name) {
+            showToast("Please enter your name.", "error");
             return;
         }
 
@@ -1698,16 +1745,7 @@ const App = () => {
                             />
                         </div>
 
-                        <div>
-                            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block text-left mb-1.5 ml-1">Exam Target (Cohort)</label>
-                            <input 
-                                type="text" 
-                                value={tempCohort} 
-                                onChange={e => setTempCohort(e.target.value)} 
-                                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-slate-200 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all font-semibold" 
-                                placeholder="e.g. BITSAT 2026, JEE"
-                            />
-                        </div>
+
 
                         {welcomeTab === 'link' && (
                             <div className="animate-fadeIn">
@@ -1818,6 +1856,8 @@ const App = () => {
                 onNukeActivities={handleNukeActivities}
                 onExportData={handleExportData}
                 onImportData={handleImportData}
+                onLogout={handleLogout}
+                onDeleteAccount={handleDeleteAccount}
             />
 
             {/* Standard Search Bar */}

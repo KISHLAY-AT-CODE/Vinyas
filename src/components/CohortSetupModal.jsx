@@ -60,9 +60,10 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
         setIsTemplateSelect(false);
     };
 
-    const selectTemplateAndContinue = (templateName) => {
-        setCohortInput(templateName);
-        setIsTemplateSelect(true);
+    const handleNextStep = () => {
+        if (!cohortInput) return;
+
+        const templateName = cohortInput;
         setCustomSyllabus([]); // clear previous syllabus fields
         if (templates[templateName]) {
             const loadedSyllabus = templates[templateName].map(sub => ({
@@ -84,26 +85,10 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                 { name: 'Chemistry', chapters: [] },
                 { name: 'Mathematics', chapters: [] }
             ]);
-            showToast('No matching template. Created customizable blank subjects.', 'info');
+            showToast('Created customizable blank subjects.', 'info');
         }
         setActiveSubjectIdx(0);
         setStep(2);
-    };
-
-    // Go to step 2: Curation/Customization Screen
-    const handleNextStep = () => {
-        if (!cohortInput.trim()) return;
-
-        // Try to find a matching template (case-insensitive)
-        const matchedKey = templateNames.find(
-            t => t.toLowerCase() === cohortInput.trim().toLowerCase()
-        );
-
-        if (matchedKey) {
-            selectTemplateAndContinue(matchedKey);
-        } else {
-            selectTemplateAndContinue(cohortInput.trim());
-        }
     };
 
     // Subject editing helpers
@@ -210,94 +195,91 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
 
                 <div className="mb-4">
                     <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                        <i className="ph-fill ph-target text-indigo-500"></i> Cohort Setup
+                        <i className="ph-fill ph-target text-indigo-500"></i> Syllabus Setup
                     </h2>
-                    <p className="text-sm text-slate-400 mt-1">Configure your target exam and curate your syllabus.</p>
+                    <p className="text-sm text-slate-400 mt-1">Select your target exam template and curate your syllabus.</p>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                     {/* --- STEP 1: Exam Name & Template Matching --- */}
                     {step === 1 && (
-                        <div className="space-y-5 py-2 animate-fade-in">
-                            <div className="relative">
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">1. Target Exam</label>
-                                <input 
-                                    type="text" 
-                                    value={cohortInput} 
-                                    onChange={e => {
-                                        setCohortInput(e.target.value);
-                                        setShowSuggestions(true);
-                                    }} 
-                                    onFocus={() => setShowSuggestions(true)}
-                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-indigo-500 transition-colors font-bold text-lg" 
-                                    placeholder="e.g. JEE Mains, BITSAT, NEET"
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter') {
-                                            if (showSuggestions && filteredSuggestions.length > 0) {
-                                                selectTemplateAndContinue(filteredSuggestions[0]);
-                                            } else {
-                                                handleNextStep();
-                                            }
-                                        }
-                                    }}
-                                />
-                                {showSuggestions && cohortInput.trim().length > 0 && filteredSuggestions.length > 0 && (
-                                    <div className="absolute left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-20 max-h-48 overflow-y-auto custom-scrollbar divide-y divide-slate-800">
-                                        {filteredSuggestions.map((name, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => {
-                                                    selectTemplateAndContinue(name);
-                                                    setShowSuggestions(false);
-                                                }}
-                                                className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800 hover:text-indigo-400 flex items-center justify-between transition-colors group"
-                                            >
-                                                <span>{name}</span>
-                                                <span className="text-xs text-slate-500 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
-                                                    Use Template <i className="ph-bold ph-arrow-right"></i>
-                                                </span>
-                                            </button>
-                                        ))}
+                        <div className="space-y-6 py-2 animate-fade-in">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                                    Select Target Exam Template
+                                </label>
+                                
+                                {loadingTemplates ? (
+                                    <div className="flex flex-col items-center justify-center py-12 text-slate-500 gap-3">
+                                        <i className="ph-bold ph-spinner-gap text-3xl animate-spin text-indigo-500"></i>
+                                        <p className="text-xs font-semibold uppercase tracking-wider">Loading preloaded syllabus templates...</p>
+                                    </div>
+                                ) : templateNames.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-500 border border-dashed border-slate-700 rounded-2xl">
+                                        <i className="ph-bold ph-warning-circle text-2xl mb-2 block"></i>
+                                        <p className="text-xs font-semibold">No templates found on server</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {templateNames.map((name, idx) => {
+                                            const isSelected = cohortInput === name;
+                                            const subjectCount = templates[name]?.length || 0;
+                                            const chapterCount = templates[name]?.reduce((acc, sub) => acc + (sub.chapters?.length || 0), 0) || 0;
+                                            
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setCohortInput(name);
+                                                        setIsTemplateSelect(true);
+                                                    }}
+                                                    className={`p-5 rounded-2xl border text-left transition-all duration-300 relative group flex flex-col justify-between h-32 cursor-pointer ${
+                                                        isSelected
+                                                            ? 'bg-indigo-950/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500/30'
+                                                            : 'bg-slate-900/50 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                                                    }`}
+                                                >
+                                                    {/* Selected Indicator Checkmark */}
+                                                    {isSelected && (
+                                                        <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs border border-indigo-400/50 shadow shadow-indigo-950/50 animate-pop-in">
+                                                            <i className="ph-bold ph-check text-[10px]"></i>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div>
+                                                        <h3 className={`font-black text-base transition-colors ${isSelected ? 'text-indigo-400' : 'text-slate-200 group-hover:text-white'}`}>
+                                                            {name}
+                                                        </h3>
+                                                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">
+                                                            Exam Cohort Template
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div className="flex gap-4 text-xs font-semibold text-slate-450 border-t border-slate-800/40 pt-2.5 mt-2">
+                                                        <span className="flex items-center gap-1">
+                                                            <i className="ph-bold ph-books text-slate-500"></i>
+                                                            {subjectCount} {subjectCount === 1 ? 'Subject' : 'Subjects'}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <i className="ph-bold ph-list-numbers text-slate-500"></i>
+                                                            {chapterCount} {chapterCount === 1 ? 'Chapter' : 'Chapters'}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
 
-                            {templateNames.length > 0 && (
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Or select from Preloaded Templates</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {templateNames.map((name, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => {
-                                                    selectTemplateAndContinue(name);
-                                                }}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                                                    cohortInput.trim().toLowerCase() === name.toLowerCase()
-                                                        ? 'bg-indigo-500/20 border-indigo-400 text-indigo-300'
-                                                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
-                                                }`}
-                                            >
-                                                {name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {loadingTemplates && (
-                                <p className="text-xs text-slate-500 italic"><i className="ph-bold ph-spinner-gap animate-spin"></i> Loading server templates...</p>
-                            )}
-
                             <button 
                                 onClick={handleNextStep}
-                                disabled={!cohortInput.trim()}
-                                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!cohortInput}
+                                className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-950/20 hover:shadow-indigo-950/40 hover:scale-[1.01] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Next: Curate Syllabus <i className="ph-bold ph-arrow-right"></i>
+                                <span>Continue to Curate Syllabus</span>
+                                <i className="ph-bold ph-arrow-right"></i>
                             </button>
                         </div>
                     )}
