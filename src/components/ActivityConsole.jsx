@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getLocalLogs, clearLocalLogs } from '../services/logger';
+import { logEvent, getLocalLogs, clearLocalLogs } from '../services/logger';
 import { useToast } from './ToastContext';
 import { aesEncrypt } from '../services/crypto';
 
