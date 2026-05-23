@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { generateGeminiContent } from './services/gemini';
 import debounce from 'lodash.debounce';
 import { logEvent } from './services/logger';
+import { aesEncrypt, aesDecrypt } from './services/crypto';
 
 import { initialSyllabus, YogiLogo, generateEmptyChapter } from './data/constants';
 import Header from './components/Header';
@@ -715,8 +716,20 @@ const App = () => {
         );
     };
 
-    const handleExportData = () => {
+    const handleExportData = async () => {
         try {
+            let encryptionKey = syncId;
+            
+            if (!encryptionKey) {
+                const password = prompt("You are not logged in / do not have a Device Sync ID configured.\n\nPlease enter a custom password to secure your backup file:");
+                if (password === null) return; // User cancelled
+                if (!password.trim()) {
+                    showToast("Backup export cancelled: A non-empty password is required to secure the backup.", "error");
+                    return;
+                }
+                encryptionKey = password.trim();
+            }
+
             const exportObj = {
                 syncId,
                 userName,
@@ -728,13 +741,16 @@ const App = () => {
                 resolvedActivityIds
             };
             
-            const encryptionKey = syncId || "vinyas_secure_backup_key";
-            const encryptedHex = rc4EncryptHex(encryptionKey, jsonString);
+            const jsonString = JSON.stringify(exportObj);
+            logEvent('BACKUP_ENCRYPT', { message: 'Performing secure AES-256-GCM backup encryption...' });
+            
+            const encryptedBundle = await aesEncrypt(encryptionKey, jsonString);
             
             const backupWrapper = {
                 vinyasBackup: true,
                 encrypted: true,
-                payload: encryptedHex
+                encryptionVersion: "AES-GCM",
+                payload: encryptedBundle
             };
             
             const wrapperString = JSON.stringify(backupWrapper, null, 2);
@@ -766,19 +782,64 @@ const App = () => {
         let importedObj = null;
 
         try {
-            if (importedWrapper.vinyasBackup && importedWrapper.encrypted && importedWrapper.payload) {
-                // Decrypt using dynamic key derived from current syncId
-                logEvent('BACKUP_DECRYPT', { message: 'Decrypting secure backup file...' });
-                const encryptionKey = syncId || "vinyas_secure_backup_key";
-                const decryptedStr = rc4DecryptHex(encryptionKey, importedWrapper.payload);
-                importedObj = JSON.parse(decryptedStr);
+            if (importedWrapper.vinyasBackup && importedWrapper.encrypted) {
+                if (importedWrapper.encryptionVersion === "AES-GCM" && importedWrapper.payload) {
+                    let decryptedStr = null;
+                    let decryptedSuccess = false;
+                    
+                    if (syncId) {
+                        try {
+                            logEvent('BACKUP_DECRYPT', { message: 'Attempting to decrypt backup with current Sync ID...' });
+                            decryptedStr = await aesDecrypt(syncId, importedWrapper.payload);
+                            decryptedSuccess = true;
+                        } catch (e) {
+                            // Sync ID decryption failed, will prompt user
+                        }
+                    }
+                    
+                    if (!decryptedSuccess) {
+                        const password = prompt("Enter the password or Device Sync ID used to encrypt this backup file:");
+                        if (password === null) return; // User cancelled
+                        if (!password.trim()) {
+                            showToast("Backup decryption cancelled: Password is required.", "error");
+                            return;
+                        }
+                        
+                        logEvent('BACKUP_DECRYPT', { message: 'Decrypting secure AES-GCM backup with user-provided key...' });
+                        decryptedStr = await aesDecrypt(password.trim(), importedWrapper.payload);
+                    }
+                    
+                    importedObj = JSON.parse(decryptedStr);
+                } else if (importedWrapper.payload && typeof importedWrapper.payload === 'string') {
+                    logEvent('BACKUP_DECRYPT', { message: 'Legacy RC4 encrypted backup detected. Decrypting...' });
+                    let decryptedStr = null;
+                    let decryptedSuccess = false;
+                    
+                    if (syncId) {
+                        try {
+                            decryptedStr = rc4DecryptHex(syncId, importedWrapper.payload);
+                            importedObj = JSON.parse(decryptedStr);
+                            decryptedSuccess = true;
+                        } catch (e) {
+                            // Current sync ID legacy decryption failed
+                        }
+                    }
+                    
+                    if (!decryptedSuccess) {
+                        const password = prompt("Legacy backup decryption failed. Please enter the legacy Device Sync ID or password used for this backup:");
+                        if (password === null) return; // User cancelled
+                        decryptedStr = rc4DecryptHex(password.trim(), importedWrapper.payload);
+                        importedObj = JSON.parse(decryptedStr);
+                    }
+                } else {
+                    throw new Error("Unsupported or unrecognized encrypted Vinyas backup payload.");
+                }
             } else {
-                // Fallback to legacy unencrypted backups (if any) or throw error
                 throw new Error("This is not a valid encrypted Vinyas backup file.");
             }
         } catch (err) {
             console.error("Decryption/Parsing Error:", err);
-            showToast("Backup decryption failed: Please ensure this is a valid secure backup file.", "error");
+            showToast("Backup decryption failed: Please ensure this is a valid secure backup file and password.", "error");
             logEvent('IMPORT_ERROR', { error: err.message, message: 'Backup decryption or JSON parsing failed' }, 'error');
             return;
         }

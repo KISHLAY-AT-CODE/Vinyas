@@ -1,39 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getLocalLogs, clearLocalLogs } from '../services/logger';
 import { useToast } from './ToastContext';
-
-const rc4EncryptHex = (keyStr, plainText) => {
-    const keyBytes = new TextEncoder().encode(keyStr);
-    const plainBytes = new TextEncoder().encode(plainText);
-    
-    let s = new Uint8Array(256);
-    for (let i = 0; i < 256; i++) {
-        s[i] = i;
-    }
-    let j = 0;
-    for (let i = 0; i < 256; i++) {
-        j = (j + s[i] + keyBytes[i % keyBytes.length]) % 256;
-        let temp = s[i];
-        s[i] = s[j];
-        s[j] = temp;
-    }
-    
-    let i = 0;
-    j = 0;
-    const cipherBytes = new Uint8Array(plainBytes.length);
-    for (let y = 0; y < plainBytes.length; y++) {
-        i = (i + 1) % 256;
-        j = (j + s[i]) % 256;
-        let temp = s[i];
-        s[i] = s[j];
-        s[j] = temp;
-        cipherBytes[y] = plainBytes[y] ^ s[(s[i] + s[j]) % 256];
-    }
-    
-    return Array.from(cipherBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-};
+import { aesEncrypt } from '../services/crypto';
 
 const redactSyncId = (id) => {
     if (localStorage.getItem('bypassRedaction') === 'true') return id;
@@ -410,15 +378,25 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                 });
             }
 
-            const encryptionKey = syncId || "vinyas_fallback_key";
-            const encryptedHex = rc4EncryptHex(encryptionKey, devDoc);
+            if (!syncId) {
+                showToast("Telemetry cancelled: A Device Sync ID is required to dispatch diagnostics.", "error");
+                return;
+            }
+            if (!syncId.startsWith('vny_sec_')) {
+                showToast("Telemetry cancelled: A cryptographically secure Device Sync ID is required to dispatch diagnostics.", "warning");
+                return;
+            }
+
+            logEvent('TELEMETRY_ENCRYPT', { message: 'Performing secure AES-256-GCM telemetry encryption...' });
+            const encryptedBundle = await aesEncrypt(syncId, devDoc);
+            const serializedPayload = JSON.stringify(encryptedBundle);
 
             const response = await fetch('/api/telemetry', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     syncId,
-                    encryptedTelemetry: encryptedHex
+                    encryptedTelemetry: serializedPayload
                 })
             });
 
@@ -603,7 +581,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                             onClick={handleSendToDev}
                             disabled={isSendingTelemetry}
                             className="px-4 py-2 bg-gradient-to-r from-indigo-650 to-purple-600 hover:from-indigo-600 hover:to-purple-500 text-white border border-indigo-500/45 hover:border-indigo-400 rounded-lg text-xs font-bold disabled:opacity-50 transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
-                            title="RC4 Encrypt and upload Developer Telemetry to database"
+                            title="AES-GCM Encrypt and upload Developer Telemetry to database"
                         >
                             <i className={`ph-bold ${isSendingTelemetry ? 'ph-arrows-clockwise animate-spin' : 'ph-paper-plane-tilt'}`}></i>
                             {isSendingTelemetry ? 'Sending...' : 'Send to Dev'}
