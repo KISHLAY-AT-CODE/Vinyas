@@ -19,7 +19,7 @@
 
 ## 🌟 Overview
 
-**Vinyas** is a state-of-the-art educational tracker designed for students mastering target exam cohorts (e.g., JEE, BITSAT, NEET, UPSC). Vinyas bridges the gap between passive learning and active tracking by automatically logging video lecture hours, Daily Practice Problem (DPP) scores, and textbook progress from external learning platforms (such as PhysicsWallah) via a custom-built Chrome Extension. 
+**Vinyas** is a state-of-the-art educational tracker designed for students mastering custom exam targets. Vinyas bridges the gap between passive learning and active tracking by automatically logging video lecture hours, Daily Practice Problem (DPP) scores, and textbook progress from external learning platforms (such as PhysicsWallah) via a custom-built Chrome Extension. 
 
 Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, syllabus builders, and a retro diagnostics terminal console, Vinyas empowers students to optimize their prep with visual analytics, streaks, and intelligent AI syllabus curation.
 
@@ -34,6 +34,7 @@ Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition 
 *   🤖 **Intelligent AI Gateway**: Features a load-balanced API routing system cycling through up to 20 Google Gemini API keys with multi-level fallbacks to Cerebras (GPT-OSS-120B) and Groq (Llama-3.3-70B) in case of rate limits.
 *   📟 **Diagnostics Console**: An interactive terminal-like panel displaying live sync streams, Chrome Extension intercept feeds, database write logs, and security-redacted payload dumps.
 *   🎨 **Premium UI/UX**: Designed using curated HSL dark-mode palettes, smooth gradients, subtle micro-animations, custom Phosphor icons, and a premium Toast Notification interface.
+*   ⚙️ **Sleek Session Settings**: Control your sync profile with a rotating gear Settings menu to log out of your session or permanently reset/delete database profile entries in 1-click.
 
 ---
 
@@ -71,29 +72,17 @@ graph TD
 ```text
 Vinyas/
 ├── api/                    # Serverless Vercel endpoints
-│   ├── activity.js         # Telemetry, event buffers & extension feed ingestion
-│   ├── data.js             # User profiles, routine progress, and achievement triggers
-│   └── gemini.js           # Multi-key rotating AI syllabus parser and fallback gateway
 ├── assets/                 # Brand assets & UI mockups
-│   └── vinyas_banner.png   # Dashboard UI preview
 ├── public/                 # Client static assets (SVG icons, global configuration)
 ├── src/                    # React frontend application
 │   ├── components/         # Reusable dashboard widgets, tables, and modals
 │   │   ├── ActivityConsole.jsx       # Terminal diagnostics console
-│   │   ├── CohortSetupModal.jsx      # Multi-step exam configuration
+│   │   ├── CohortSetupModal.jsx      # Syllabus Setup and customization modal
 │   │   ├── GamifiedDashboard.jsx     # Spaced-rep, goals, pomodoro, achievements
-│   │   ├── SubjectTable.jsx          # Interactive syllabus progress board
-│   │   └── ToastContext.jsx          # Premium UI notification manager
-│   ├── services/           # API communication layers
-│   │   ├── gemini.js                 # Local AI prompting wrapper
-│   │   └── logger.js                 # Event tracking and diagnostics
+│   │   └── SubjectTable.jsx          # Interactive syllabus progress board
 │   ├── App.jsx             # Root SPA lifecycle & state orchestrator
 │   └── main.jsx            # DOM mounting and Context provider injection
 ├── Vinyas_Extension/       # Manifest V3 Chrome Extension source
-│   ├── background.js       # Background proxy worker (telemetry dispatcher)
-│   ├── content.js          # DOM hooks for tracking video progress and test scores
-│   └── manifest.json       # Extension configuration & permission scopes
-├── tailwind.config.js      # Custom theme, gradients, and animation configurations
 └── vercel.json             # Vercel serverless routing and SPA URL rewrites
 ```
 
@@ -122,6 +111,7 @@ Vinyas/
     Create a `.env` file in the root directory:
     ```env
     MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/vinyas?retryWrites=true&w=majority
+    TELEMETRY_PASSWORD=your_secure_diagnostics_password
     GEMINI_API_KEY_1=your_gemini_api_key_here
     # Optional fallback keys
     CEREBRAS_API_KEY=your_cerebras_api_key_here
@@ -137,7 +127,7 @@ Vinyas/
 
 ---
 
-## 🧩 Chrome Extension Installation
+## 🧩 Chrome Extension Setup (1-Click Auto-Pair)
 
 To start capturing your study progress automatically:
 
@@ -145,31 +135,4 @@ To start capturing your study progress automatically:
 2.  Enable **Developer mode** (top-right toggle).
 3.  Click **Load unpacked** (top-left).
 4.  Select the `Vinyas_Extension/` folder from this repository directory.
-5.  Pin the Vinyas Tracker extension, enter your **SyncID** (generated on first app open), and configure your learning platform settings.
-
----
-
-## 🤖 AI Syllabus Parser & Key-Rotation
-
-Vinyas features a sophisticated AI processing pipeline under `/api/gemini.js` for handling PDF extraction and cohort syllabus generation.
-
-```javascript
-// Dynamic load balancing starting from a randomized key offset
-const keys = [];
-for (let i = 1; i <= 20; i++) {
-  if (process.env[`GEMINI_API_KEY_${i}`]) {
-    keys.push(process.env[`GEMINI_API_KEY_${i}`]);
-  }
-}
-// Automatic failovers to Cerebras (GPT-OSS) and Groq (Llama 3.3) ensure 
-// seamless user experience during high-traffic or quota exhaustion.
-```
-
----
-
-## 🔒 Security Audit & Controls
-
-Vinyas implements robust data isolation and sanitation guards to secure progress analytics:
-*   **Query Isolation**: Database read/write logic strictly scopes documents via account-partitioned `{ syncId }` matching parameters.
-*   **NoSQL Injection Safeguards**: Active parameters undergo strict type verification (`typeof syncId === 'string'`) to defend against object parameter injection payloads.
-*   **Real-time Event Logs**: An isolated activities buffer tracks external extensions and auto-filters duplication via URL signatures.
+5.  **1-Click Pairing**: Open your active Vinyas dashboard tab in your browser, click on the **Vinyas Tracker** extension icon, and select the **"Auto-Pair"** button. The extension will automatically detect your Sync ID, target exam target, and Vercel/Localhost Server URL and link up instantly!
