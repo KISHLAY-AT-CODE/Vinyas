@@ -43,11 +43,27 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
     const { showToast } = useToast();
     const [localLogs, setLocalLogs] = useState([]);
     const [selectedPeriod, setSelectedPeriod] = useState('today'); // 'today' | 'week' | 'month' | 'custom' | 'all'
-    const [selectedCustomDate, setSelectedCustomDate] = useState('2026-05-22');
+    const [selectedCustomDate, setSelectedCustomDate] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSeverity, setSelectedSeverity] = useState('all'); // 'all' | 'info' | 'success' | 'warning' | 'error'
     const [expandedLogId, setExpandedLogId] = useState(null);
     const [copiedLogId, setCopiedLogId] = useState(null);
+
+    const [currentTime, setCurrentTime] = useState(() => new Date());
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [isOpen]);
 
     // Initial load and custom event subscription for real-time streaming
     useEffect(() => {
@@ -82,8 +98,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
         };
     }, [isOpen, pollActivities]);
 
-    // Hardcoded System Time Anchor: May 22, 2026
-    const refDate = useMemo(() => new Date('2026-05-22T11:27:50+05:30'), []);
+    // Dynamic System Time Reference (actual current local time)
+    const refDate = currentTime;
 
     // Merge server activities (Chrome extension) and local app/AI logs
     const allLogs = useMemo(() => {
@@ -214,9 +230,10 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
             const clientGroupStats = getStatsForGroup(clientLogs);
 
             // 2. Generate Client Activity Section
+            const refDateStr = refDate.toLocaleDateString('en-CA');
             let doc = `# Vinyas Project Diagnostic Log Snapshot\n`;
             doc += `**Generated**: ${dateStr} ${timeStr} (IST)\n`;
-            doc += `**System Reference Date**: 2026-05-22\n`;
+            doc += `**System Reference Date**: ${refDateStr}\n`;
             doc += `**User Sync Identifier**: ${redactSyncId(syncId)}\n`;
             doc += `**Active UI Filters**: Period: ${selectedPeriod.toUpperCase()} | Severity: ${selectedSeverity.toUpperCase()} | Search Query: "${searchQuery || 'None'}"\n\n`;
             
@@ -320,9 +337,10 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
             const devGroupStats = getStatsForGroup(devLogs);
 
             // Generate Developer System Telemetry Snapshot
+            const refDateStr = refDate.toLocaleDateString('en-CA');
             let devDoc = `# Vinyas Developer System Telemetry Snapshot\n`;
             devDoc += `**Generated**: ${dateStr} ${timeStr} (IST)\n`;
-            devDoc += `**System Reference Date**: 2026-05-22\n`;
+            devDoc += `**System Reference Date**: ${refDateStr}\n`;
             devDoc += `**User Sync Identifier**: ${redactSyncId(syncId)}\n`;
             devDoc += `**Active UI Filters**: Period: ${selectedPeriod.toUpperCase()} | Severity: ${selectedSeverity.toUpperCase()} | Search Query: "${searchQuery || 'None'}"\n\n`;
 
@@ -548,7 +566,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                             </h2>
                         </div>
                         <p className="text-[10px] text-slate-500">
-                            SYNC_ID: <span className="text-slate-400 font-bold">{redactSyncId(syncId)}</span> | STATUS: {isPolling ? 'POLLING...' : 'STABLE'}
+                            SYNC_ID: <span className="text-slate-400 font-bold">{redactSyncId(syncId)}</span> | STATUS: {isPolling ? 'REFRESHING...' : 'STABLE'}
                         </p>
                     </div>
                 </div>
@@ -556,8 +574,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                 {/* System Header Info */}
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-right hidden md:block">
-                        <p className="text-xs text-slate-400 font-black">SYSTEM DATE: 2026-05-22</p>
-                        <p className="text-[10px] text-slate-600">CLIENT TIME: 11:27:50 IST</p>
+                        <p className="text-xs text-slate-400 font-black">SYSTEM DATE: {currentTime.toLocaleDateString('en-CA')}</p>
+                        <p className="text-[10px] text-slate-600">CLIENT TIME: {currentTime.toLocaleTimeString()}</p>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -565,9 +583,10 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                             onClick={pollActivities}
                             disabled={isPolling}
                             className="px-4 py-2 bg-blue-600/90 hover:bg-blue-500 text-white border border-blue-500/40 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(37,99,235,0.25)] active:scale-95"
+                            title="Request the database to fetch and show the most recent logs & syllabus progress"
                         >
                             <i className={`ph-bold ph-arrows-clockwise ${isPolling ? 'animate-spin' : ''}`}></i>
-                            {isPolling ? 'Syncing...' : 'Sync Extension'}
+                            {isPolling ? 'Refreshing...' : 'Refresh Logs'}
                         </button>
                         <button 
                             onClick={handleCreateSnapshot}
@@ -621,7 +640,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
                             {[
-                                { id: 'today', label: 'Today (May 22)' },
+                                { id: 'today', label: `Today (${currentTime.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})` },
                                 { id: 'week', label: 'This Week' },
                                 { id: 'month', label: 'This Month' },
                                 { id: 'all', label: 'All Logged' },

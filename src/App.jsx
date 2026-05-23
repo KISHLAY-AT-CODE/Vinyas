@@ -445,20 +445,66 @@ const App = () => {
         if (!syncId || !isLoaded) return;
         try {
             setIsPollingActivities(true);
-            const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}&_t=${Date.now()}`);
+            const response = await fetch(`/api/data?syncId=${encodeURIComponent(syncId)}&_t=${Date.now()}`);
             if (response.ok) {
                 const serverData = await response.json();
-                if (serverData && serverData.activities) {
-                    setActivities(serverData.activities);
-                    setLastActivitiesFetchTime(new Date().toLocaleTimeString());
+                if (serverData) {
+                    if (serverData.exists !== false) {
+                        let parsedData = [];
+                        if (serverData.data) {
+                            parsedData = typeof serverData.data === 'string' ? JSON.parse(serverData.data) : serverData.data;
+                            
+                            // MIGRATION: pyq and book to module
+                            parsedData = parsedData.map(sub => {
+                                sub.chapters = sub.chapters.map(ch => {
+                                    if (!ch.module) {
+                                        const oldComp = Math.max(ch.book?.comp || 0, ch.pyq?.comp || 0);
+                                        const oldAcc = Math.max(ch.book?.acc || 0, ch.pyq?.acc || 0);
+                                        ch.module = { comp: oldComp, acc: oldAcc };
+                                    }
+                                    return ch;
+                                });
+                                return sub;
+                            });
+                        } else {
+                            parsedData = [...initialSyllabus];
+                        }
+                        
+                        setData(parsedData);
+                        
+                        if (serverData.routines) {
+                            setRoutines(typeof serverData.routines === 'string' ? JSON.parse(serverData.routines) : serverData.routines);
+                        }
+                        if (serverData.testLogs) {
+                            setTestLogs(typeof serverData.testLogs === 'string' ? JSON.parse(serverData.testLogs) : serverData.testLogs);
+                        }
+                        loadAchievements(serverData);
+                        if (serverData.targetDate) {
+                            setTargetDate(serverData.targetDate);
+                        }
+                        if (serverData.resolvedActivityIds) {
+                            setResolvedActivityIds(serverData.resolvedActivityIds || []);
+                        }
+                        if (serverData.activities) {
+                            setActivities(serverData.activities);
+                        }
+                        if (serverData.cohort) {
+                            setCohort(serverData.cohort);
+                            localStorage.setItem('vinyasCohort', serverData.cohort);
+                        }
+                        
+                        setLastActivitiesFetchTime(new Date().toLocaleTimeString());
+                        showToast("Console & database logs successfully refreshed!", "success");
+                    }
                 }
             }
         } catch (err) {
-            console.error("Polling activities error:", err);
+            console.error("Refresh error:", err);
+            showToast("Failed to refresh: " + err.message, "error");
         } finally {
             setIsPollingActivities(false);
         }
-    }, [syncId, isLoaded]);
+    }, [syncId, isLoaded, loadAchievements, showToast]);
 
     useEffect(() => {
         if (!isSyncIdSet || !syncId) return;
@@ -2161,14 +2207,6 @@ const App = () => {
                         onDismiss={handleResolveDismiss}
                     />
 
-                    <ConfirmationModal 
-                        isOpen={confirmModal.isOpen}
-                        title={confirmModal.title}
-                        message={confirmModal.message}
-                        onConfirm={confirmModal.onConfirm}
-                        onCancel={confirmModal.onCancel}
-                    />
-
                     {/* Sticky Floating Refresh Button */}
                     <button
                         onClick={pollActivities}
@@ -2191,6 +2229,14 @@ const App = () => {
                     requestConfirm={requestConfirm}
                 />
             ) : null}
+
+            <ConfirmationModal 
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={confirmModal.onCancel}
+            />
 
             {localStorage.getItem('devMode') === 'true' && (
                 <DevToolsOverlay 
