@@ -12,8 +12,6 @@ const Modals = ({
     routineLogInput,
     setRoutineLogInput,
     saveInorganicRoutineLog,
-    testImagePreview,
-    setTestImagePreview,
     saveTestLog,
     logModalOpen,
     activeLog,
@@ -68,7 +66,7 @@ const Modals = ({
                 </div>
             )}
 
-            {/* Routine: Test Log Modal with Image Upload */}
+            {/* Routine: Test Log Modal */}
             {routineModalType === 'test' && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm modal-animate">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
@@ -79,37 +77,10 @@ const Modals = ({
                             <button onClick={closeRoutineModal} className="text-slate-400 hover:text-white"><i className="ph-bold ph-x text-xl"></i></button>
                         </div>
                         <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-400">Log your mock test score, optionally attach a screenshot of your analysis, or skip if you aren't testing today.</p>
+                            <p className="text-sm text-slate-400">Log your mock test score, or skip if you aren\'t testing today.</p>
                             
                             <textarea autoFocus value={routineLogInput} onChange={e => setRoutineLogInput(e.target.value)} placeholder="E.g., Scored 210/390. Need to improve speed in Maths. Screwed up electrostatics logic." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 h-24 outline-none focus:border-orange-500 transition-colors resize-none"></textarea>
                             
-                            {/* Image Upload Area */}
-                            {testImagePreview ? (
-                                <div className="relative rounded-xl overflow-hidden border border-slate-700 h-32 group">
-                                    <img src={testImagePreview} className="object-cover w-full h-full opacity-80 transition-opacity group-hover:opacity-60" alt="Test Analysis" />
-                                    <button onClick={() => setTestImagePreview(null)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg shadow-md transition-colors">
-                                        <i className="ph-bold ph-trash"></i>
-                                    </button>
-                                </div>
-                            ) : (
-                                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer hover:bg-slate-800/80 hover:border-orange-500/50 transition-colors text-slate-400 gap-2">
-                                    <i className="ph-bold ph-image text-2xl text-slate-500"></i>
-                                    <span className="text-sm font-semibold">Upload Analysis Screenshot</span>
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                            if (file.size > 10 * 1024 * 1024) {
-                                                showToast(`File ${file.name} is larger than the 10MB limit.`, 'error');
-                                                if (e.target) e.target.value = '';
-                                                return;
-                                            }
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => setTestImagePreview(reader.result);
-                                            reader.readAsDataURL(file);
-                                        }
-                                    }} />
-                                </label>
-                            )}
 
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => saveTestLog(true)} className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl shadow-sm transition-colors text-sm w-1/3 text-center whitespace-nowrap">

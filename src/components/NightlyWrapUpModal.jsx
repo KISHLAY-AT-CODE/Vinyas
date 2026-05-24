@@ -13,7 +13,6 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
     const [comp, setComp] = useState(0);
     const [acc, setAcc] = useState(0);
     const [textLog, setTextLog] = useState('');
-    const [imagePreview, setImagePreview] = useState(null);
     const [resourceNumber, setResourceNumber] = useState('');
     const [isSwitchingTemplate, setIsSwitchingTemplate] = useState(false);
     const [activeTemplate, setActiveTemplate] = useState('');
@@ -40,7 +39,6 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
             setComp(0);
             setAcc(0);
             setTextLog('');
-            setImagePreview(null);
             setResourceNumber('');
             setIsSwitchingTemplate(false);
             setActiveTemplate(currentRoutine.template);
@@ -64,7 +62,7 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
         if (template === 'dpp') {
             onLogDpp(sIdx, cIdx, parseInt(comp), parseInt(acc), resourceNumber);
         } else {
-            onLogTextAndImage(sIdx, cIdx, template, textLog, imagePreview, resourceNumber);
+            onLogTextAndImage(sIdx, cIdx, template, textLog, resourceNumber);
         }
         
         onCompleteRoutine(currentRoutine.id, template);
@@ -154,31 +152,6 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
                                         placeholder={`Log your ${activeTemplate} progress for ${currentRoutine.chapterName}...`} 
                                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 h-24 outline-none focus:border-orange-500 transition-colors resize-none text-sm"
                                     ></textarea>
-                                    
-                                    {imagePreview ? (
-                                        <div className="relative rounded-xl overflow-hidden border border-slate-700 h-20 group">
-                                            <img src={imagePreview} className="object-cover w-full h-full opacity-80" alt="Upload" />
-                                            <button onClick={() => setImagePreview(null)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg shadow-md"><i className="ph-bold ph-trash"></i></button>
-                                        </div>
-                                    ) : (
-                                        <label className="flex items-center justify-center w-full h-10 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer hover:bg-slate-800/80 hover:border-orange-500/50 transition-colors text-slate-400 gap-2">
-                                            <i className="ph-bold ph-image text-lg"></i>
-                                            <span className="text-xs font-semibold">Attach Image (Optional)</span>
-                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                                                const file = e.target.files[0];
-                                                if (file) {
-                                                    if (file.size > 10 * 1024 * 1024) {
-                                                        showToast(`File ${file.name} is larger than the 10MB limit.`, 'error');
-                                                        if (e.target) e.target.value = '';
-                                                        return;
-                                                    }
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => setImagePreview(reader.result);
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            }} />
-                                        </label>
-                                    )}
                                 </>
                             )}
                         </div>

@@ -34,13 +34,15 @@ export const ACHIEVEMENTS_LIST = [
   {
     id: 'night_owl',
     title: 'Night Owl',
-    description: 'Studied late at night between 12 AM and 4 AM.',
+    description: 'Studied late at night between 12 AM and 4 AM IST.',
     icon: '🦉',
     check: (userDoc) => {
       const activities = userDoc.activities || [];
       return activities.some(act => {
         if (!act.timestamp) return false;
-        const hour = new Date(act.timestamp).getHours();
+        const date = new Date(act.timestamp);
+        const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
+        const hour = parseInt(new Intl.DateTimeFormat('en-US', options).format(date), 10);
         return hour >= 0 && hour < 4;
       });
     }
@@ -48,13 +50,15 @@ export const ACHIEVEMENTS_LIST = [
   {
     id: 'early_bird',
     title: 'Early Bird',
-    description: 'Studied early in the morning between 5 AM and 8 AM.',
+    description: 'Studied early in the morning between 5 AM and 8 AM IST.',
     icon: '🌅',
     check: (userDoc) => {
       const activities = userDoc.activities || [];
       return activities.some(act => {
         if (!act.timestamp) return false;
-        const hour = new Date(act.timestamp).getHours();
+        const date = new Date(act.timestamp);
+        const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
+        const hour = parseInt(new Intl.DateTimeFormat('en-US', options).format(date), 10);
         return hour >= 5 && hour < 8;
       });
     }
@@ -123,10 +127,18 @@ export const ACHIEVEMENTS_LIST = [
         act.details.accuracy > 85
       );
       
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
       const counts = {};
       dppScores.forEach(act => {
         if (!act.timestamp) return;
-        const dateStr = new Date(act.timestamp).toDateString();
+        const date = new Date(act.timestamp);
+        const [{ value: m },,{ value: d },,{ value: y }] = formatter.formatToParts(date);
+        const dateStr = `${y}-${m}-${d}`;
         counts[dateStr] = (counts[dateStr] || 0) + 1;
       });
       
@@ -140,22 +152,108 @@ export const ACHIEVEMENTS_LIST = [
     icon: '🛌',
     check: (userDoc) => {
       const now = new Date();
-      if (now.getHours() < 23) return false;
+      const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
+      const istHour = parseInt(new Intl.DateTimeFormat('en-US', options).format(now), 10);
+      if (istHour < 23) return false;
       
       const activities = userDoc.activities || [];
-      const todayStr = now.toDateString();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const [{ value: m },,{ value: d },,{ value: y }] = formatter.formatToParts(now);
+      const todayIST = `${y}-${m}-${d}`;
       
       const todayUploads = activities.filter(act => {
         if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return false;
         if (!act.timestamp) return false;
         const actDate = new Date(act.timestamp);
-        return actDate.toDateString() === todayStr;
+        const [{ value: am },,{ value: ad },,{ value: ay }] = formatter.formatToParts(actDate);
+        const actDateIST = `${ay}-${am}-${ad}`;
+        return actDateIST === todayIST;
       });
       
       return todayUploads.length < 2;
     }
+  },
+  {
+    id: 'sleeping_beauty',
+    title: 'Sleeping Beauty',
+    description: "Sleeping a bit much aren't you?",
+    icon: '😴',
+    check: (userDoc) => {
+      const activities = userDoc.activities || [];
+      if (activities.length === 0) return false;
+
+      // Group activities by date string in IST to find the first activity of each day
+      const days = {};
+      activities.forEach(act => {
+        if (!act.timestamp) return;
+        const date = new Date(act.timestamp);
+        
+        // Format to IST date string
+        const dateOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const formatter = new Intl.DateTimeFormat('en-US', dateOptions);
+        const [{ value: m },,{ value: d },,{ value: y }] = formatter.formatToParts(date);
+        const dateStr = `${y}-${m}-${d}`;
+        
+        if (!days[dateStr]) {
+          days[dateStr] = [];
+        }
+        days[dateStr].push(date);
+      });
+
+      // Check if there is any day where the earliest activity was after 10:00 AM IST
+      return Object.keys(days).some(dateStr => {
+        const times = days[dateStr];
+        const earliest = new Date(Math.min(...times.map(t => t.getTime())));
+        
+        // Get hour in IST
+        const timeOptions = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
+        const formatted = new Intl.DateTimeFormat('en-US', timeOptions).format(earliest);
+        const hour = parseInt(formatted, 10);
+        
+        // Trigger if the first activity of the day is at or after 10:00 AM IST
+        return hour >= 10;
+      });
+    }
+  },
+  {
+    id: 'dead_man_walking',
+    title: 'Dead Man Walking',
+    description: 'Submitted 2 consecutive DPPs with less than 60% accuracy.',
+    icon: '🧟',
+    check: (userDoc) => {
+      const activities = userDoc.activities || [];
+      const dppSubs = activities.filter(act => 
+        act.type === 'DPP_SCORE' && 
+        act.details && 
+        (act.details.quizType === 'DPP' || !act.details.quizType) &&
+        typeof act.details.accuracy === 'number'
+      );
+      
+      for (let i = 0; i < dppSubs.length - 1; i++) {
+        if (dppSubs[i].details.accuracy < 60 && dppSubs[i + 1].details.accuracy < 60) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 ];
+
+export function getISTDateString(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const [{ value: month },,{ value: day },,{ value: year }] = formatter.formatToParts(date);
+  return `${day}/${month}/${year}`;
+}
 
 export function getAllAchievementsStatus(userDoc) {
   const existingAchievements = userDoc?.achievements || [];
@@ -168,12 +266,12 @@ export function getAllAchievementsStatus(userDoc) {
     const existing = existingMap.get(ach.id);
     if (existing && (existing.unlocked || existing.unlockedAt || existing.date)) {
       unlocked = true;
-      unlockedAt = existing.unlockedAt || existing.date || new Date().toLocaleDateString();
+      unlockedAt = existing.unlockedAt || existing.date || getISTDateString(new Date());
     } else {
       try {
         if (ach.check(userDoc)) {
           unlocked = true;
-          unlockedAt = new Date().toLocaleDateString();
+          unlockedAt = getISTDateString(new Date());
         }
       } catch (e) {
         console.error(`Error checking achievement ${ach.id}:`, e);

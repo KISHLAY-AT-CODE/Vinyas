@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
 
+const getISTISOString = (date = new Date()) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(d.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
+
 const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => {
     const [activeCardIdx, setActiveCardIdx] = useState(0);
     const [showOptions, setShowOptions] = useState(false);
@@ -74,12 +81,19 @@ const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => 
             ratingColor = 'text-emerald-400';
         }
 
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + intervalDays);
-        nextDate.setHours(0, 0, 0, 0); // Start of day
+        // Create a date in IST, add intervalDays, and set to midnight in IST
+        const getISTMidnightDate = (interval = 0) => {
+            const d = new Date();
+            const tzOffset = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(d.getTime() + tzOffset);
+            istDate.setDate(istDate.getDate() + interval);
+            istDate.setUTCHours(0, 0, 0, 0);
+            return new Date(istDate.getTime() - tzOffset);
+        };
+        const nextDate = getISTMidnightDate(intervalDays);
 
         const updatedFields = {
-            nextReview: nextDate.toISOString(),
+            nextReview: getISTISOString(nextDate),
             reviewsDone: (chapter.reviewsDone || 0) + 1,
             lastReviewRating: ratingText
         };
@@ -100,10 +114,10 @@ const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => 
                             title: `Reviewed: ${chapter.name}`,
                             subject: subjectName,
                             rating: ratingText,
-                            nextReview: nextDate.toLocaleDateString(),
+                            nextReview: nextDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }),
                             pointsEarned: 15
                         },
-                        timestamp: new Date().toISOString()
+                        timestamp: getISTISOString()
                     })
                 });
             } catch (err) {
@@ -169,7 +183,7 @@ const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => 
                                         </span>
                                     ) : (
                                         <span className="text-[10px] font-bold text-slate-500">
-                                            Next: {activeItem.nextReviewDate ? activeItem.nextReviewDate.toLocaleDateString() : 'N/A'}
+                                            Next: {activeItem.nextReviewDate ? activeItem.nextReviewDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'}
                                         </span>
                                     )}
                                     <button 

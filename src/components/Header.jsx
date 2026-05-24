@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { YogiLogo } from '../data/constants';
 import { useToast } from './ToastContext';
 
-const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount }) => {
+const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -66,6 +66,14 @@ const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort,
                                 title="Change Target Exam Syllabus Template"
                             >
                                 Syllabus: {cohort || 'BITSAT'}
+                            </button>
+                            <button 
+                                onClick={onNavigateToExtension}
+                                className="bg-slate-900/60 hover:bg-slate-800/80 border border-emerald-500/20 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-md transition-all duration-300 cursor-pointer active:scale-95 flex items-center gap-1"
+                                title="Download Extension & View Tutorials"
+                            >
+                                <i className="ph-bold ph-puzzle-piece text-xs animate-pulse"></i>
+                                <span>Extension & Tutorials</span>
                             </button>
                         </div>
                         <p className="text-slate-400 mt-1 font-medium text-sm flex items-center gap-1.5 flex-wrap">
@@ -131,6 +139,17 @@ const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort,
                                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-3 py-1.5 border-b border-slate-800">
                                     System Settings
                                 </div>
+                                
+                                <button 
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onOpenBackupSettings();
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-slate-350 hover:text-white hover:bg-slate-900 flex items-center gap-2.5 transition-all cursor-pointer"
+                                >
+                                    <i className="ph-bold ph-envelope-simple text-sm text-slate-400"></i>
+                                    <span>Backup Settings</span>
+                                </button>
                                 
                                 <button 
                                     onClick={() => {

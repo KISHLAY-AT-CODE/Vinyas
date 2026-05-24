@@ -74,6 +74,7 @@ async function logActivity(type, details) {
 // 1. VIDEO TRACKING
 // ----------------------------------------------------
 let trackedVideo = null;
+let videoIntervalId = null;
 let lastLogTime = -1;
 
 function handleVideoEvent(eventName) {
@@ -101,6 +102,13 @@ function observeVideos() {
     const video = document.querySelector('video');
     if (video && video !== trackedVideo) {
         console.log("[Vinyas Tracker] Found video element, attaching listeners.");
+        
+        // Clear previous video tracking interval to prevent memory leaks
+        if (videoIntervalId) {
+            clearInterval(videoIntervalId);
+            videoIntervalId = null;
+        }
+
         trackedVideo = video;
         lastLogTime = video.currentTime;
         
@@ -109,7 +117,7 @@ function observeVideos() {
         video.addEventListener('ended', () => handleVideoEvent('ended'));
         
         // Log periodically while playing (e.g., every 60 seconds)
-        setInterval(() => {
+        videoIntervalId = setInterval(() => {
             if (!video.paused && video.currentTime > 0) {
                 handleVideoEvent('playing_update');
             }

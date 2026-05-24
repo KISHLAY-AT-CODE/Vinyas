@@ -1,3 +1,29 @@
+import { getISTLogPrefix } from './timezone.js';
+import { connectToDatabase } from './db.js';
+
+const requestCounts = new Map();
+
+function isRateLimited(syncId) {
+  const now = Date.now();
+  const limit = 15; // Max 15 requests per minute
+  const windowMs = 60 * 1000;
+  
+  if (!requestCounts.has(syncId)) {
+    requestCounts.set(syncId, []);
+  }
+  
+  const timestamps = requestCounts.get(syncId);
+  const activeTimestamps = timestamps.filter(ts => now - ts < windowMs);
+  
+  if (activeTimestamps.length >= limit) {
+    return true;
+  }
+  
+  activeTimestamps.push(now);
+  requestCounts.set(syncId, activeTimestamps);
+  return false;
+}
+
 function extractJson(str) {
   const firstBrace = str.indexOf('{');
   const firstBracket = str.indexOf('[');
@@ -29,7 +55,41 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { prompt, systemInstruction, isJson } = req.body;
+  let { prompt, systemInstruction, isJson, syncId: rawSyncId } = req.body;
+
+  if (!rawSyncId || typeof rawSyncId !== 'string') {
+    return res.status(400).json({ error: 'Authentication required: missing or invalid syncId' });
+  }
+  const syncId = String(rawSyncId).trim();
+  if (!syncId) {
+    return res.status(400).json({ error: 'Authentication required: syncId cannot be empty' });
+  }
+
+  // Rate Limiting per syncId (Max 15 requests per minute)
+  if (isRateLimited(syncId)) {
+    return res.status(429).json({ error: 'Too many AI requests. Please slow down (limit is 15 requests per minute)' });
+  }
+
+  // Verify syncId is secure or exists in DB
+  const isSecure = syncId.startsWith('vny_sec_');
+  let exists = false;
+  try {
+    const db = await connectToDatabase();
+    const collection = db.collection('users');
+    const userDoc = await collection.findOne({ syncId });
+    exists = !!userDoc;
+  } catch (dbErr) {
+    console.error('Database check error in Gemini handler:', dbErr);
+  }
+
+  if (!isSecure && !exists) {
+    return res.status(403).json({ error: 'Access denied: Sync ID must be secure or registered in the database.' });
+  }
+
+  // Truncate overly long prompts
+  if (typeof prompt === 'string' && prompt.length > 50000) {
+    prompt = prompt.substring(0, 50000) + '... (truncated due to length limits)';
+  }
 
   const keys = [];
   if (process.env.GEMINI_API_KEY) keys.push(process.env.GEMINI_API_KEY);
@@ -77,7 +137,7 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.warn(`[Gemini API Warning] Key index ${currentIndex} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
+          console.warn(`${getISTLogPrefix()} [Gemini API Warning] Key index ${currentIndex} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
           
           lastError = `Key index ${currentIndex} returned status ${response.status}: ${errText}`;
           lastStatus = response.status;
@@ -104,14 +164,14 @@ export default async function handler(req, res) {
         }
 
         success = true;
-        console.log(`[Gemini API Success] Resolved using Key index ${currentIndex} (Attempt ${attemptsCount}/${keys.length})`);
+        console.log(`${getISTLogPrefix()} [Gemini API Success] Resolved using Key index ${currentIndex} (Attempt ${attemptsCount}/${keys.length})`);
         attempts.push({
           index: currentIndex,
           status: 200
         });
         break; // Success!
       } catch (error) {
-        console.error(`[Gemini API Error] Key index ${currentIndex} execution failed:`, error.message);
+        console.error(`${getISTLogPrefix()} [Gemini API Error] Key index ${currentIndex} execution failed:`, error.message);
         lastError = error.message;
         lastStatus = 500;
         attempts.push({
@@ -141,7 +201,7 @@ export default async function handler(req, res) {
   }
 
   if (!success && cerebrasKeys.length > 0) {
-    console.log(`[Cerebras Fallback] Attempting fallback using Cerebras gpt-oss-120b... Found ${cerebrasKeys.length} keys.`);
+    console.log(`${getISTLogPrefix()} [Cerebras Fallback] Attempting fallback using Cerebras gpt-oss-120b... Found ${cerebrasKeys.length} keys.`);
     for (let cIdx = 0; cIdx < cerebrasKeys.length; cIdx++) {
       const cerebrasApiKey = cerebrasKeys[cIdx];
       const url = 'https://api.cerebras.ai/v1/chat/completions';
@@ -166,7 +226,7 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`[Cerebras Fallback Error] Key index ${cIdx} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
+          console.error(`${getISTLogPrefix()} [Cerebras Fallback Error] Key index ${cIdx} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
           lastError = `Cerebras fallback failed (Status ${response.status}): ${errText}`;
           lastStatus = response.status;
           attempts.push({
@@ -190,7 +250,7 @@ export default async function handler(req, res) {
           }
 
           success = true;
-          console.log(`[Cerebras Fallback Success] Successfully resolved using Cerebras Key ${cIdx}`);
+          console.log(`${getISTLogPrefix()} [Cerebras Fallback Success] Successfully resolved using Cerebras Key ${cIdx}`);
           attempts.push({
             index: `Cerebras Fallback Key ${cIdx}`,
             status: 200
@@ -198,7 +258,7 @@ export default async function handler(req, res) {
           break; // Success!
         }
       } catch (error) {
-        console.error(`[Cerebras Fallback Error] Key index ${cIdx} exception occurred:`, error.message);
+        console.error(`${getISTLogPrefix()} [Cerebras Fallback Error] Key index ${cIdx} exception occurred:`, error.message);
         lastError = `Cerebras exception: ${error.message}`;
         lastStatus = 500;
         attempts.push({
@@ -228,7 +288,7 @@ export default async function handler(req, res) {
   }
 
   if (!success && groqKeys.length > 0) {
-    console.log(`[Groq Fallback] Attempting fallback using Groq Llama-3.3-70b... Found ${groqKeys.length} keys.`);
+    console.log(`${getISTLogPrefix()} [Groq Fallback] Attempting fallback using Groq Llama-3.3-70b... Found ${groqKeys.length} keys.`);
     for (let gIdx = 0; gIdx < groqKeys.length; gIdx++) {
       const groqApiKey = groqKeys[gIdx];
       const url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -253,7 +313,7 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`[Groq Fallback Error] Key index ${gIdx} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
+          console.error(`${getISTLogPrefix()} [Groq Fallback Error] Key index ${gIdx} failed (Status: ${response.status}). Error: ${errText.substring(0, 200)}`);
           lastError = `Groq fallback failed (Status ${response.status}): ${errText}`;
           lastStatus = response.status;
           attempts.push({
@@ -277,7 +337,7 @@ export default async function handler(req, res) {
           }
 
           success = true;
-          console.log(`[Groq Fallback Success] Successfully resolved using Groq Key ${gIdx}`);
+          console.log(`${getISTLogPrefix()} [Groq Fallback Success] Successfully resolved using Groq Key ${gIdx}`);
           attempts.push({
             index: `Groq Fallback Key ${gIdx}`,
             status: 200
@@ -285,7 +345,7 @@ export default async function handler(req, res) {
           break; // Success!
         }
       } catch (error) {
-        console.error(`[Groq Fallback Error] Key index ${gIdx} exception occurred:`, error.message);
+        console.error(`${getISTLogPrefix()} [Groq Fallback Error] Key index ${gIdx} exception occurred:`, error.message);
         lastError = `Groq exception: ${error.message}`;
         lastStatus = 500;
         attempts.push({

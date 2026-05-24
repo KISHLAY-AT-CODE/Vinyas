@@ -32,21 +32,28 @@ const ActivityItem = ({ act, onSelect }) => {
                 </p>
                 
                 <span className="text-[10px] text-slate-500 font-medium mt-2 block">
-                    {new Date(act.timestamp).toLocaleString()}
+                    {new Date(act.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
                 </span>
             </div>
         </div>
     );
 };
 
-const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, openActivityConsole, syncId, onLogFocusTime, onUpdateChapter, streakInfo, requestConfirm }) => {
+const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, openActivityConsole, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm }) => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     
     // Filter out connection tests
     const visibleActivities = activities?.filter(a => a.type !== 'CONNECTION_TEST') || [];
     
     // Determine if it's currently night (6 PM to 4 AM)
-    const currentHour = new Date().getHours();
+    const currentHour = parseInt(
+        new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            hourCycle: 'h23'
+        }).format(new Date()),
+        10
+    );
     const isNight = currentHour >= 18 || currentHour < 4;
 
     return (
@@ -252,14 +259,16 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                             { id: 'syllabus_starter', title: 'Syllabus Starter', description: 'Began progress on your syllabus by completing some part of a chapter or DPP.', icon: '🚀', unlocked: false },
                             { id: 'first_strike', title: 'First Strike', description: 'Logged your first mock test or practice log in the planner.', icon: '🎯', unlocked: false },
                             { id: 'mock_master', title: 'Mock Master', description: 'Logged 5 or more mock tests or practice logs.', icon: '🏆', unlocked: false },
-                            { id: 'night_owl', title: 'Night Owl', description: 'Studied late at night between 12 AM and 4 AM.', icon: '🦉', unlocked: false },
-                            { id: 'early_bird', title: 'Early Bird', description: 'Studied early in the morning between 5 AM and 8 AM.', icon: '🌅', unlocked: false },
+                            { id: 'night_owl', title: 'Night Owl', description: 'Studied late at night between 12 AM and 4 AM IST.', icon: '🦉', unlocked: false },
+                            { id: 'early_bird', title: 'Early Bird', description: 'Studied early in the morning between 5 AM and 8 AM IST.', icon: '🌅', unlocked: false },
                             { id: 'dpp_sniper', title: 'DPP Sniper', description: 'Achieved 100% completion on at least 3 DPPs.', icon: '🎯', unlocked: false },
                             { id: 'module_conqueror', title: 'Module Conqueror', description: 'Achieved 100% completion on any interactive chapter module tracker.', icon: '👑', unlocked: false },
                             { id: 'perfect_accuracy', title: 'Perfect Accuracy', description: 'Achieved 90%+ accuracy on any module or DPP.', icon: '🔥', unlocked: false },
                             { id: 'consistent_scholar', title: 'Consistent Scholar', description: 'Completed 5 or more daily routines or plans.', icon: '📅', unlocked: false },
                             { id: 'dpp_killer', title: 'DPP Killer', description: 'Submitted 3 DPPs or modules with above 85% accuracy in a single day.', icon: '💀', unlocked: false },
-                            { id: 'are_you_procrastinating', title: 'Are you procrastinating?', description: 'Fewer than 2 DPP or module uploads logged by 11 PM today.', icon: '🛌', unlocked: false }
+                            { id: 'are_you_procrastinating', title: 'Are you procrastinating?', description: 'Fewer than 2 DPP or module uploads logged by 11 PM today.', icon: '🛌', unlocked: false },
+                            { id: 'sleeping_beauty', title: 'Sleeping Beauty', description: "Sleeping a bit much aren't you?", icon: '😴', unlocked: false },
+                            { id: 'dead_man_walking', title: 'Dead Man Walking', description: 'Logged active study sessions or quiz submissions during critical fatigue hours between 2 AM and 5 AM IST.', icon: '🧟', unlocked: false }
                         ];
                         const displayAchievements = (achievements && achievements.length > 0 ? achievements : FALLBACK_ACHIEVEMENTS).filter(ach => ach.unlocked);
                         
@@ -275,7 +284,9 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                             return (
                                 <div 
                                     key={i} 
-                                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-inner group relative transition-all duration-300 border-2 bg-slate-900/90 border-yellow-500/70 shadow-[0_0_15px_rgba(234,179,8,0.25)] hover:border-yellow-400 hover:scale-105 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]"
+                                    onClick={() => onTriggerSpecificAchievement && onTriggerSpecificAchievement(ach.id)}
+                                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-inner group relative transition-all duration-300 border-2 bg-slate-900/90 border-yellow-500/70 shadow-[0_0_15px_rgba(234,179,8,0.25)] hover:border-yellow-400 hover:scale-105 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)] cursor-pointer"
+                                    title="Click to view achievement details"
                                 >
                                     <span className="text-2xl transition-transform group-hover:scale-110 drop-shadow-md">
                                         {ach.icon}
@@ -334,7 +345,7 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-100">{selectedActivity.details.quizType || 'Activity'} Details</h2>
-                                    <p className="text-sm text-slate-400 mt-1">{new Date(selectedActivity.timestamp).toLocaleString()}</p>
+                                    <p className="text-sm text-slate-400 mt-1">{new Date(selectedActivity.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
                                 </div>
                                 <button 
                                     onClick={() => setSelectedActivity(null)}

@@ -19,10 +19,59 @@ import AchievementToast from './components/AchievementToast';
 import { useAchievements } from './hooks/useAchievements';
 import CohortSetupModal from './components/CohortSetupModal';
 import ActivityConsole from './components/ActivityConsole';
+import ExtensionPage from './components/ExtensionPage';
+import BackupSettingsModal from './components/BackupSettingsModal';
 import ResolveSubmissionsModal from './components/ResolveSubmissionsModal';
 import { AI_SYSTEM_PROMPT } from './data/ai_instructions';
 import DevToolsOverlay from './components/DevToolsOverlay';
 import { useToast } from './components/ToastContext';
+
+// Timezone-safe Indian Standard Time (IST) Helpers
+const getISTDateString = (date = new Date()) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    const formatter = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+    return formatter.format(d); // DD/MM/YYYY
+};
+
+const getISTDateStringYYYYMMDD = (date = new Date()) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    const [{ value: month },,{ value: day },,{ value: year }] = formatter.formatToParts(d);
+    return `${year}-${month}-${day}`; // YYYY-MM-DD
+};
+
+const getISTISOString = (date = new Date()) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(d.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
+
+const getISTTimeString = (date = new Date()) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    return d.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false
+    });
+};
+
+const getISTLocaleString = (date = new Date(), options = {}) => {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    return d.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        ...options
+    });
+};
 
 // Utility: normalize chapter names to handle plurals, special chars, and minor variations
 const normalizeChapterName = (name) => {
@@ -108,39 +157,6 @@ const extractChapterFromModuleUrl = (url) => {
     return null;
 };
 
-const rc4EncryptHex = (keyStr, plainText) => {
-    const keyBytes = new TextEncoder().encode(keyStr);
-    const plainBytes = new TextEncoder().encode(plainText);
-    
-    let s = new Uint8Array(256);
-    for (let i = 0; i < 256; i++) {
-        s[i] = i;
-    }
-    let j = 0;
-    for (let i = 0; i < 256; i++) {
-        j = (j + s[i] + keyBytes[i % keyBytes.length]) % 256;
-        let temp = s[i];
-        s[i] = s[j];
-        s[j] = temp;
-    }
-    
-    let i = 0;
-    j = 0;
-    const cipherBytes = new Uint8Array(plainBytes.length);
-    for (let y = 0; y < plainBytes.length; y++) {
-        i = (i + 1) % 256;
-        j = (j + s[i]) % 256;
-        let temp = s[i];
-        s[i] = s[j];
-        s[j] = temp;
-        cipherBytes[y] = plainBytes[y] ^ s[(s[i] + s[j]) % 256];
-    }
-    
-    return Array.from(cipherBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-};
-
 const rc4DecryptHex = (keyStr, hexStr) => {
     const keyBytes = new TextEncoder().encode(keyStr);
     const cipherBytes = new Uint8Array(hexStr.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
@@ -180,7 +196,7 @@ const generateSecureSyncId = () => {
         window.crypto.getRandomValues(array);
         randomHex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
     } else {
-        randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        throw new Error("Web Crypto API is not available. Please use a modern browser.");
     }
     return `${prefix}${randomHex}`;
 };
@@ -226,6 +242,9 @@ const App = () => {
     const [routines, setRoutines] = useState([]);
     const [targetDate, setTargetDate] = useState('2026-05-23');
     const [testLogs, setTestLogs] = useState([]);
+    const [email, setEmail] = useState('');
+    const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+    const [backupSettingsOpen, setBackupSettingsOpen] = useState(false);
     
     // Isolated Achievements State & Logic
     const {
@@ -262,7 +281,6 @@ const App = () => {
     const [selectedInorganicChapter, setSelectedInorganicChapter] = useState(null);
     
     const [routineLogInput, setRoutineLogInput] = useState('');
-    const [testImagePreview, setTestImagePreview] = useState(null);
     const [tempSyncId, setTempSyncId] = useState('');
     const [tempUserName, setTempUserName] = useState('');
     const [tempCohort, setTempCohort] = useState('BITSAT');
@@ -413,6 +431,18 @@ const App = () => {
                         setCohort('BITSAT');
                         localStorage.setItem('vinyasCohort', 'BITSAT');
                     }
+
+                    if (serverData.email) {
+                        setEmail(serverData.email);
+                    } else {
+                        setEmail('');
+                    }
+
+                    if (serverData.autoBackupEnabled !== undefined) {
+                        setAutoBackupEnabled(serverData.autoBackupEnabled);
+                    } else {
+                        setAutoBackupEnabled(false);
+                    }
                     
                     setIsLoaded(true);
                     logEvent('DB_LOAD_SUCCESS', { 
@@ -493,7 +523,7 @@ const App = () => {
                             localStorage.setItem('vinyasCohort', serverData.cohort);
                         }
                         
-                        setLastActivitiesFetchTime(new Date().toLocaleTimeString());
+                        setLastActivitiesFetchTime(getISTTimeString(new Date()));
                         showToast("Console & database logs successfully refreshed!", "success");
                     }
                 }
@@ -594,7 +624,7 @@ const App = () => {
                     const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
                     ch.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
 
-                    const dateStr = new Date(act.timestamp).toLocaleDateString();
+                    const dateStr = getISTDateString(new Date(act.timestamp));
                     const logEntry = `[${dateStr} - DPP: ${details.title}]\nCompletion: ${details.completion}%, Accuracy: ${details.accuracy}%`;
                     ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
                 } else {
@@ -657,7 +687,7 @@ const App = () => {
 
     // --- Debounced Save to MongoDB ---
     const debouncedSaveRef = useRef(
-        debounce(async (newData, newRoutines, newTestLogs, newAchievements, newTargetDate, newCohort, newResolvedIds, sId) => {
+        debounce(async (newData, newRoutines, newTestLogs, newAchievements, newTargetDate, newCohort, newResolvedIds, sId, newEmail, newAutoBackup) => {
             if (!sId) return;
             
             try {
@@ -670,7 +700,9 @@ const App = () => {
                     achievements: newAchievements,
                     targetDate: newTargetDate,
                     cohort: newCohort,
-                    resolvedActivityIds: newResolvedIds
+                    resolvedActivityIds: newResolvedIds,
+                    email: newEmail,
+                    autoBackupEnabled: newAutoBackup
                 };
 
                 const response = await fetch('/api/data', {
@@ -694,12 +726,12 @@ const App = () => {
 
     useEffect(() => {
         if (isLoaded && isSyncIdSet && syncId) {
-            debouncedSaveRef.current(data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId);
+            debouncedSaveRef.current(data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled);
         }
         return () => {
             debouncedSaveRef.current.cancel();
         };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded]);
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled]);
 
     // --- Developer / Testing Mode Functions ---
     const handleTriggerTestDpp = async () => {
@@ -708,7 +740,7 @@ const App = () => {
                 id: 'test_dpp_' + Date.now(),
                 syncId: syncId,
                 type: 'DPP_SCORE',
-                timestamp: new Date().toISOString(),
+                timestamp: getISTISOString(),
                 details: {
                     title: 'Chemical Kinetics : DPP 02 MCQ Quiz',
                     quizType: 'DPP',
@@ -804,7 +836,7 @@ const App = () => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `vinyas_secure_backup_${syncId || 'anonymous'}_${new Date().toISOString().slice(0, 10)}.json`);
+            link.setAttribute("download", `vinyas_secure_backup_${syncId || 'anonymous'}_${getISTDateStringYYYYMMDD(new Date())}.json`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -815,6 +847,61 @@ const App = () => {
             console.error("Export Error:", err);
             showToast("Failed to export backup: " + err.message, "error");
             logEvent('BACKUP_ERROR', { error: err.message, message: 'Backup export failed' }, 'error');
+        }
+    };
+
+    const handleSendTestBackupMail = async (targetEmail, isTest = true) => {
+        if (!targetEmail || !targetEmail.trim()) {
+            showToast("Backup email address is required.", "error");
+            return;
+        }
+
+        try {
+            logEvent('BACKUP_TEST_MAIL', { message: 'Generating and encrypting test backup file...', email: targetEmail, isTest });
+            
+            const exportObj = {
+                syncId,
+                userName,
+                cohort,
+                targetDate,
+                data,
+                routines,
+                testLogs,
+                resolvedActivityIds
+            };
+            
+            const jsonString = JSON.stringify(exportObj);
+            const encryptedBundle = await aesEncrypt(syncId, jsonString);
+            
+            const backupWrapper = {
+                vinyasBackup: true,
+                encrypted: true,
+                encryptionVersion: "AES-GCM",
+                payload: encryptedBundle
+            };
+
+            const response = await fetch('/api/test-backup-mail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    syncId,
+                    email: targetEmail.trim(),
+                    backupWrapper,
+                    isTest
+                })
+            });
+
+            if (response.ok) {
+                showToast(isTest ? "Test backup email dispatched successfully!" : "Simulated weekend backup email dispatched successfully!", "success");
+                logEvent('BACKUP_TEST_MAIL_SUCCESS', { message: `Successfully dispatched encrypted backup mail (isTest=${isTest}) via SMTP` }, 'success');
+            } else {
+                const errData = await response.json();
+                throw new Error(errData.error || "Failed to dispatch backup email.");
+            }
+        } catch (err) {
+            console.error("Test backup mail error:", err);
+            showToast(err.message, "error");
+            logEvent('BACKUP_TEST_MAIL_ERROR', { error: err.message }, 'error');
         }
     };
 
@@ -877,6 +964,7 @@ const App = () => {
                         decryptedStr = rc4DecryptHex(password.trim(), importedWrapper.payload);
                         importedObj = JSON.parse(decryptedStr);
                     }
+                    showToast("This backup uses legacy RC4 encryption. Please re-export your backup to upgrade it to secure AES-256-GCM.", "warning");
                 } else {
                     throw new Error("Unsupported or unrecognized encrypted Vinyas backup payload.");
                 }
@@ -970,7 +1058,7 @@ const App = () => {
             "Are you sure you want to permanently delete your account and all syllabus progress? This will nuke your database record and cannot be undone.",
             async () => {
                 try {
-                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}`, {
+                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}&fullDelete=true`, {
                         method: 'DELETE'
                     });
                     if (response.ok) {
@@ -1195,13 +1283,13 @@ const App = () => {
     };
 
     const suggestedGoals = useMemo(() => {
-        const today = new Date().toDateString();
+        const today = getISTDateStringYYYYMMDD(new Date());
         const goals = [];
         const seenKeys = new Set();
         
         activities.forEach(act => {
             if (act.type === 'STUDY_GOALS') {
-                const actDate = new Date(act.timestamp).toDateString();
+                const actDate = getISTDateStringYYYYMMDD(new Date(act.timestamp));
                 if (actDate === today) {
                     const uniqueKey = `${act.details.subject}-${act.details.title}`;
                     if (!seenKeys.has(uniqueKey)) {
@@ -1421,7 +1509,7 @@ const App = () => {
                         const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
                         newChapter.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
 
-                        const dateStr = new Date(act.timestamp).toLocaleDateString();
+                        const dateStr = getISTDateString(new Date(act.timestamp));
                         const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
                         newChapter.log = newChapter.log ? `${newChapter.log}\n\n${logEntry}` : logEntry;
                     } else {
@@ -1506,7 +1594,7 @@ const App = () => {
                         const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
                         ch.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
 
-                        const dateStr = new Date(act.timestamp).toLocaleDateString();
+                        const dateStr = getISTDateString(new Date(act.timestamp));
                         const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
                         ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
                     } else {
@@ -1599,12 +1687,11 @@ const App = () => {
 
     const saveTestLog = (noTest = false) => {
         const noteToSave = noTest ? "No tests today." : routineLogInput;
-        if (!noteToSave.trim() && !testImagePreview && !noTest) return; 
+        if (!noteToSave.trim() && !noTest) return; 
         
         setTestLogs([...testLogs, { 
-            date: new Date().toLocaleDateString(), 
-            note: noteToSave,
-            image: testImagePreview
+            date: getISTDateString(), 
+            note: noteToSave
         }]);
         toggleRoutineState(activeRoutineIndex, true);
         setRoutineModalType(null);
@@ -1639,13 +1726,13 @@ const App = () => {
         handleNestedUpdate(sIdx, cIdx, section, 'acc', acc);
     };
 
-    const handleLogNightlyTextAndImage = (sIdx, cIdx, template, textLog, image, resourceNumber) => {
+    const handleLogNightlyTextAndImage = (sIdx, cIdx, template, textLog, resourceNumber) => {
         const resourceText = resourceNumber ? ` #${resourceNumber}` : '';
         if (template === 'mock') {
-            setTestLogs([...testLogs, { date: new Date().toLocaleDateString(), note: `[Mock${resourceText}] ${textLog}`, image }]);
+            setTestLogs([...testLogs, { date: getISTDateString(), note: `[Mock${resourceText}] ${textLog}` }]);
         } else {
             const currentLog = data[sIdx].chapters[cIdx].log || '';
-            const newLog = currentLog ? `${currentLog}\n\n[${new Date().toLocaleDateString()} - ${template}${resourceText}]\n${textLog}` : `[${new Date().toLocaleDateString()} - ${template}${resourceText}]\n${textLog}`;
+            const newLog = currentLog ? `${currentLog}\n\n[${getISTDateString()} - ${template}${resourceText}]\n${textLog}` : `[${getISTDateString()} - ${template}${resourceText}]\n${textLog}`;
             handleUpdate(sIdx, cIdx, 'log', newLog);
         }
     };
@@ -1687,18 +1774,13 @@ const App = () => {
         activities.forEach(act => {
             if (act.timestamp) {
                 const d = new Date(act.timestamp);
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                const dateStr = getISTDateStringYYYYMMDD(d);
                 dates.add(dateStr);
             }
         });
         
         const today = new Date();
-        const getFormattedDate = (d) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+        const getFormattedDate = (d) => getISTDateStringYYYYMMDD(d);
         
         let currentStreak = 0;
         let checkDate = new Date(today);
@@ -1965,6 +2047,8 @@ const App = () => {
                 onImportData={handleImportData}
                 onLogout={handleLogout}
                 onDeleteAccount={handleDeleteAccount}
+                onNavigateToExtension={() => navigate('/extension')}
+                onOpenBackupSettings={() => setBackupSettingsOpen(true)}
             />
 
             {/* Standard Search Bar */}
@@ -2091,8 +2175,6 @@ const App = () => {
                 routineLogInput={routineLogInput}
                 setRoutineLogInput={setRoutineLogInput}
                 saveInorganicRoutineLog={saveInorganicRoutineLog}
-                testImagePreview={testImagePreview}
-                setTestImagePreview={setTestImagePreview}
                 saveTestLog={saveTestLog}
                 logModalOpen={logModalOpen}
                 activeLog={activeLog}
@@ -2172,7 +2254,7 @@ const App = () => {
                     
                     if (resourceNum) {
                         const currentLog = chapter.log || '';
-                        const newLog = currentLog ? `${currentLog}\n\n[${new Date().toLocaleDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%` : `[${new Date().toLocaleDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%`;
+                        const newLog = currentLog ? `${currentLog}\n\n[${getISTDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%` : `[${getISTDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%`;
                         handleUpdate(sIdx, cIdx, 'log', newLog);
                     }
                 }}
@@ -2189,9 +2271,19 @@ const App = () => {
 
 
 
-                    <CohortSetupModal 
-                        isOpen={cohortSetupOpen}
-                        onClose={() => setCohortSetupOpen(false)}
+            <BackupSettingsModal 
+                isOpen={backupSettingsOpen}
+                onClose={() => setBackupSettingsOpen(false)}
+                email={email}
+                setEmail={setEmail}
+                autoBackupEnabled={autoBackupEnabled}
+                setAutoBackupEnabled={setAutoBackupEnabled}
+                onSendTestMail={handleSendTestBackupMail}
+            />
+
+            <CohortSetupModal 
+                isOpen={cohortSetupOpen}
+                onClose={() => setCohortSetupOpen(false)}
                         currentCohort={cohort}
                         onInitializeCohort={handleInitializeCohort}
                         onAppendSyllabus={handleAppendSyllabus}
@@ -2228,6 +2320,10 @@ const App = () => {
                     lastFetchTime={lastActivitiesFetchTime}
                     requestConfirm={requestConfirm}
                 />
+            ) : currentPath === '/extension' ? (
+                <ExtensionPage 
+                    onBack={() => navigate('/')}
+                />
             ) : null}
 
             <ConfirmationModal 
@@ -2238,7 +2334,7 @@ const App = () => {
                 onCancel={confirmModal.onCancel}
             />
 
-            {localStorage.getItem('devMode') === 'true' && (
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && localStorage.getItem('devMode') === 'true' && (
                 <DevToolsOverlay 
                     syncId={syncId}
                     allAchievements={allAchievements}
@@ -2247,6 +2343,8 @@ const App = () => {
                     setRetryTrigger={setRetryTrigger}
                     data={data}
                     requestConfirm={requestConfirm}
+                    email={email}
+                    onSendTestBackupMail={handleSendTestBackupMail}
                 />
             )}
         </div>

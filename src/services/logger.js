@@ -1,11 +1,17 @@
 const LOG_LIMIT = 500;
 
+const getISTISOString = (date = new Date()) => {
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
+
 export const logEvent = (type, details, severity = 'info') => {
     try {
         const logs = JSON.parse(localStorage.getItem('vinyasLocalLogs') || '[]');
         const newLog = {
             id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            timestamp: new Date().toISOString(),
+            timestamp: getISTISOString(),
             type,
             details: typeof details === 'object' ? details : { message: details },
             severity // 'info' | 'warning' | 'error' | 'success'

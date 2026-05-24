@@ -42,13 +42,20 @@ const redactObject = (obj) => {
 const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, pollActivities, lastFetchTime, requestConfirm }) => {
     const { showToast } = useToast();
     const [localLogs, setLocalLogs] = useState([]);
+    const getISTDateStringYYYYMMDD = (date = new Date()) => {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const [{ value: month },,{ value: day },,{ value: year }] = formatter.formatToParts(date);
+        return `${year}-${month}-${day}`;
+    };
+
     const [selectedPeriod, setSelectedPeriod] = useState('today'); // 'today' | 'week' | 'month' | 'custom' | 'all'
     const [selectedCustomDate, setSelectedCustomDate] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return getISTDateStringYYYYMMDD(new Date());
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSeverity, setSelectedSeverity] = useState('all'); // 'all' | 'info' | 'success' | 'warning' | 'error'
@@ -141,17 +148,19 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
 
             // 1. Period Filtering (anchor reference: May 22, 2026)
             if (selectedPeriod === 'today') {
-                if (logDate.toDateString() !== refDate.toDateString()) return false;
+                if (getISTDateStringYYYYMMDD(logDate) !== getISTDateStringYYYYMMDD(refDate)) return false;
             } else if (selectedPeriod === 'week') {
                 const diffTime = refDate.getTime() - logDate.getTime();
                 const diffDays = diffTime / (1000 * 60 * 60 * 24);
                 if (diffDays < 0 || diffDays > 7) return false;
             } else if (selectedPeriod === 'month') {
-                if (logDate.getMonth() !== refDate.getMonth() || logDate.getFullYear() !== refDate.getFullYear()) return false;
+                const logYearMonth = logDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+                const refYearMonth = refDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+                if (logYearMonth !== refYearMonth) return false;
             } else if (selectedPeriod === 'custom') {
                 if (selectedCustomDate) {
                     const target = new Date(selectedCustomDate);
-                    if (logDate.toDateString() !== target.toDateString()) return false;
+                    if (getISTDateStringYYYYMMDD(logDate) !== getISTDateStringYYYYMMDD(target)) return false;
                 }
             }
 
@@ -203,8 +212,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
 
     const handleCreateSnapshot = () => {
         try {
-            const timeStr = refDate.toLocaleTimeString();
-            const dateStr = refDate.toLocaleDateString();
+            const timeStr = refDate.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+            const dateStr = refDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
             
             // 1. Separate client and developer logs
             const devLogTypes = [
@@ -230,7 +239,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
             const clientGroupStats = getStatsForGroup(clientLogs);
 
             // 2. Generate Client Activity Section
-            const refDateStr = refDate.toLocaleDateString('en-CA');
+            const refDateStr = refDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             let doc = `# Vinyas Project Diagnostic Log Snapshot\n`;
             doc += `**Generated**: ${dateStr} ${timeStr} (IST)\n`;
             doc += `**System Reference Date**: ${refDateStr}\n`;
@@ -279,8 +288,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                 doc += `*No client logs matched active filters at snapshot time.*\n`;
             } else {
                 clientLogs.forEach((log, idx) => {
-                    const logTime = new Date(log.timestamp).toLocaleTimeString();
-                    const logDate = new Date(log.timestamp).toLocaleDateString();
+                    const logTime = new Date(log.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+                    const logDate = new Date(log.timestamp).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
                     doc += `### [${idx + 1}] ${logDate} ${logTime} | ${log.isRemote ? 'EXTENSION_EVENT' : 'LOCAL_APP_EVENT'} | ${log.type} | [${log.severity.toUpperCase()}]\n`;
                     doc += `* **Event Description**: ${getLogSummary(log)}\n`;
                     doc += `* **Payload Details**:\n`;
@@ -293,7 +302,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `vinyas_logs_snapshot_${new Date().toISOString().slice(0,10)}.md`);
+            link.setAttribute("download", `vinyas_logs_snapshot_${getISTDateStringYYYYMMDD(new Date())}.md`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -311,8 +320,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
     const handleSendToDev = async () => {
         try {
             setIsSendingTelemetry(true);
-            const timeStr = refDate.toLocaleTimeString();
-            const dateStr = refDate.toLocaleDateString();
+            const timeStr = refDate.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+            const dateStr = refDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
 
             const devLogTypes = [
                 'AI_REQUEST', 'AI_RESPONSE', 'AI_EMPTY_RESPONSE', 'AI_WARNING', 
@@ -337,7 +346,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
             const devGroupStats = getStatsForGroup(devLogs);
 
             // Generate Developer System Telemetry Snapshot
-            const refDateStr = refDate.toLocaleDateString('en-CA');
+            const refDateStr = refDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             let devDoc = `# Vinyas Developer System Telemetry Snapshot\n`;
             devDoc += `**Generated**: ${dateStr} ${timeStr} (IST)\n`;
             devDoc += `**System Reference Date**: ${refDateStr}\n`;
@@ -387,8 +396,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                 devDoc += `*No developer logs matched active filters at snapshot time.*\n`;
             } else {
                 devLogs.forEach((log, idx) => {
-                    const logTime = new Date(log.timestamp).toLocaleTimeString();
-                    const logDate = new Date(log.timestamp).toLocaleDateString();
+                    const logTime = new Date(log.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+                    const logDate = new Date(log.timestamp).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
                     devDoc += `### [${idx + 1}] ${logDate} ${logTime} | ${log.isRemote ? 'EXTENSION_EVENT' : 'LOCAL_APP_EVENT'} | ${log.type} | [${log.severity.toUpperCase()}]\n`;
                     devDoc += `* **Event Description**: ${getLogSummary(log)}\n`;
                     devDoc += `* **Payload Details**:\n`;
@@ -574,8 +583,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                 {/* System Header Info */}
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-right hidden md:block">
-                        <p className="text-xs text-slate-400 font-black">SYSTEM DATE: {currentTime.toLocaleDateString('en-CA')}</p>
-                        <p className="text-[10px] text-slate-600">CLIENT TIME: {currentTime.toLocaleTimeString()}</p>
+                        <p className="text-xs text-slate-400 font-black">SYSTEM DATE: {currentTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}</p>
+                        <p className="text-[10px] text-slate-600">CLIENT TIME: {currentTime.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false })}</p>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -640,7 +649,7 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
                             {[
-                                { id: 'today', label: `Today (${currentTime.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})` },
+                                { id: 'today', label: `Today (${currentTime.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric'})})` },
                                 { id: 'week', label: 'This Week' },
                                 { id: 'month', label: 'This Month' },
                                 { id: 'all', label: 'All Logged' },
@@ -799,8 +808,8 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                                         error: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
                                     };
 
-                                    const logTimeStr = new Date(log.timestamp).toLocaleTimeString();
-                                    const logDateStr = new Date(log.timestamp).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
+                                    const logTimeStr = new Date(log.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+                                    const logDateStr = new Date(log.timestamp).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' });
 
                                     return (
                                         <div 

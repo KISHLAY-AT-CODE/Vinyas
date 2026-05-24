@@ -1,29 +1,19 @@
-import { MongoClient } from 'mongodb';
-
-let cachedClient = null;
-let cachedDb = null;
-
-async function connectToDatabase(uri) {
-  if (cachedDb) return cachedDb;
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db('vinyas');
-
-  cachedClient = client;
-  cachedDb = db;
-  return db;
-}
+import { connectToDatabase } from './db.js';
+import { getISTISOString, getISTLogPrefix } from './timezone.js';
 
 export default async function handler(req, res) {
-  // Setup CORS to allow requests from the Chrome Extension
+  // Setup CORS to allow requests from the Chrome Extension & specific origins
   res.setHeader('Access-Control-Allow-Credentials', true);
   const origin = req.headers.origin;
+  const allowedOriginsEnv = process.env.ALLOWED_CORS_ORIGINS ? process.env.ALLOWED_CORS_ORIGINS.split(',') : [];
+  
   const isAllowed = origin && (
     origin.startsWith('chrome-extension://') ||
     origin.startsWith('http://localhost:') ||
-    origin.endsWith('.vercel.app')
+    origin.endsWith('.vercel.app') ||
+    allowedOriginsEnv.includes(origin)
   );
+  
   if (isAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
@@ -38,19 +28,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    return res.status(500).json({ error: 'MONGODB_URI is not defined' });
+  // Enforce body size limit of 500KB for activity payloads
+  if (req.body && JSON.stringify(req.body).length > 500 * 1024) {
+    return res.status(413).json({ error: 'Payload too large (limit is 500KB)' });
   }
 
   try {
-    const db = await connectToDatabase(uri);
+    const db = await connectToDatabase();
     const collection = db.collection('users');
 
     if (req.method === 'POST') {
-      const { syncId, type, details, timestamp } = req.body;
+      const { syncId: rawSyncId, type, details, timestamp } = req.body;
       
-      if (!syncId || typeof syncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
       const isSecure = syncId.startsWith('vny_sec_');
       const existingDoc = await collection.findOne({ syncId });
@@ -85,7 +77,7 @@ export default async function handler(req, res) {
               { syncId, 'activities.details.title': details.title, 'activities.type': 'DPP_SCORE' },
               { $set: {
                 'activities.$.details': details,
-                'activities.$.timestamp': timestamp || new Date().toISOString()
+                'activities.$.timestamp': timestamp || getISTISOString()
               }}
             );
             return res.status(200).json({ success: true, reattempt: true });
@@ -107,7 +99,7 @@ export default async function handler(req, res) {
         id: Date.now().toString(),
         type,
         details,
-        timestamp: timestamp || new Date().toISOString()
+        timestamp: timestamp || getISTISOString()
       };
 
       // Push to the activities array, keep only the latest 50
@@ -129,8 +121,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      const { syncId, date } = req.query;
-      if (!syncId || typeof syncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const { syncId: rawSyncId, date } = req.query;
+      if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
       const userDoc = await collection.findOne({ syncId }, { projection: { activities: 1 } });
       let activities = userDoc?.activities || [];
@@ -143,20 +137,27 @@ export default async function handler(req, res) {
       return res.status(200).json({ activities });
     }
 
-    // DEV ONLY: Nuke all activities for this user
+    // Support both full account deletion and activity nuking
     if (req.method === 'DELETE') {
-      const { syncId } = req.query;
-      if (!syncId || typeof syncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const { syncId: rawSyncId, fullDelete } = req.query;
+      if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
-      // DEV ONLY: Nuke all activities and data for this user
-      await collection.deleteOne({ syncId });
-
-      return res.status(200).json({ success: true, cleared: true });
+      if (fullDelete === 'true') {
+        // Permanently Delete Account
+        await collection.deleteOne({ syncId });
+        return res.status(200).json({ success: true, deletedAccount: true });
+      } else {
+        // DEV ONLY: Nuke all activities only, keeping syllabus and routines intact
+        await collection.updateOne({ syncId }, { $set: { activities: [] } });
+        return res.status(200).json({ success: true, clearedActivities: true });
+      }
     }
 
     return res.status(405).json({ error: 'Method Not Allowed' });
   } catch (error) {
-    console.error("MongoDB Error:", error);
+    console.error(`${getISTLogPrefix()} MongoDB Error:`, error);
     return res.status(500).json({ error: error.message });
   }
 }

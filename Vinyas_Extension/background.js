@@ -1,3 +1,9 @@
+const getISTISOString = (date = new Date()) => {
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
+
 // Strict URL validation to protect against SSRF and arbitrary fetch vulnerabilities
 function isValidApiUrl(urlStr) {
     try {
@@ -71,7 +77,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 syncId,
                 type,
                 details,
-                timestamp: new Date().toISOString()
+                timestamp: getISTISOString()
             })
         })
         .then(async response => {

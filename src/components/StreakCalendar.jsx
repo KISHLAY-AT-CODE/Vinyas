@@ -8,9 +8,13 @@ const StreakCalendar = ({ activities, streakInfo }) => {
     const today = new Date();
 
     const getFormattedDate = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const [{ value: month },,{ value: day },,{ value: year }] = formatter.formatToParts(d);
         return `${year}-${month}-${day}`;
     };
 
@@ -118,7 +122,7 @@ const StreakCalendar = ({ activities, streakInfo }) => {
                                             <div
                                                 key={dIdx}
                                                 className={`w-3.5 h-3.5 rounded-sm border transition-all duration-300 hover:scale-110 cursor-pointer ${colorClass}`}
-                                                title={`${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
+                                                title={`${date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })}: ${count} ${count === 1 ? 'activity' : 'activities'}`}
                                             />
                                         );
                                     })}

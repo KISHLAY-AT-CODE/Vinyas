@@ -87,3 +87,6 @@ __pycache__/
 *.mjs
 
 .venv
+
+# Developer Tools
+src/components/DevToolsOverlay.jsx

@@ -1,20 +1,29 @@
+// This file will not be in production: no use for security check, for developer only
 import React, { useState, useMemo, useEffect } from 'react';
+
+const getISTISOString = (date = new Date()) => {
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
 
 const FALLBACK_ACHIEVEMENTS = [
     { id: 'syllabus_starter', title: 'Syllabus Starter', description: 'Began progress on your syllabus by completing some part of a chapter or DPP.', icon: '🚀', unlocked: false },
     { id: 'first_strike', title: 'First Strike', description: 'Logged your first mock test or practice log in the planner.', icon: '🎯', unlocked: false },
     { id: 'mock_master', title: 'Mock Master', description: 'Logged 5 or more mock tests or practice logs.', icon: '🏆', unlocked: false },
-    { id: 'night_owl', title: 'Night Owl', description: 'Studied late at night between 12 AM and 4 AM.', icon: '🦉', unlocked: false },
-    { id: 'early_bird', title: 'Early Bird', description: 'Studied early in the morning between 5 AM and 8 AM.', icon: '🌅', unlocked: false },
+    { id: 'night_owl', title: 'Night Owl', description: 'Studied late at night between 12 AM and 4 AM IST.', icon: '🦉', unlocked: false },
+    { id: 'early_bird', title: 'Early Bird', description: 'Studied early in the morning between 5 AM and 8 AM IST.', icon: '🌅', unlocked: false },
     { id: 'dpp_sniper', title: 'DPP Sniper', description: 'Achieved 100% completion on at least 3 DPPs.', icon: '🎯', unlocked: false },
     { id: 'module_conqueror', title: 'Module Conqueror', description: 'Achieved 100% completion on any interactive chapter module tracker.', icon: '👑', unlocked: false },
     { id: 'perfect_accuracy', title: 'Perfect Accuracy', description: 'Achieved 90%+ accuracy on any module or DPP.', icon: '🔥', unlocked: false },
     { id: 'consistent_scholar', title: 'Consistent Scholar', description: 'Completed 5 or more daily routines or plans.', icon: '📅', unlocked: false },
     { id: 'dpp_killer', title: 'DPP Killer', description: 'Submitted 3 DPPs or modules with above 85% accuracy in a single day.', icon: '💀', unlocked: false },
-    { id: 'are_you_procrastinating', title: 'Are you procrastinating?', description: 'Fewer than 2 DPP or module uploads logged by 11 PM today.', icon: '🛌', unlocked: false }
+    { id: 'are_you_procrastinating', title: 'Are you procrastinating?', description: 'Fewer than 2 DPP or module uploads logged by 11 PM today.', icon: '🛌', unlocked: false },
+    { id: 'sleeping_beauty', title: 'Sleeping Beauty', description: "Sleeping a bit much aren't you?", icon: '😴', unlocked: false },
+    { id: 'dead_man_walking', title: 'Dead Man Walking', description: 'Submitted 2 consecutive DPPs with less than 60% accuracy.', icon: '🧟', unlocked: false }
 ];
 
-const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollActivities, setRetryTrigger, data, requestConfirm }) => {
+const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollActivities, setRetryTrigger, data, requestConfirm, email, onSendTestBackupMail }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [bypassRedaction, setBypassRedaction] = useState(() => localStorage.getItem('bypassRedaction') === 'true');
     
@@ -25,8 +34,44 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
     const [accuracy, setAccuracy] = useState(90);
     const [completion, setCompletion] = useState(100);
     const [isReattempt, setIsReattempt] = useState(false);
-    
 
+    // Email simulation states
+    const [testEmail, setTestEmail] = useState(email || '');
+    const [sendingWeekendSim, setSendingWeekendSim] = useState(false);
+    const [sendingTestSim, setSendingTestSim] = useState(false);
+
+    useEffect(() => {
+        if (email) setTestEmail(email);
+    }, [email]);
+
+    const handleSendEmailSim = async (isTest) => {
+        if (!syncId) {
+            showStatus('error', 'Sync ID must be active to send backup!');
+            return;
+        }
+        if (!testEmail || !testEmail.trim()) {
+            showStatus('error', 'Please enter a target email address!');
+            return;
+        }
+
+        try {
+            if (isTest) {
+                setSendingTestSim(true);
+            } else {
+                setSendingWeekendSim(true);
+            }
+            await onSendTestBackupMail(testEmail.trim(), isTest);
+            showStatus('success', isTest ? 'Test verification email dispatched!' : 'Weekend layout email dispatched!');
+        } catch (err) {
+            showStatus('error', err.message || 'Failed to send backup mail');
+        } finally {
+            if (isTest) {
+                setSendingTestSim(false);
+            } else {
+                setSendingWeekendSim(false);
+            }
+        }
+    };
     
     // Status Feedbacks
     const [actionStatus, setActionStatus] = useState({ type: '', message: '' });
@@ -98,7 +143,7 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
             const dummyActivity = {
                 syncId: syncId,
                 type: 'DPP_SCORE',
-                timestamp: new Date().toISOString(),
+                timestamp: getISTISOString(),
                 details: {
                     title: title,
                     quizType: quizType, // "DPP" or "MODULE"
@@ -145,7 +190,7 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
             "Are you sure you want to delete all synced activities and reset chapter progress? This operates on live database!",
             async () => {
                 try {
-                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}`, {
+                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}&fullDelete=true`, {
                         method: 'DELETE'
                     });
 
@@ -376,6 +421,44 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
                             </div>
 
 
+
+                            {/* Email Service Sandbox */}
+                            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <i className="ph-bold ph-envelope text-indigo-400 text-sm"></i> Email Service Sandbox
+                                </h4>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Recipient Email</label>
+                                    <input
+                                        type="email"
+                                        value={testEmail}
+                                        onChange={(e) => setTestEmail(e.target.value)}
+                                        placeholder="e.g. yourname@example.com"
+                                        className="w-full text-xs bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500/50 font-semibold"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => handleSendEmailSim(true)}
+                                        disabled={sendingTestSim || sendingWeekendSim}
+                                        className="py-2.5 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <i className={`ph-bold ${sendingTestSim ? 'ph-spinner-gap animate-spin text-indigo-400' : 'ph-paper-plane-tilt'}`}></i>
+                                        <span>Test Connection</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleSendEmailSim(false)}
+                                        disabled={sendingTestSim || sendingWeekendSim}
+                                        className="py-2.5 bg-gradient-to-r from-indigo-650 to-purple-650 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-[11px] rounded-xl shadow-lg transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <i className={`ph-bold ${sendingWeekendSim ? 'ph-spinner-gap animate-spin text-white' : 'ph-calendar-star'}`}></i>
+                                        <span>Simulate Weekend</span>
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
+                                    Sends actual encrypted backups using your SMTP integration. "Simulate Weekend" renders the exact layout sent automatically on Saturday/Sunday.
+                                </p>
+                            </div>
 
                             {/* Achievements Toast Spawner */}
                             <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 space-y-4">

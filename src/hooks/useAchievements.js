@@ -14,20 +14,42 @@ export const useAchievements = () => {
     const loadAchievements = useCallback((serverData) => {
         if (!serverData) return;
 
-        if (serverData.achievements) {
-            setAchievements(
-                typeof serverData.achievements === 'string'
-                    ? JSON.parse(serverData.achievements)
-                    : serverData.achievements
-            );
-        } else {
-            setAchievements([]);
-        }
+        const serverAchievements = serverData.achievements
+            ? (typeof serverData.achievements === 'string'
+                ? JSON.parse(serverData.achievements)
+                : serverData.achievements)
+            : [];
+
+        setAchievements(serverAchievements);
 
         if (serverData.allAchievements) {
             setAllAchievements(serverData.allAchievements);
         } else {
             setAllAchievements([]);
+        }
+
+        // Detect newly unlocked achievements in background/offline sessions
+        if (serverAchievements.length > 0) {
+            const seenAchievementsStr = localStorage.getItem('vinyasSeenAchievements');
+            if (seenAchievementsStr === null) {
+                // First load on this device: just mark all existing achievements as seen
+                const currentIds = serverAchievements.map(a => a.id);
+                localStorage.setItem('vinyasSeenAchievements', JSON.stringify(currentIds));
+            } else {
+                // Subsequent load: detect newly unlocked achievements
+                const seenIds = JSON.parse(seenAchievementsStr);
+                const newUnlocks = serverAchievements.filter(a => !seenIds.includes(a.id));
+                if (newUnlocks.length > 0) {
+                    setActiveAchievement({
+                        ...newUnlocks[0],
+                        key: Date.now()
+                    });
+                    const updatedIds = Array.from(new Set([...seenIds, ...serverAchievements.map(a => a.id)]));
+                    localStorage.setItem('vinyasSeenAchievements', JSON.stringify(updatedIds));
+                }
+            }
+        } else {
+            localStorage.setItem('vinyasSeenAchievements', JSON.stringify([]));
         }
     }, []);
 
@@ -45,6 +67,12 @@ export const useAchievements = () => {
                         ...newUnlocks[0],
                         key: Date.now()
                     });
+
+                    // Keep local storage seen list synchronized during active updates
+                    const seenStr = localStorage.getItem('vinyasSeenAchievements');
+                    const seenIds = seenStr ? JSON.parse(seenStr) : [];
+                    const updatedIds = Array.from(new Set([...seenIds, ...resData.achievements.map(a => a.id)]));
+                    localStorage.setItem('vinyasSeenAchievements', JSON.stringify(updatedIds));
                 }
                 if (JSON.stringify(prev) !== JSON.stringify(resData.achievements)) {
                     return resData.achievements;
@@ -68,6 +96,7 @@ export const useAchievements = () => {
         setAchievements([]);
         setAllAchievements([]);
         setActiveAchievement(null);
+        localStorage.removeItem('vinyasSeenAchievements');
     }, []);
 
     // Triggers a preview toast using the first locked achievement or a fallback

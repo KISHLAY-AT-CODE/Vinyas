@@ -1,18 +1,18 @@
-import { MongoClient } from 'mongodb';
+import { connectToDatabase } from './db.js';
+import { getISTISOString, getISTLogPrefix } from './timezone.js';
+import crypto from 'crypto';
 
-let cachedClient = null;
-let cachedDb = null;
-
-async function connectToDatabase(uri) {
-  if (cachedDb) return cachedDb;
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db('vinyas');
-
-  cachedClient = client;
-  cachedDb = db;
-  return db;
+function safeCompare(input, expected) {
+  const inputBuffer = Buffer.from(input);
+  const expectedBuffer = Buffer.from(expected);
+  
+  if (inputBuffer.length !== expectedBuffer.length) {
+    // Run a dummy check of equal length to prevent timing attacks exposing password length
+    crypto.timingSafeEqual(expectedBuffer, expectedBuffer);
+    return false;
+  }
+  
+  return crypto.timingSafeEqual(inputBuffer, expectedBuffer);
 }
 
 export default async function handler(req, res) {
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 
   if (req.method === 'OPTIONS') {
@@ -38,25 +38,26 @@ export default async function handler(req, res) {
     return;
   }
 
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    return res.status(500).json({ error: 'MONGODB_URI is not defined' });
-  }
-
   try {
-    const db = await connectToDatabase(uri);
+    const db = await connectToDatabase();
     const collection = db.collection('telemetry');
 
     if (req.method === 'GET') {
-      const { password } = req.query;
+      const authHeader = req.headers.authorization;
       const expectedPassword = process.env.TELEMETRY_PASSWORD;
 
       if (!expectedPassword) {
         return res.status(500).json({ error: 'Server Configuration Error: TELEMETRY_PASSWORD environment variable is not defined.' });
       }
 
-      if (!password || password !== expectedPassword) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid or missing developer credentials.' });
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized: Missing token in Authorization header.' });
+      }
+
+      const password = authHeader.substring(7).trim();
+
+      if (!safeCompare(password, expectedPassword)) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid developer credentials.' });
       }
 
       const records = await collection.find({}).sort({ timestamp: -1 }).toArray();
@@ -64,11 +65,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { syncId, encryptedTelemetry } = req.body;
+      const { syncId: rawSyncId, encryptedTelemetry } = req.body;
       
-      if (!syncId || typeof syncId !== 'string') {
+      if (!rawSyncId || typeof rawSyncId !== 'string') {
         return res.status(400).json({ error: 'Invalid or missing syncId' });
       }
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
+
       if (!encryptedTelemetry || typeof encryptedTelemetry !== 'string') {
         return res.status(400).json({ error: 'Invalid or missing encryptedTelemetry' });
       }
@@ -76,7 +80,8 @@ export default async function handler(req, res) {
       const telemetryRecord = {
         syncId,
         encryptedTelemetry,
-        timestamp: new Date()
+        timestamp: new Date(),
+        timestampIST: getISTISOString()
       };
 
       await collection.insertOne(telemetryRecord);
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method Not Allowed' });
   } catch (error) {
-    console.error("MongoDB Telemetry Error:", error);
+    console.error(`${getISTLogPrefix()} MongoDB Telemetry Error:`, error);
     return res.status(500).json({ error: error.message });
   }
 }

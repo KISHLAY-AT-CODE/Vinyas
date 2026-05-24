@@ -8,8 +8,17 @@
     },
     "api/data.js": {
       "includeFiles": "templates/**"
+    },
+    "api/cron-backup.js": {
+      "includeFiles": "templates/**"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron-backup",
+      "schedule": "0 0 * * 0"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -32,7 +41,7 @@
       "destination": "/@react-refresh$1"
     },
     {
-      "source": "/((?!api|src|node_modules|@vite|@react-refresh|assets|favicon.ico|icon.png|icon.svg|icon_alt.svg|manifest.json).*)",
+      "source": "/((?!api|src|node_modules|@vite|@react-refresh|assets|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

@@ -1,22 +1,8 @@
-import { MongoClient } from 'mongodb';
+import { connectToDatabase } from './db.js';
 import { calculateAchievements, getAllAchievementsStatus } from './achievements_config.js';
+import { getISTISOString, getISTLogPrefix } from './timezone.js';
 import fs from 'fs';
 import path from 'path';
-
-let cachedClient = null;
-let cachedDb = null;
-
-async function connectToDatabase(uri) {
-  if (cachedDb) return cachedDb;
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db('vinyas');
-
-  cachedClient = client;
-  cachedDb = db;
-  return db;
-}
 
 // Load base template subjects and chapters from templates directory
 function loadTemplate(cohortName) {
@@ -32,7 +18,7 @@ function loadTemplate(cohortName) {
       return parsed.subjects || null;
     }
   } catch (err) {
-    console.error(`Failed to load template ${cohortName} from ${filePath}:`, err);
+    console.error(`${getISTLogPrefix()} Failed to load template ${cohortName} from ${filePath}:`, err);
   }
   
   return null;
@@ -214,18 +200,22 @@ function deserializeSyllabus(serialized, baseTemplate) {
 }
 
 export default async function handler(req, res) {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    return res.status(500).json({ error: 'MONGODB_URI is not defined' });
+  // Enforce global request body size limit of 2MB to protect MongoDB and Vercel functions
+  if (req.body && JSON.stringify(req.body).length > 2 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Payload too large (limit is 2MB)' });
   }
 
   try {
-    const db = await connectToDatabase(uri);
+    const db = await connectToDatabase();
     const collection = db.collection('users');
 
     if (req.method === 'GET') {
-      const { syncId } = req.query;
-      if (!syncId || typeof syncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const rawSyncId = req.query.syncId;
+      if (!rawSyncId || typeof rawSyncId !== 'string') {
+        return res.status(400).json({ error: 'Invalid or missing syncId' });
+      }
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
       const userDoc = await collection.findOne({ syncId });
       if (userDoc) {
@@ -240,8 +230,10 @@ export default async function handler(req, res) {
     } 
     
     if (req.method === 'POST') {
-      const { syncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds } = req.body;
-      if (!syncId || typeof syncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled } = req.body;
+      if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
       // Retrieve existing doc to get activities and preserve existing achievements
       const existingDoc = await collection.findOne({ syncId });
@@ -283,7 +275,9 @@ export default async function handler(req, res) {
           targetDate,
           cohort,
           resolvedActivityIds,
-          lastUpdated: new Date()
+          email,
+          autoBackupEnabled,
+          lastUpdated: getISTISOString()
         }
       };
 
@@ -297,7 +291,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method Not Allowed' });
   } catch (error) {
-    console.error("MongoDB Error in data sync endpoint:", error);
+    console.error(`${getISTLogPrefix()} MongoDB Error in data sync endpoint:`, error);
     return res.status(500).json({ error: error.message });
   }
 }

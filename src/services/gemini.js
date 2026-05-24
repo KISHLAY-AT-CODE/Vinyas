@@ -63,10 +63,11 @@ export const generateGeminiContent = async (prompt, systemInstruction, isJson = 
         }
         
         try {
+            const syncId = localStorage.getItem('vinyasBitsatSyncId') || '';
             const response = await fetch('/api/gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, systemInstruction, isJson }),
+                body: JSON.stringify({ prompt, systemInstruction, isJson, syncId }),
                 signal
             });
             

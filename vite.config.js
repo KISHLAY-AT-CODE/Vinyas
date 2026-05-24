@@ -4,6 +4,20 @@ import dataHandler from './api/data.js'
 import activityHandler from './api/activity.js'
 import geminiHandler from './api/gemini.js'
 import templatesHandler from './api/templates.js'
+import fs from 'fs'
+import path from 'path'
+
+// Ensure DevToolsOverlay.jsx exists (since it is a gitignored file) to prevent compilation crash in production
+const devToolsPath = path.resolve(process.cwd(), 'src/components/DevToolsOverlay.jsx');
+if (!fs.existsSync(devToolsPath)) {
+  console.log('[DevTools Safety] DevToolsOverlay.jsx not found. Generating a safe placeholder component...');
+  fs.writeFileSync(devToolsPath, `import React from 'react';
+const DevToolsOverlay = () => {
+  return null;
+};
+export default DevToolsOverlay;
+`, 'utf8');
+}
 
 // Load environment variables and assign them to process.env
 const env = loadEnv('', process.cwd(), '');

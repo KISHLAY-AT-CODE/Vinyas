@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 
 const SpecialAchievementArt = ({ id, icon }) => {
     switch (id) {
@@ -665,6 +666,390 @@ const SpecialAchievementArt = ({ id, icon }) => {
                             <text x="30" y="42" fontSize="5" className="animate-z-float-2">z</text>
                             <text x="22" y="38" fontSize="4" className="animate-z-float-3">z</text>
                         </g>
+                    </svg>
+                </div>
+            );
+        case 'sleeping_beauty':
+            return (
+                <div className="relative w-48 h-48 bg-gradient-to-b from-slate-950 via-indigo-950/20 to-purple-950/30 border border-indigo-900/35 rounded-2xl overflow-hidden shadow-2xl animate-art-entrance flex items-center justify-center">
+                    {/* Dark deep sleep space glow */}
+                    <motion.div 
+                        className="absolute w-36 h-36 rounded-full bg-indigo-500/10 blur-2xl"
+                        animate={{ opacity: [0.4, 0.7, 0.4], scale: [0.95, 1.05, 0.95] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    
+                    {/* SVG sleeping monkey in bed sideways */}
+                    <svg className="w-36 h-36 text-slate-100 drop-shadow-[0_0_20px_rgba(99,102,241,0.25)]" viewBox="0 0 100 100" fill="currentColor">
+                        <defs>
+                            <linearGradient id="blanketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#2dd4bf" />
+                                <stop offset="100%" stopColor="#0d9488" />
+                            </linearGradient>
+                            <linearGradient id="headboardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#b45309" />
+                                <stop offset="100%" stopColor="#78350f" />
+                            </linearGradient>
+                            <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#38bdf8" />
+                                <stop offset="100%" stopColor="#0284c7" />
+                            </linearGradient>
+                        </defs>
+
+                        {/* Sparkly Star particles in background - Twinkling dynamically */}
+                        <motion.circle cx="75" cy="25" r="1" fill="#fff" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }} />
+                        <motion.circle cx="20" cy="22" r="0.8" fill="#fef08a" animate={{ opacity: [0.1, 0.9, 0.1] }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }} />
+                        <motion.circle cx="85" cy="40" r="0.7" fill="#fff" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut", delay: 1.1 }} />
+                        <motion.circle cx="50" cy="18" r="1.1" fill="#fef08a" animate={{ opacity: [0.1, 1, 0.1] }} transition={{ duration: 4.0, repeat: Infinity, ease: "easeInOut", delay: 1.5 }} />
+
+                        {/* Bed Headboard (wood) */}
+                        <rect x="8" y="34" width="4" height="46" rx="2" fill="url(#headboardGrad)" />
+                        
+                        {/* Bed Base & Legs */}
+                        <rect x="8" y="66" width="84" height="4" rx="1" fill="url(#headboardGrad)" />
+                        <rect x="12" y="70" width="3" height="12" rx="1.5" fill="url(#headboardGrad)" />
+                        <rect x="85" y="70" width="3" height="12" rx="1.5" fill="url(#headboardGrad)" />
+
+                        {/* Pillow - Positioned perfectly under the head */}
+                        <rect x="14" y="53" width="20" height="13" rx="4" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="0.5" />
+
+                        {/* Breathing Group - Animated programmatically with spring-like physics */}
+                        <motion.g 
+                            animate={{ y: [0, -1.2, 0], scaleY: [1, 1.02, 1] }}
+                            transition={{
+                                duration: 4,
+                                ease: "easeInOut",
+                                repeat: Infinity,
+                            }}
+                            style={{ transformOrigin: "50px 60px" }}
+                        >
+                            {/* Curly Tail peeking out - Wiggling programmatically */}
+                            <motion.path 
+                                d="M 82 62 Q 89 64 91 57 Q 93 50 86 50 Q 81 52 83 57" 
+                                fill="none" 
+                                stroke="#78350f" 
+                                strokeWidth="2.2" 
+                                strokeLinecap="round"
+                                animate={{ rotate: [0, 4, -2, 0] }}
+                                transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
+                                style={{ transformOrigin: "82px 62px" }}
+                            />
+
+                            {/* Cozy Blanket Bundle - Bulges programmatically over the hidden monkey's head and body */}
+                            <path 
+                                d="M 28 66 L 28 39 C 31 39, 34 38, 36 38 C 40 38, 42 45, 46 45 C 52 45, 56 41, 64 41 C 74 41, 82 54, 88 54 L 88 66 Z" 
+                                fill="url(#blanketGrad)" 
+                            />
+                            
+                            {/* Blanket Folded Cuff - Drapes smoothly over the head bulge curve onto the pillow */}
+                            <path 
+                                d="M 22 66 L 22 54 C 22 42, 26 39, 28 39 L 28 66 Z" 
+                                fill="#f1f5f9" 
+                                stroke="#cbd5e1" 
+                                strokeWidth="0.5" 
+                            />
+                        </motion.g>
+
+                        {/* Snoring Zs - Staggered, drifting up programmatically from the head bulge under the blanket */}
+                        <g fill="#a5f3fc" fontFamily="sans-serif" fontWeight="bold">
+                            <motion.text 
+                                x="34" y="33" fontSize="6.5"
+                                animate={{
+                                    x: [0, 8, 14],
+                                    y: [0, -12, -24],
+                                    opacity: [0, 0.8, 0.8, 0],
+                                    scale: [0.6, 1.1, 0.9],
+                                }}
+                                transition={{
+                                    duration: 4.5,
+                                    repeat: Infinity,
+                                    ease: "easeOut",
+                                }}
+                                style={{ transformOrigin: "34px 33px" }}
+                            >
+                                Z
+                            </motion.text>
+                            <motion.text 
+                                x="34" y="33" fontSize="5" fill="#93c5fd"
+                                animate={{
+                                    x: [0, 10, 18],
+                                    y: [0, -15, -30],
+                                    opacity: [0, 0.8, 0.8, 0],
+                                    scale: [0.5, 1.0, 0.8],
+                                }}
+                                transition={{
+                                    duration: 4.5,
+                                    delay: 1.5,
+                                    repeat: Infinity,
+                                    ease: "easeOut",
+                                }}
+                                style={{ transformOrigin: "34px 33px" }}
+                            >
+                                z
+                            </motion.text>
+                            <motion.text 
+                                x="34" y="33" fontSize="4.2" fill="#c084fc"
+                                animate={{
+                                    x: [0, 6, 10],
+                                    y: [0, -9, -18],
+                                    opacity: [0, 0.8, 0.8, 0],
+                                    scale: [0.4, 0.9, 0.7],
+                                }}
+                                transition={{
+                                    duration: 4.5,
+                                    delay: 3.0,
+                                    repeat: Infinity,
+                                    ease: "easeOut",
+                                }}
+                                style={{ transformOrigin: "34px 33px" }}
+                            >
+                                z
+                            </motion.text>
+                        </g>
+                    </svg>
+                </div>
+            );
+        case 'dead_man_walking':
+            return (
+                <div className="relative w-48 h-48 bg-gradient-to-b from-slate-950 via-purple-950/20 to-emerald-950/30 border border-emerald-900/20 rounded-2xl overflow-hidden shadow-2xl animate-art-entrance flex items-center justify-center">
+                    {/* Inline style element for custom CSS keyframes */}
+                    <style>{`
+                        @keyframes zombie-walk {
+                            0% { transform: translateX(-65px); opacity: 0; }
+                            8% { opacity: 1; }
+                            18% { transform: translateX(-40px); }
+                            28% { transform: translateX(-40px); }
+                            38% { transform: translateX(-10px); }
+                            48% { transform: translateX(-10px); }
+                            58% { transform: translateX(20px); }
+                            68% { transform: translateX(20px); }
+                            78% { transform: translateX(45px); }
+                            88% { transform: translateX(45px); }
+                            96% { transform: translateX(65px); opacity: 1; }
+                            100% { transform: translateX(80px); opacity: 0; }
+                        }
+                        @keyframes zombie-bob {
+                            0%, 50%, 100% { transform: translateY(2px) rotate(-1.5deg); }
+                            25%, 75% { transform: translateY(-1.2px) rotate(1deg); }
+                            18%, 28%, 38%, 48%, 58%, 68%, 78%, 88% { transform: translateY(2px) rotate(-1.5deg); } /* Freeze during pauses */
+                        }
+                        @keyframes zombie-head {
+                            0%, 100% { transform: rotate(-5deg); }
+                            50% { transform: rotate(10deg); }
+                        }
+                        @keyframes zombie-left-arm {
+                            0%, 100% { transform: rotate(35deg); }
+                            9% { transform: rotate(10deg); }
+                            18% { transform: rotate(-15deg); }
+                            28% { transform: rotate(-15deg); } /* Freeze */
+                            33% { transform: rotate(10deg); }
+                            38% { transform: rotate(35deg); }
+                            48% { transform: rotate(35deg); } /* Freeze */
+                            53% { transform: rotate(10deg); }
+                            58% { transform: rotate(-15deg); }
+                            68% { transform: rotate(-15deg); } /* Freeze */
+                            73% { transform: rotate(10deg); }
+                            78% { transform: rotate(35deg); }
+                            88% { transform: rotate(35deg); } /* Freeze */
+                            94% { transform: rotate(10deg); }
+                        }
+                        @keyframes zombie-right-arm {
+                            0%, 100% { transform: rotate(-25deg); }
+                            9% { transform: rotate(0deg); }
+                            18% { transform: rotate(20deg); }
+                            28% { transform: rotate(20deg); } /* Freeze */
+                            33% { transform: rotate(0deg); }
+                            38% { transform: rotate(-25deg); }
+                            48% { transform: rotate(-25deg); } /* Freeze */
+                            53% { transform: rotate(0deg); }
+                            58% { transform: rotate(20deg); }
+                            68% { transform: rotate(20deg); } /* Freeze */
+                            73% { transform: rotate(0deg); }
+                            78% { transform: rotate(-25deg); }
+                            88% { transform: rotate(-25deg); } /* Freeze */
+                            94% { transform: rotate(0deg); }
+                        }
+                        @keyframes zombie-left-leg {
+                            0%, 100% { transform: rotate(16deg); }
+                            9% { transform: rotate(0deg); }
+                            18% { transform: rotate(-18deg); }
+                            28% { transform: rotate(-18deg); } /* Freeze */
+                            33% { transform: rotate(0deg); }
+                            38% { transform: rotate(16deg); }
+                            48% { transform: rotate(16deg); } /* Freeze */
+                            53% { transform: rotate(0deg); }
+                            58% { transform: rotate(-18deg); }
+                            68% { transform: rotate(-18deg); } /* Freeze */
+                            73% { transform: rotate(0deg); }
+                            78% { transform: rotate(16deg); }
+                            88% { transform: rotate(16deg); } /* Freeze */
+                            94% { transform: rotate(0deg); }
+                        }
+                        @keyframes zombie-right-leg {
+                            0%, 100% { transform: rotate(-18deg); }
+                            9% { transform: rotate(0deg); }
+                            18% { transform: rotate(16deg); }
+                            28% { transform: rotate(16deg); } /* Freeze */
+                            33% { transform: rotate(0deg); }
+                            38% { transform: rotate(-18deg); }
+                            48% { transform: rotate(-18deg); } /* Freeze */
+                            53% { transform: rotate(0deg); }
+                            58% { transform: rotate(16deg); }
+                            68% { transform: rotate(16deg); } /* Freeze */
+                            73% { transform: rotate(0deg); }
+                            78% { transform: rotate(-18deg); }
+                            88% { transform: rotate(-18deg); } /* Freeze */
+                            94% { transform: rotate(0deg); }
+                        }
+                        @keyframes eye-glow-pulse {
+                            0%, 100% { r: 1.2; fill: #ef4444; filter: drop-shadow(0 0 1px #ef4444); }
+                            50% { r: 1.8; fill: #f87171; filter: drop-shadow(0 0 4px #ff0000); }
+                        }
+                        @keyframes fog-scroll-left {
+                            0% { transform: translateX(-40px); }
+                            100% { transform: translateX(40px); }
+                        }
+                        @keyframes mist-float-up {
+                            0%, 100% { opacity: 0.12; transform: translateY(0px) scaleY(1); }
+                            50% { opacity: 0.28; transform: translateY(-3px) scaleY(1.1); }
+                        }
+                        @keyframes bat-fly-path {
+                            0% { transform: translate(-10px, 35px) scale(0.2); opacity: 0; }
+                            15% { opacity: 0.6; }
+                            85% { opacity: 0.6; }
+                            100% { transform: translate(110px, 15px) scale(0.6); opacity: 0; }
+                        }
+                    `}</style>
+
+                    {/* Radioactive green foggy background glow */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-emerald-500/10 blur-xl"></div>
+                    <div className="absolute top-8 left-8 w-24 h-24 rounded-full bg-purple-500/5 blur-2xl"></div>
+
+                    {/* SVG Container with 100x100 viewBox */}
+                    <svg className="absolute inset-0 w-full h-full text-slate-200" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <defs>
+                            {/* Sky gradient */}
+                            <linearGradient id="graveyardSky" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#020617" />
+                                <stop offset="60%" stopColor="#0f172a" />
+                                <stop offset="100%" stopColor="#064e3b" stopOpacity="0.5" />
+                            </linearGradient>
+                            {/* Spooky moon gradient */}
+                            <radialGradient id="spookyMoon" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stopColor="#ffffff" />
+                                <stop offset="70%" stopColor="#fef08a" stopOpacity="0.8" />
+                                <stop offset="100%" stopColor="#ca8a04" stopOpacity="0" />
+                            </radialGradient>
+                            {/* Green radioactive mist gradient */}
+                            <linearGradient id="spookyFog" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#10b981" stopOpacity="0" />
+                                <stop offset="100%" stopColor="#059669" stopOpacity="0.45" />
+                            </linearGradient>
+                        </defs>
+
+                        {/* Background sky */}
+                        <rect width="100" height="100" fill="url(#graveyardSky)" />
+
+                        {/* Spooky Moon */}
+                        <circle cx="78" cy="22" r="12" fill="url(#spookyMoon)" opacity="0.85" />
+
+                        {/* Flying Bat in the distance */}
+                        <g style={{ animation: 'bat-fly-path 12s infinite linear' }}>
+                            <path d="M 0,2 Q 4,-2 8,2 Q 12,-2 16,2 Q 8,5 0,2" fill="#090d16" />
+                        </g>
+
+                        {/* Spooky tree branches */}
+                        <path d="M0,0 Q18,8 35,4 T20,12" stroke="#0f172a" strokeWidth="2" fill="none" strokeLinecap="round" />
+                        <path d="M100,0 Q85,12 70,8 T82,18" stroke="#0f172a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+                        {/* Background Tombstones (Distant) */}
+                        <path d="M14,75 C14,66 22,66 22,75 L22,85 L14,85 Z" fill="#0f172a" />
+                        <path d="M80,77 C80,69 88,69 88,77 L88,85 L80,85 Z" fill="#0f172a" opacity="0.9" />
+
+                        {/* Walking Skeleton (emerging / walking from left to right - facing sideways right) */}
+                        <g style={{ animation: 'zombie-walk 14s infinite linear' }}>
+                            {/* Contact shadow underneath the feet, sliding horizontally but NOT bobbing vertically */}
+                            <ellipse cx="50" cy="88.5" rx="12" ry="1.2" fill="#000000" opacity="0.65" />
+
+                            <g style={{ animation: 'zombie-bob 14s infinite linear' }}>
+                                {/* Far Arm (Right arm, rendered in background with lowered opacity for depth) */}
+                                <g style={{ transformOrigin: '43px 27px', animation: 'zombie-right-arm 14s infinite linear' }}>
+                                    <line x1="43" y1="27" x2="52" y2="38" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" />
+                                    <line x1="52" y1="38" x2="65" y2="40" stroke="#94a3b8" strokeWidth="1.6" strokeLinecap="round" />
+                                    {/* Fingers */}
+                                    <line x1="65" y1="40" x2="71" y2="38" stroke="#64748b" strokeWidth="0.8" strokeLinecap="round" />
+                                    <line x1="65" y1="40" x2="72" y2="41" stroke="#64748b" strokeWidth="0.8" strokeLinecap="round" />
+                                    <line x1="65" y1="40" x2="70" y2="44" stroke="#64748b" strokeWidth="0.8" strokeLinecap="round" />
+                                </g>
+
+                                {/* Far Leg (Right leg, rendered in background with lowered opacity) */}
+                                <g style={{ transformOrigin: '52px 58px', animation: 'zombie-right-leg 14s infinite linear' }}>
+                                    <path d="M52,58 L55,75 L51,88 L58,89" stroke="#94a3b8" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                </g>
+
+                                {/* Hunched Spine (Side profile curve) */}
+                                <path d="M44,22 Q37,36 43,48 T50,58" stroke="#f8fafc" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+
+                                {/* Pelvis (Profile view) */}
+                                <path d="M47,56 C44,58 45,64 52,62 C56,60 54,57 50,57 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+
+                                {/* Ribcage wrapping around (Sideways loops) */}
+                                <path d="M40,30 Q51,28 50,34" stroke="#f8fafc" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.95" />
+                                <path d="M39,36 Q51,34 50,40" stroke="#f8fafc" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.95" />
+                                <path d="M40,42 Q50,40 49,46" stroke="#f8fafc" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.95" />
+                                <path d="M42,48 Q49,46 47,52" stroke="#f8fafc" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.95" />
+
+                                {/* Shoulder joint anchor */}
+                                <circle cx="43" cy="27" r="1.5" fill="#f8fafc" />
+
+                                {/* Skull (facing right with base-of-skull nodding animation) */}
+                                <g style={{ transformOrigin: '45px 22px', animation: 'zombie-head 3.2s infinite ease-in-out' }}>
+                                    {/* Cranium dome (left/back of skull) */}
+                                    <circle cx="45" cy="16" r="7.5" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+                                    {/* Face front structure (right-facing snout/brow) */}
+                                    <path d="M45,8.5 C51,8.5 53,10 53,15 L49,15 L50,19 L53,19 L52,22 L45,22 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.5" />
+                                    {/* Creepy eye socket */}
+                                    <ellipse cx="49" cy="14" rx="1.5" ry="2" fill="#020617" />
+                                    {/* Eerie glowing red pupil */}
+                                    <circle cx="49" cy="14" style={{ animation: 'eye-glow-pulse 1.6s infinite ease-in-out' }} />
+                                    {/* Nose socket */}
+                                    <polygon points="51,16 50,17.5 51.5,17.5" fill="#020617" />
+                                    {/* Jaw bone */}
+                                    <path d="M44,22 L44,25.5 Q48,27 51.5,24.5 L50,23 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.5" />
+                                </g>
+
+                                {/* Near Arm (Left arm, foreground, reaching forward) */}
+                                <g style={{ transformOrigin: '43px 27px', animation: 'zombie-left-arm 14s infinite linear' }}>
+                                    <line x1="43" y1="27" x2="56" y2="34" stroke="#f8fafc" strokeWidth="2.4" strokeLinecap="round" />
+                                    <line x1="56" y1="34" x2="68" y2="32" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
+                                    {/* Fingers */}
+                                    <line x1="68" y1="32" x2="74" y2="30" stroke="#cbd5e1" strokeWidth="0.8" strokeLinecap="round" />
+                                    <line x1="68" y1="32" x2="75" y2="33" stroke="#cbd5e1" strokeWidth="0.8" strokeLinecap="round" />
+                                    <line x1="68" y1="32" x2="73" y2="36" stroke="#cbd5e1" strokeWidth="0.8" strokeLinecap="round" />
+                                </g>
+
+                                {/* Near Leg (Left leg, foreground, walking) */}
+                                <g style={{ transformOrigin: '48px 58px', animation: 'zombie-left-leg 14s infinite linear' }}>
+                                    <path d="M48,58 L44,75 L48,88 L55,89" stroke="#f8fafc" strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                </g>
+                            </g>
+                        </g>
+
+                        {/* Foreground elements */}
+                        {/* Lowered Ground hill mound to show legs */}
+                        <path d="M-5,88 Q50,85 105,88 L105,100 L-5,100 Z" fill="#040705" stroke="#0a1410" strokeWidth="1" />
+
+                        {/* Foreground Tombstones (Lowered to sit on ground base) */}
+                        <path d="M28,92 C28,86 36,86 36,92 L36,99 L28,99 Z" fill="#0b0f0c" stroke="#14261d" strokeWidth="0.8" />
+                        <path d="M64,93 C64,87 72,87 72,93 L72,99 L64,99 Z" fill="#0b0f0c" stroke="#14261d" strokeWidth="0.8" />
+
+                        {/* Radioactive misty green fog drifting over the lowered graveyard floor */}
+                        <path 
+                            d="M-10,88 Q30,85 70,89 T110,87 L110,99 L-10,99 Z" 
+                            fill="url(#spookyFog)" 
+                            opacity="0.35" 
+                            style={{ animation: 'fog-scroll-left 14s infinite linear, mist-float-up 3.5s infinite ease-in-out' }} 
+                        />
                     </svg>
                 </div>
             );

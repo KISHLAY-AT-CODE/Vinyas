@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+
+const getISTISOString = (date = new Date()) => {
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + tzOffset);
+    return istDate.toISOString().replace('Z', '+05:30');
+};
 import { useToast } from './ToastContext';
 
 const PomodoroTimer = ({ data, syncId, onLogFocusTime }) => {
@@ -90,7 +96,7 @@ const PomodoroTimer = ({ data, syncId, onLogFocusTime }) => {
                                 durationMinutes: focusMinutes,
                                 pointsEarned: earnedXP
                             },
-                            timestamp: new Date().toISOString()
+                            timestamp: getISTISOString()
                         })
                     });
                 } catch (err) {

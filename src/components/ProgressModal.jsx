@@ -334,7 +334,7 @@ const ProgressModal = ({
                                                         {d.quizType || 'SCORE'}
                                                     </span>
                                                     <span className="text-[10px] text-slate-500 font-medium">
-                                                        {new Date(act.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        {new Date(act.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                     <i className="ph-bold ph-arrow-up-right text-slate-500 text-xs ml-auto"></i>
                                                 </div>
@@ -375,7 +375,7 @@ const ProgressModal = ({
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-100">{selectedActivity.details.quizType || 'Activity'} Details</h2>
-                                    <p className="text-sm text-slate-400 mt-1">{new Date(selectedActivity.timestamp).toLocaleString()}</p>
+                                    <p className="text-sm text-slate-400 mt-1">{new Date(selectedActivity.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
                                 </div>
                                 <button 
                                     onClick={() => setSelectedActivity(null)}
