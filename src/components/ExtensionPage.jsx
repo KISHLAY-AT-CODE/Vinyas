@@ -146,58 +146,106 @@ const ExtensionPage = ({ onBack }) => {
 
                 {/* Main Download & Action Panel */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12 items-start">
-                    {/* Left: Instant ZIP Bundle Downloader */}
-                    <div className="lg:col-span-1 bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between shadow-2xl relative overflow-hidden group hover:border-orange-500/20 transition-all duration-300">
-                        {/* Corner Glow */}
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-500/10 to-red-500/0 blur-xl group-hover:opacity-100 transition-opacity"></div>
-                        
-                        <div>
-                            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-5 shadow-inner shadow-orange-950/20">
-                                <i className="ph-fill ph-download-simple text-2xl animate-pulse"></i>
-                            </div>
-                            <h3 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors">
-                                Extension ZIP Bundle
-                            </h3>
-                            <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                                Install the companion tracker locally in a few quick steps. Secure, lightweight, and engineered entirely for students.
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-4">
-                            <div className="bg-slate-950/65 border border-slate-800/50 rounded-2xl p-4 space-y-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                <div className="flex justify-between">
-                                    <span>Version</span>
-                                    <span className="text-slate-350">1.0.0</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Format</span>
-                                    <span className="text-slate-350">Chrome ZIP</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>File Size</span>
-                                    <span className="text-slate-350">14.3 KB</span>
-                                </div>
-                            </div>
+                    {/* Left: Instant Downloader Column */}
+                    <div className="lg:col-span-1 space-y-6">
+                        {/* Chrome Extension Card */}
+                        <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between shadow-2xl relative overflow-hidden group hover:border-orange-500/20 transition-all duration-300">
+                            {/* Corner Glow */}
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-500/10 to-red-500/0 blur-xl group-hover:opacity-100 transition-opacity"></div>
                             
-                            <a 
-                                href="/Vinyas_Extension.zip" 
-                                download="Vinyas_Extension.zip"
-                                className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-red-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-orange-950/25 hover:shadow-orange-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
-                            >
-                                <span>Download ZIP Bundle</span>
-                                <i className="ph-bold ph-download-simple text-sm group-hover:translate-y-0.5 transition-transform"></i>
-                            </a>
+                            <div>
+                                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-5 shadow-inner shadow-orange-950/20">
+                                    <i className="ph-fill ph-download-simple text-2xl animate-pulse"></i>
+                                </div>
+                                <h3 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors">
+                                    Extension ZIP Bundle
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                                    Install the companion tracker locally in a few quick steps. Secure, lightweight, and engineered entirely for students.
+                                </p>
+                            </div>
 
-                            <a 
-                                href="https://github.com/KISHLAY-AT-CODE/Vinyas" 
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full py-3.5 bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 text-slate-450 hover:text-white font-extrabold rounded-xl shadow-inner transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
-                            >
-                                <i className="ph-bold ph-github-logo text-sm group-hover:rotate-12 transition-transform"></i>
-                                <span>View GitHub Repository</span>
-                            </a>
+                            <div className="mt-8 space-y-4">
+                                <div className="bg-slate-950/65 border border-slate-800/50 rounded-2xl p-4 space-y-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <div className="flex justify-between">
+                                        <span>Version</span>
+                                        <span className="text-slate-350">1.0.0</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Format</span>
+                                        <span className="text-slate-350">Chrome ZIP</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>File Size</span>
+                                        <span className="text-slate-350">14.3 KB</span>
+                                    </div>
+                                </div>
+                                
+                                <a 
+                                    href="/Vinyas_Extension.zip" 
+                                    download="Vinyas_Extension.zip"
+                                    className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-red-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-orange-950/25 hover:shadow-orange-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
+                                >
+                                    <span>Download ZIP Bundle</span>
+                                    <i className="ph-bold ph-download-simple text-sm group-hover:translate-y-0.5 transition-transform"></i>
+                                </a>
+                            </div>
                         </div>
+
+                        {/* Android APK Card */}
+                        <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between shadow-2xl relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+                            {/* Corner Glow */}
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 blur-xl group-hover:opacity-100 transition-opacity"></div>
+                            
+                            <div>
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 shadow-inner shadow-emerald-950/20">
+                                    <img src="/icon.svg" alt="Vinyas Logo" className="w-6 h-6 object-contain animate-pulse" />
+                                </div>
+                                <h3 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors">
+                                    Vinyas Android App
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                                    Track progress on the go. Synchronize watch hours, access syllabus details, and monitor achievements directly from your mobile.
+                                </p>
+                            </div>
+
+                            <div className="mt-8 space-y-4">
+                                <div className="bg-slate-950/65 border border-slate-800/50 rounded-2xl p-4 space-y-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <div className="flex justify-between">
+                                        <span>Version</span>
+                                        <span className="text-slate-350">1.0.0</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Format</span>
+                                        <span className="text-slate-350">Android APK</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>File Size</span>
+                                        <span className="text-slate-350">2.97 MB</span>
+                                    </div>
+                                </div>
+                                
+                                <a 
+                                    href="/Vinyas.apk" 
+                                    download="Vinyas.apk"
+                                    className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-950/25 hover:shadow-emerald-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
+                                >
+                                    <span>Download Android APK</span>
+                                    <i className="ph-bold ph-download-simple text-sm group-hover:translate-y-0.5 transition-transform"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* GitHub Button */}
+                        <a 
+                            href="https://github.com/KISHLAY-AT-CODE/Vinyas" 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3.5 bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 text-slate-450 hover:text-white font-extrabold rounded-xl shadow-inner transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
+                        >
+                            <i className="ph-bold ph-github-logo text-sm group-hover:rotate-12 transition-transform"></i>
+                            <span>View GitHub Repository</span>
+                        </a>
                     </div>
 
                     {/* Right: Dynamic Interactive Content Area */}
