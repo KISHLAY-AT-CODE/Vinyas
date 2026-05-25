@@ -1,6 +1,7 @@
 import { connectToDatabase } from './db.js';
 import { getISTISOString, getISTLogPrefix } from './timezone.js';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 function safeCompare(input, expected) {
   const inputBuffer = Buffer.from(input);
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, encryptedTelemetry } = req.body;
+      const { syncId: rawSyncId, encryptedTelemetry, bugSeverity, bugDesc, screenshot } = req.body;
       
       if (!rawSyncId || typeof rawSyncId !== 'string') {
         return res.status(400).json({ error: 'Invalid or missing syncId' });
@@ -85,6 +86,71 @@ export default async function handler(req, res) {
       };
 
       await collection.insertOne(telemetryRecord);
+
+      // SMTP Email dispatch to Developer
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+
+      if (smtpUser && smtpPass) {
+        try {
+          const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: smtpUser,
+              pass: smtpPass
+            }
+          });
+
+          const attachments = [];
+          if (screenshot && typeof screenshot === 'string') {
+            const match = screenshot.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (match) {
+              const ext = match[1];
+              const base64Data = match[2];
+              attachments.push({
+                filename: `screenshot.${ext}`,
+                content: Buffer.from(base64Data, 'base64')
+              });
+            }
+          }
+
+          const mailOptions = {
+            from: `"Vinyas Telemetry Portal" <${smtpUser}>`,
+            to: process.env.DEV_EMAIL,
+            subject: `🐞 Vinyas Digital Telemetry Bug Report [${bugSeverity || 'Medium'}]`,
+            html: `
+              <div style="font-family: sans-serif; background-color: #09090b; color: #f4f4f5; padding: 40px; border-radius: 16px; border: 1px solid #27272a; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #ef4444; font-size: 20px; font-weight: 900; margin-bottom: 20px; border-bottom: 1px solid #27272a; padding-bottom: 10px;">🐞 Vinyas Telemetry Bug Report</h2>
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #a1a1aa;">Sync ID:</strong> <code style="font-family: monospace; color: #f43f5e; background-color: #18181b; padding: 2px 6px; border-radius: 4px; border: 1px solid #27272a;">${syncId}</code>
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #a1a1aa;">Severity:</strong> <span style="font-weight: bold; color: ${bugSeverity === 'Critical' ? '#ef4444' : bugSeverity === 'High' ? '#f97316' : bugSeverity === 'Medium' ? '#eab308' : '#3b82f6'};">${bugSeverity || 'Medium'}</span>
+                </div>
+                <div style="margin-top: 20px; margin-bottom: 20px; background-color: #18181b; border: 1px solid #27272a; padding: 15px; border-radius: 10px;">
+                  <strong style="color: #a1a1aa; display: block; margin-bottom: 5px;">User Description:</strong>
+                  <p style="margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${bugDesc || 'No plain description provided'}</p>
+                </div>
+                <div style="margin-top: 20px;">
+                  <strong style="color: #a1a1aa; display: block; margin-bottom: 5px;">Encrypted Diagnostics Payload:</strong>
+                  <textarea readonly style="width: 100%; height: 120px; background-color: #18181b; border: 1px solid #27272a; color: #a1a1aa; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 8px; resize: none; outline: none;">${encryptedTelemetry}</textarea>
+                </div>
+                <p style="font-size: 11px; color: #52525b; margin-top: 30px; border-top: 1px solid #27272a; padding-top: 15px; text-align: center;">
+                  Vinyas Study Ecosystem • Automated Diagnostics Relay
+                </p>
+              </div>
+            `,
+            attachments
+          };
+
+          await transporter.sendMail(mailOptions);
+          console.log(`${getISTLogPrefix()} Telemetry mail dispatched successfully to dev for syncId: ${syncId} (attachments: ${attachments.length}).`);
+        } catch (emailError) {
+          console.error('[Vinyas Telemetry] Failed to dispatch telemetry SMTP mail:', emailError);
+        }
+      }
 
       return res.status(200).json({ success: true, message: 'Developer telemetry record saved successfully.' });
     }

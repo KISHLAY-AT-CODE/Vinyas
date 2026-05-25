@@ -50,21 +50,18 @@ const ModuleQuestionTrackerModal = ({
     customExerciseConfig = null,
     exerciseDisplayNames = null
 }) => {
-    if (!isOpen) return null;
-
-    // Normalization helper
     const normalizeSub = (sub) => {
-        const s = sub.toLowerCase().trim();
+        const s = (sub || '').toLowerCase().trim();
         if (s.includes('math')) return 'Maths';
         if (s.includes('phys')) return 'Physics';
         if (s.includes('chem')) return 'Chem';
-        return sub;
+        return sub || '';
     };
 
     const normalizedSubName = normalizeSub(subjectName);
     const isChapter1 = useMemo(() => {
         if (chapterIndex === 0) return true;
-        const c = chapterName.toLowerCase();
+        const c = (chapterName || '').toLowerCase();
         if (normalizedSubName === 'Maths' && c.includes('sets')) return true;
         if (normalizedSubName === 'Physics' && c.includes('units')) return true;
         if (normalizedSubName === 'Chem' && c.includes('mole')) return true;
@@ -76,8 +73,8 @@ const ModuleQuestionTrackerModal = ({
         if (customExerciseConfig && Object.keys(customExerciseConfig).length > 0) {
             return customExerciseConfig;
         }
-        return SUBJECT_TEMPLATES[normalizedSubName] || FALLBACK_TEMPLATE;
-    }, [customExerciseConfig, normalizedSubName]);
+        return null;
+    }, [customExerciseConfig]);
 
     // Local State
     const [localProgress, setLocalProgress] = useState({});
@@ -118,16 +115,18 @@ const ModuleQuestionTrackerModal = ({
         let difficult = 0;
         let later = 0;
 
-        Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
-            total += qCount;
-            for (let q = 1; q <= qCount; q++) {
-                const key = getQuestionKey(exName, q);
-                const state = localProgress[key];
-                if (state === 'completed') completed++;
-                else if (state === 'difficult') difficult++;
-                else if (state === 'later') later++;
-            }
-        });
+        if (exercisesConfig) {
+            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                total += qCount;
+                for (let q = 1; q <= qCount; q++) {
+                    const key = getQuestionKey(exName, q);
+                    const state = localProgress[key];
+                    if (state === 'completed') completed++;
+                    else if (state === 'difficult') difficult++;
+                    else if (state === 'later') later++;
+                }
+            });
+        }
 
         const calculatedComp = total > 0 ? Math.round((completed / total) * 100) : 0;
         const totalTracked = completed + difficult + later;
@@ -173,6 +172,8 @@ const ModuleQuestionTrackerModal = ({
         showToast("Progress and accuracy locked in successfully!", "success");
         onClose();
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md overflow-hidden animate-fade-in">
@@ -300,7 +301,28 @@ const ModuleQuestionTrackerModal = ({
                     </div>
 
                     {/* Exercises Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300 opacity-100">
+                    {!exercisesConfig ? (
+                        <div className="bg-slate-900/50 border border-slate-700/60 rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px] animate-fadeIn shadow-inner w-full md:col-span-2">
+                            <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 mb-4 text-3xl shadow-md">
+                                📭
+                            </div>
+                            <h4 className="text-lg font-bold text-slate-200 mb-2">
+                                Nothing to see here
+                            </h4>
+                            <p className="text-xs text-slate-400 max-w-sm leading-relaxed mb-6">
+                                The module question template is currently empty. Open the PW book specific module exercise page in your browser with the Vinyas extension active to automatically discover and sync the questions!
+                            </p>
+                            <a 
+                                href="https://books.pw.live" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                            >
+                                <i className="ph-bold ph-book-open"></i> Go to PW Books
+                            </a>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300 opacity-100">
                         {Object.entries(exercisesConfig).map(([exName, qCount]) => {
                             // Calculate completed questions for this exercise
                             let doneInExercise = 0;
@@ -355,7 +377,8 @@ const ModuleQuestionTrackerModal = ({
                                 </div>
                             );
                         })}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}

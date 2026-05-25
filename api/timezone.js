@@ -29,3 +29,13 @@ export function getISTLogPrefix() {
   });
   return `[${formatter.format(now)} IST]`;
 }
+
+export function getISTCalendarDaysDifference(date1, date2) {
+  const d1Str = getISTDateStringYYYYMMDD(date1);
+  const d2Str = getISTDateStringYYYYMMDD(date2);
+  const d1 = new Date(d1Str + 'T00:00:00+05:30');
+  const d2 = new Date(d2Str + 'T00:00:00+05:30');
+  const diffMs = d2.getTime() - d1.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+

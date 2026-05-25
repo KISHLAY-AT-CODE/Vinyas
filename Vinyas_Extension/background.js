@@ -50,6 +50,40 @@ function isValidApiUrl(urlStr) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "checkUrl") {
+        const { syncId, apiUrl, url } = message.data;
+
+        if (!syncId || !apiUrl) {
+            console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for checkUrl");
+            sendResponse({ exists: false, error: "Missing Sync ID or API URL" });
+            return true;
+        }
+
+        if (!isValidApiUrl(apiUrl)) {
+            console.error("[Vinyas Tracker Background] Blocked invalid or unsafe API URL for checkUrl:", apiUrl);
+            sendResponse({ exists: false, error: "Invalid or unsafe API URL" });
+            return true;
+        }
+
+        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkUrl=${encodeURIComponent(url)}`)
+        .then(async response => {
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(errText || `HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            sendResponse({ exists: !!data.exists });
+        })
+        .catch(err => {
+            console.error("[Vinyas Tracker Background] Error checking URL existence:", err);
+            sendResponse({ exists: false, error: err.message });
+        });
+
+        return true; // Handle asynchronously
+    }
+
     if (message.action === "logActivity") {
         const { syncId, apiUrl, type, details } = message.data;
 
@@ -97,5 +131,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Return true to indicate we will handle it asynchronously
         return true; 
+    }
+
+    if (message.action === "clearExtensionStorage") {
+        chrome.storage.local.clear(() => {
+            console.log("[Vinyas Tracker Background] Extension local storage cleared successfully.");
+            sendResponse({ success: true });
+        });
+        return true;
     }
 });

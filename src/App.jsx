@@ -76,7 +76,7 @@ const getISTLocaleString = (date = new Date(), options = {}) => {
 // Utility: normalize chapter names to handle plurals, special chars, and minor variations
 const normalizeChapterName = (name) => {
     if (!name) return "";
-    return name
+    const normalized = name
         .toLowerCase()
         .replace(/&/g, ' and ') // replace & with 'and'
         .replace(/[^a-z0-9\s]/g, ' ') // replace special characters with spaces
@@ -90,22 +90,67 @@ const normalizeChapterName = (name) => {
         })
         .filter(Boolean)
         .join(' ');
+
+    const CHAPTER_SYNONYMS = {
+        "atomic structure": "structure of atom",
+        "structure of atoms": "structure of atom",
+        "structure of atom": "structure of atom",
+        "periodic table": "classification of elements and periodicity in properties",
+        "periodicity in properties": "classification of elements and periodicity in properties",
+        "periodicity in propertie": "classification of elements and periodicity in properties",
+        "periodic classification": "classification of elements and periodicity in properties",
+        "chemical bonding": "chemical bonding and molecular structure",
+        "goc": "organic chemistry some basic principles and techniques",
+        "general organic chemistry": "organic chemistry some basic principles and techniques",
+        "organic chemistry basic principles": "organic chemistry some basic principles and techniques"
+    };
+
+    if (CHAPTER_SYNONYMS[normalized]) {
+        return CHAPTER_SYNONYMS[normalized];
+    }
+    return normalized;
 };
 
 // Utility: fuzzy-match a search string against all chapter names in the syllabus
 const findChapterByName = (data, searchName) => {
-    if (!searchName) return null;
+    if (!data || !Array.isArray(data) || !searchName) return null;
     const qNormalized = normalizeChapterName(searchName);
     if (!qNormalized) return null;
     
+    // Priority 1: Exact normalized match
     for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
         for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
             const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
-            if (chNameNormalized.length > 2 && (chNameNormalized.includes(qNormalized) || qNormalized.includes(chNameNormalized))) {
+            if (chNameNormalized === qNormalized) {
                 return { sIdx, cIdx };
             }
         }
     }
+    
+    // Priority 2: Collect substring/fuzzy matches and return the one with the longest normalized name (most specific)
+    const candidates = [];
+    for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
+        for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
+            const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
+            if (chNameNormalized.length > 2 && (chNameNormalized.includes(qNormalized) || qNormalized.includes(chNameNormalized))) {
+                candidates.push({
+                    sIdx,
+                    cIdx,
+                    length: chNameNormalized.length
+                });
+            }
+        }
+    }
+    
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => b.length - a.length);
+        return { sIdx: candidates[0].sIdx, cIdx: candidates[0].cIdx };
+    }
+    
     return null;
 };
 
@@ -306,11 +351,18 @@ const App = () => {
     // Unresolved Submissions State
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
 
+    // Change Log & Bug Report Modals States
+    const [changeLogOpen, setChangeLogOpen] = useState(false);
+    const [bugReportOpen, setBugReportOpen] = useState(false);
+
     // SPA Routing
     const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
     useEffect(() => {
-        const handlePopState = () => setCurrentPath(window.location.pathname);
+        const handlePopState = () => {
+            setCurrentPath(window.location.pathname);
+            setBugReportOpen(false);
+        };
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
@@ -555,29 +607,42 @@ const App = () => {
 
         activities.forEach(act => {
             if (act.type === 'PW_BOOKS_QUESTIONS') {
-                if (nextResolvedIds.includes(act.id)) return;
-
                 const details = act.details || {};
                 const chapterSearch = details.chapterName;
+                
                 if (!chapterSearch) {
-                    nextResolvedIds.push(act.id);
-                    resolvedIdsUpdated = true;
+                    if (!nextResolvedIds.includes(act.id)) {
+                        nextResolvedIds.push(act.id);
+                        resolvedIdsUpdated = true;
+                    }
                     return;
                 }
 
                 const match = findChapterByName(nextData, chapterSearch);
+                
                 if (match) {
                     const { sIdx, cIdx } = match;
-                    const ch = { ...nextData[sIdx].chapters[cIdx] };
-                    ch.customExerciseConfig = details.exercises;
-                    ch.exerciseDisplayNames = details.displayNames;
+                    const ch = nextData[sIdx].chapters[cIdx];
+                    
+                    // Force update if config is missing in syllabus or if it hasn't been resolved yet
+                    const hasConfig = ch.customExerciseConfig && Object.keys(ch.customExerciseConfig).length > 0;
+                    const isAlreadyResolved = nextResolvedIds.includes(act.id);
+                    
+                    if (!hasConfig || !isAlreadyResolved) {
+                        const updatedCh = { 
+                            ...ch,
+                            customExerciseConfig: details.exercises,
+                            exerciseDisplayNames: details.displayNames
+                        };
+                        nextData[sIdx] = { ...nextData[sIdx], chapters: [...nextData[sIdx].chapters] };
+                        nextData[sIdx].chapters[cIdx] = updatedCh;
+                        syllabusUpdated = true;
 
-                    nextData[sIdx] = { ...nextData[sIdx], chapters: [...nextData[sIdx].chapters] };
-                    nextData[sIdx].chapters[cIdx] = ch;
-                    syllabusUpdated = true;
-
-                    nextResolvedIds.push(act.id);
-                    resolvedIdsUpdated = true;
+                        if (!isAlreadyResolved) {
+                            nextResolvedIds.push(act.id);
+                            resolvedIdsUpdated = true;
+                        }
+                    }
                 }
                 return;
             }
@@ -713,7 +778,6 @@ const App = () => {
                 
                 if (!response.ok) throw new Error('Failed to save data');
                 const resData = await response.json();
-                console.log("Saved to MongoDB (Debounced)");
                 logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
 
                 handleSaveResponse(resData);
@@ -1037,10 +1101,20 @@ const App = () => {
         );
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('vinyasBitsatSyncId');
-        localStorage.removeItem('vinyasUserName');
-        localStorage.removeItem('vinyasCohort');
+    const handleLogout = async () => {
+        if (syncId) {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ syncId })
+                });
+            } catch (err) {
+                console.error("Failed to notify backend on logout:", err);
+            }
+        }
+        localStorage.clear();
+        window.postMessage({ type: 'VINYAS_LOGOUT_EVENT' }, '*');
         setSyncId('');
         setUserName('');
         setCohort('BITSAT');
@@ -1049,6 +1123,9 @@ const App = () => {
         setData([...initialSyllabus]);
         setRoutines([]);
         setTestLogs([]);
+        setActiveProgressChapter(null);
+        setActiveModuleTracker(null);
+        setProgressModalOpen(false);
         showToast("Logged out successfully.", "success");
     };
 
@@ -1062,9 +1139,8 @@ const App = () => {
                         method: 'DELETE'
                     });
                     if (response.ok) {
-                        localStorage.removeItem('vinyasBitsatSyncId');
-                        localStorage.removeItem('vinyasUserName');
-                        localStorage.removeItem('vinyasCohort');
+                        localStorage.clear();
+                        window.postMessage({ type: 'VINYAS_LOGOUT_EVENT' }, '*');
                         setSyncId('');
                         setUserName('');
                         setCohort('BITSAT');
@@ -1073,6 +1149,9 @@ const App = () => {
                         setData([...initialSyllabus]);
                         setRoutines([]);
                         setTestLogs([]);
+                        setActiveProgressChapter(null);
+                        setActiveModuleTracker(null);
+                        setProgressModalOpen(false);
                         showToast("Account deleted and reset successfully.", "success");
                     } else {
                         throw new Error("Failed to delete account from server.");
@@ -1238,29 +1317,61 @@ const App = () => {
         });
     };
 
-    const handleDiscardGoal = (goalId) => {
-        const newDismissed = [...dismissedGoalIds, goalId];
-        setDismissedGoalIds(newDismissed);
-        localStorage.setItem('vinyasDismissedGoals', JSON.stringify(newDismissed));
+    const handleDiscardGoal = (goalId, hasDpp = false) => {
+        let newDismissed = [...dismissedGoalIds];
+        if (goalId.startsWith('lecture_') || goalId.startsWith('dpp_')) {
+            newDismissed.push(goalId);
+        } else {
+            const baseKey = goalId;
+            newDismissed.push(`lecture_${baseKey}`);
+            if (hasDpp) {
+                newDismissed.push(`dpp_${baseKey}`);
+            }
+        }
+        const uniqueDismissed = Array.from(new Set(newDismissed));
+        setDismissedGoalIds(uniqueDismissed);
+        localStorage.setItem('vinyasDismissedGoals', JSON.stringify(uniqueDismissed));
     };
 
-    const handleSaveGoal = (goal) => {
+    const handleSaveGoal = (goal, includeLecture, includeDpp) => {
+        const baseKey = goal.id;
+        
+        if (includeLecture) {
+            saveSingleGoal({
+                ...goal,
+                id: `lecture_${baseKey}`,
+                goalType: 'Lecture'
+            });
+        } else {
+            handleDiscardGoal(`lecture_${baseKey}`);
+        }
+        
+        if (goal.hasDpp && includeDpp) {
+            saveSingleGoal({
+                ...goal,
+                id: `dpp_${baseKey}`,
+                goalType: 'DPP'
+            });
+        } else if (goal.hasDpp) {
+            handleDiscardGoal(`dpp_${baseKey}`);
+        }
+    };
+    
+    const saveSingleGoal = (goal) => {
         let detectedName = goal.title;
         const match = findChapterByName(data, goal.title);
         
         if (match) {
             detectedName = data[match.sIdx].chapters[match.cIdx].name;
         } else {
-            // Fallback: strip the prefix to clean up the raw title
             detectedName = goal.title.replace(/(?:Lec|Lecture|DPP|Ch)[\s-]*\d+[\s-:]*/i, '').trim();
         }
 
-        // Extract the number
         const numberMatch = goal.title.match(/\d+/);
         let finalChapterName = detectedName;
         
         if (numberMatch) {
-            const num = numberMatch[0].padStart(2, '0'); // ensure '01', '05'
+            const num = numberMatch[0].padStart(2, '0');
             const prefix = goal.goalType === 'DPP' ? 'DPP' : 'Lec';
             finalChapterName = `${detectedName} (${prefix} ${num})`;
         }
@@ -1270,15 +1381,19 @@ const App = () => {
             task: `${goal.subject} - ${finalChapterName}`,
             type: 'routine',
             goalType: goal.goalType,
-            chapterTitle: goal.title, // keep original for logic mapping
+            chapterTitle: goal.title,
             subjectName: goal.subject,
             chapterName: finalChapterName,
             template: goal.goalType === 'DPP' ? 'DPP' : 'Lecture',
             done: false
         };
-        if (!routines.find(r => r.id === newRoutine.id)) {
-            setRoutines(prev => [...prev, newRoutine]);
-        }
+        
+        setRoutines(prev => {
+            if (!prev.find(r => r.id === newRoutine.id)) {
+                return [...prev, newRoutine];
+            }
+            return prev;
+        });
         handleDiscardGoal(goal.id);
     };
 
@@ -1291,27 +1406,42 @@ const App = () => {
             if (act.type === 'STUDY_GOALS') {
                 const actDate = getISTDateStringYYYYMMDD(new Date(act.timestamp));
                 if (actDate === today) {
+                    const baseKey = `${act.details.subject}_${act.details.title}`.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
                     const uniqueKey = `${act.details.subject}-${act.details.title}`;
+                    
                     if (!seenKeys.has(uniqueKey)) {
                         seenKeys.add(uniqueKey);
                         
-                        const lectureId = act.id + '_lecture';
-                        if (!dismissedGoalIds.includes(lectureId)) {
-                            goals.push({ ...act.details, id: lectureId, parentId: act.id, goalType: 'Lecture' });
-                        }
+                        const lectureId = `lecture_${baseKey}`;
+                        const dppId = `dpp_${baseKey}`;
                         
-                        if (act.details.dppStatus === 'DPP will be provided') {
-                            const dppId = act.id + '_dpp';
-                            if (!dismissedGoalIds.includes(dppId)) {
-                                goals.push({ ...act.details, id: dppId, parentId: act.id, goalType: 'DPP' });
-                            }
+                        const isLectureDismissed = dismissedGoalIds.includes(lectureId);
+                        const isDppDismissed = dismissedGoalIds.includes(dppId);
+                        
+                        const isLectureAdded = routines.some(r => r.id === `goal_${lectureId}` || (r.subjectName === act.details.subject && r.goalType === 'Lecture' && r.chapterTitle === act.details.title));
+                        const isDppAdded = routines.some(r => r.id === `goal_${dppId}` || (r.subjectName === act.details.subject && r.goalType === 'DPP' && r.chapterTitle === act.details.title));
+                        
+                        const hasDpp = act.details.dppStatus === 'DPP will be provided';
+                        
+                        const suggestLecture = !isLectureDismissed && !isLectureAdded;
+                        const suggestDpp = hasDpp && !isDppDismissed && !isDppAdded;
+                        
+                        if (suggestLecture || suggestDpp) {
+                            goals.push({
+                                ...act.details,
+                                id: baseKey,
+                                parentId: act.id,
+                                hasDpp,
+                                suggestLecture,
+                                suggestDpp
+                            });
                         }
                     }
                 }
             }
         });
         return goals;
-    }, [activities, dismissedGoalIds]);
+    }, [activities, dismissedGoalIds, routines]);
 
     const daysLeft = useMemo(() => {
         const diff = new Date(targetDate) - new Date();
@@ -1512,6 +1642,21 @@ const App = () => {
                         const dateStr = getISTDateString(new Date(act.timestamp));
                         const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
                         newChapter.log = newChapter.log ? `${newChapter.log}\n\n${logEntry}` : logEntry;
+                    } else if (actSection === 'module') {
+                        newChapter.moduleLogs = { ...(newChapter.moduleLogs || {}) };
+                        newChapter.moduleLogs[act.id] = { 
+                            comp: Math.round(act.details.completion || 0), 
+                            acc: Math.round(act.details.accuracy || 0) 
+                        };
+                        
+                        const values = Object.values(newChapter.moduleLogs);
+                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+                        newChapter.module = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
+
+                        const dateStr = getISTDateString(new Date(act.timestamp));
+                        const logEntry = `[${dateStr} - Module: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
+                        newChapter.log = newChapter.log ? `${newChapter.log}\n\n${logEntry}` : logEntry;
                     } else {
                         newChapter[actSection] = {
                             comp: Math.max(newChapter[actSection]?.comp || 0, Math.round(act.details.completion || 0)),
@@ -1596,6 +1741,21 @@ const App = () => {
 
                         const dateStr = getISTDateString(new Date(act.timestamp));
                         const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
+                        ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
+                    } else if (actSection === 'module') {
+                        ch.moduleLogs = { ...(ch.moduleLogs || {}) };
+                        ch.moduleLogs[act.id] = { 
+                            comp: Math.round(act.details.completion || 0), 
+                            acc: Math.round(act.details.accuracy || 0) 
+                        };
+                        
+                        const values = Object.values(ch.moduleLogs);
+                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+                        ch.module = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
+
+                        const dateStr = getISTDateString(new Date(act.timestamp));
+                        const logEntry = `[${dateStr} - Module: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
                         ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
                     } else {
                         ch[actSection] = {
@@ -2049,6 +2209,7 @@ const App = () => {
                 onDeleteAccount={handleDeleteAccount}
                 onNavigateToExtension={() => navigate('/extension')}
                 onOpenBackupSettings={() => setBackupSettingsOpen(true)}
+                onOpenChangeLog={() => setChangeLogOpen(true)}
             />
 
             {/* Standard Search Bar */}
@@ -2164,44 +2325,29 @@ const App = () => {
                 activeRoutineIndex={activeRoutineIndex}
             />
 
-            <Modals 
-                routineModalType={routineModalType}
-                closeRoutineModal={closeRoutineModal}
-                selectedInorganicChapter={selectedInorganicChapter}
-                inorganicChapterInput={inorganicChapterInput}
-                setInorganicChapterInput={setInorganicChapterInput}
-                inorganicSearchResults={inorganicSearchResults}
-                setSelectedInorganicChapter={setSelectedInorganicChapter}
-                routineLogInput={routineLogInput}
-                setRoutineLogInput={setRoutineLogInput}
-                saveInorganicRoutineLog={saveInorganicRoutineLog}
-                saveTestLog={saveTestLog}
-                logModalOpen={logModalOpen}
-                activeLog={activeLog}
-                setActiveLog={setActiveLog}
-                saveLog={saveLog}
-                setLogModalOpen={setLogModalOpen}
-                currentLevel={currentLevel}
-            />
+
 
             <ProgressModal 
                 isOpen={progressModalOpen}
                 onClose={() => setProgressModalOpen(false)}
-                chapterData={activeProgressChapter ? data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx] : null}
-                chapterName={activeProgressChapter ? data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx].name : ''}
+                chapterData={activeProgressChapter && data && data[activeProgressChapter.sIdx] && data[activeProgressChapter.sIdx].chapters ? data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx] : null}
+                chapterName={activeProgressChapter && data && data[activeProgressChapter.sIdx] && data[activeProgressChapter.sIdx].chapters && data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx] ? data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx].name : ''}
                 onSave={handleSaveProgress}
                 activities={activities}
                 onOpenTracker={() => {
-                    if (!activeProgressChapter) return;
+                    if (!activeProgressChapter || !data || !data[activeProgressChapter.sIdx]) return;
                     const { sIdx, cIdx } = activeProgressChapter;
+                    const subject = data[sIdx];
+                    const chapter = subject.chapters && subject.chapters[cIdx];
+                    if (!chapter) return;
                     setActiveModuleTracker({
                         sIdx,
                         cIdx,
-                        subjectName: data[sIdx].name,
-                        chapterName: data[sIdx].chapters[cIdx].name,
+                        subjectName: subject.name,
+                        chapterName: chapter.name,
                         chapterIndex: cIdx,
-                        currentModuleComp: data[sIdx].chapters[cIdx].module?.comp || 0,
-                        currentModuleAcc: data[sIdx].chapters[cIdx].module?.acc || 0
+                        currentModuleComp: chapter.module?.comp || 0,
+                        currentModuleAcc: chapter.module?.acc || 0
                     });
                 }}
             />
@@ -2214,9 +2360,9 @@ const App = () => {
                 chapterIndex={activeModuleTracker ? activeModuleTracker.chapterIndex : 0}
                 currentModuleComp={activeModuleTracker ? activeModuleTracker.currentModuleComp : 0}
                 currentModuleAcc={activeModuleTracker ? activeModuleTracker.currentModuleAcc : 0}
-                questionStates={activeModuleTracker ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].moduleQuestionStates || {}) : {}}
-                customExerciseConfig={activeModuleTracker ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].customExerciseConfig || null) : null}
-                exerciseDisplayNames={activeModuleTracker ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].exerciseDisplayNames || null) : null}
+                questionStates={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].moduleQuestionStates || {}) : {}}
+                customExerciseConfig={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].customExerciseConfig || null) : null}
+                exerciseDisplayNames={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].exerciseDisplayNames || null) : null}
                 onSaveProgress={({ comp, acc, questionStates }) => {
                     if (!activeModuleTracker) return;
                     const { sIdx, cIdx } = activeModuleTracker;
@@ -2255,6 +2401,26 @@ const App = () => {
                     if (resourceNum) {
                         const currentLog = chapter.log || '';
                         const newLog = currentLog ? `${currentLog}\n\n[${getISTDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%` : `[${getISTDateString()} - DPP #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%`;
+                        handleUpdate(sIdx, cIdx, 'log', newLog);
+                    }
+                }}
+                onLogModule={(sIdx, cIdx, comp, acc, resourceNum) => { 
+                    const chapter = data[sIdx].chapters[cIdx];
+                    const newLogs = { ...(chapter.moduleLogs || {}) };
+                    const resId = resourceNum ? String(resourceNum) : Date.now().toString();
+                    newLogs[resId] = { comp, acc };
+                    
+                    const values = Object.values(newLogs);
+                    const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                    const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+
+                    handleUpdate(sIdx, cIdx, 'moduleLogs', newLogs);
+                    handleNestedUpdate(sIdx, cIdx, 'module', 'comp', Math.round(avgComp)); 
+                    handleNestedUpdate(sIdx, cIdx, 'module', 'acc', Math.round(avgAcc)); 
+                    
+                    if (resourceNum) {
+                        const currentLog = chapter.log || '';
+                        const newLog = currentLog ? `${currentLog}\n\n[${getISTDateString()} - Module #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%` : `[${getISTDateString()} - Module #${resourceNum}]\nCompletion: ${comp}%, Accuracy: ${acc}%`;
                         handleUpdate(sIdx, cIdx, 'log', newLog);
                     }
                 }}
@@ -2312,19 +2478,48 @@ const App = () => {
             ) : currentPath === '/console' ? (
                 <ActivityConsole 
                     isOpen={true}
-                    onClose={() => navigate('/')}
+                    onClose={() => {
+                        setBugReportOpen(false);
+                        navigate('/');
+                    }}
                     syncId={syncId}
                     activities={activities}
                     isPolling={isPollingActivities}
                     pollActivities={pollActivities}
                     lastFetchTime={lastActivitiesFetchTime}
                     requestConfirm={requestConfirm}
+                    onOpenBugReport={() => setBugReportOpen(true)}
                 />
             ) : currentPath === '/extension' ? (
                 <ExtensionPage 
                     onBack={() => navigate('/')}
                 />
             ) : null}
+
+            <Modals 
+                routineModalType={routineModalType}
+                closeRoutineModal={closeRoutineModal}
+                selectedInorganicChapter={selectedInorganicChapter}
+                inorganicChapterInput={inorganicChapterInput}
+                setInorganicChapterInput={setInorganicChapterInput}
+                inorganicSearchResults={inorganicSearchResults}
+                setSelectedInorganicChapter={setSelectedInorganicChapter}
+                routineLogInput={routineLogInput}
+                setRoutineLogInput={setRoutineLogInput}
+                saveInorganicRoutineLog={saveInorganicRoutineLog}
+                saveTestLog={saveTestLog}
+                logModalOpen={logModalOpen}
+                activeLog={activeLog}
+                setActiveLog={setActiveLog}
+                saveLog={saveLog}
+                setLogModalOpen={setLogModalOpen}
+                currentLevel={currentLevel}
+                changeLogOpen={changeLogOpen}
+                setChangeLogOpen={setChangeLogOpen}
+                bugReportOpen={bugReportOpen}
+                setBugReportOpen={setBugReportOpen}
+                syncId={syncId}
+            />
 
             <ConfirmationModal 
                 isOpen={confirmModal.isOpen}
@@ -2345,6 +2540,7 @@ const App = () => {
                     requestConfirm={requestConfirm}
                     email={email}
                     onSendTestBackupMail={handleSendTestBackupMail}
+                    onLogout={handleLogout}
                 />
             )}
         </div>

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.2.0-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -34,7 +34,7 @@ Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition 
 A lightweight Manifest V3 browser extension that seamlessly intercepts learning statistics—video watch sessions, textbook exercise layouts, and DPP accuracy—from PW platforms, syncing them in real-time to the MongoDB database. Features **1-Click Auto-Pair** with your dashboard for instant setup.
 
 ### 🏆 Gamified Dashboard
-Features an XP-based leveling system, automatic study **streak tracking** with a visual calendar heatmap, a **Pomodoro focus timer**, **spaced-repetition flashcard decks**, customized daily goals, and **13+ unlockable achievements** (Night Owl, DPP Sniper, Sleeping Beauty, and more) to keep students motivated.
+Features an XP-based leveling system, automatic study **streak tracking** with a visual calendar heatmap, a **Pomodoro focus timer**, **spaced-repetition revision scheduler**, customized daily goals, and unlockable achievements to keep students motivated.
 
 ### 📊 Interactive Syllabus Matrix
 Tracks syllabus progress by subject, displaying chapter status (`Todo` | `Doing` | `Done`), personal log entries, DPP averages, and detailed progress/accuracy percentages on exercise modules. Includes a rich **Progress Modal** with per-DPP breakdowns and an interactive **Module Question Tracker**.
@@ -48,8 +48,17 @@ Features a **load-balanced API routing** system cycling through up to **20 Googl
 ### 📟 Diagnostics Console
 An interactive retro-terminal panel accessible at `/console`, displaying live sync streams, Chrome Extension intercept feeds, database write logs, and security-redacted payload dumps. Features real-time event logging with severity levels.
 
+### 🐞 Diagnostics & Bug Reporter
+Exposes a secure diagnostics panel and bug reporting tool. In case of issues, students can upload a description along with a screenshot (under 2MB). The system automatically packages OS specs, Sync IDs, and recent local logs into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay without ever storing the image or raw details on Vercel's server disk or inside MongoDB.
+
 ### 🛡️ Encrypted Auto-Backups
 A robust **client-side encrypted** (AES-256-GCM + PBKDF2) automated weekly backup system via Vercel Cron that safely emails your entire syllabus database bundle to your inbox every Sunday. The mailed `.json` file is secure even if your email is compromised—decryption requires your private Sync ID.
+
+### 🔒 Inactivity & Privacy Lifecycle
+To preserve backend database resources and keep user profiles secure, Vinyas enforces a strict inactivity cleanup protocol calculated in the India Standard Time (IST) calendar timezone:
+- **5-Day Inactivity Warning**: If a profile remains logged out for 5 calendar days, and an automated backup email was configured, a high-priority orange-alert warning email is sent.
+- **6-Day Automatic Purge**: If a user is inactive for 6 consecutive calendar days, their profile is permanently deleted from MongoDB, and client session states (including extension local storage) are automatically reset.
+- **Instant Activity Reset**: Performing any dashboard interaction (fetching data, logging study records, or syncing) immediately resets the inactivity tracker.
 
 ### 📱 Android Companion
 Includes a compiled **Android APK** (`Vinyas.apk`) for study progress tracking directly on your mobile device.
@@ -64,10 +73,10 @@ A fast overlay search system to instantly locate any chapter across all subjects
 Designed using curated HSL dark-mode palettes, smooth gradients, subtle micro-animations, glassmorphism panels, **Outfit** font family, custom **Phosphor Icons**, and a premium Toast Notification interface with full-screen animated achievement celebrations.
 
 ### ⚙️ Session Settings
-Control your sync profile with a rotating gear Settings menu supporting: **Export/Import** data (client-side encrypted JSON bundles), **Backup Settings** configuration, session **Logout**, and permanent account **Delete**.
+Control your sync profile with a rotating gear Settings menu supporting: **Export/Import** data (client-side encrypted JSON bundles), **Backup Settings** configuration, session **Logout** (which triggers local and browser extension storage cleanup), and permanent account **Delete**.
 
 ### 🔧 Developer Sandbox
-A localhost-only **DevTools Overlay** panel for simulating DPP/Module submissions, triggering achievement toast notifications, testing encrypted email dispatch, toggling log redaction bypass, and performing database operations.
+A localhost-only **DevTools Overlay** panel for simulating DPP/Module submissions, testing inactivity alerts/purges, triggering achievement toast notifications, testing encrypted email dispatch, toggling log redaction bypass, and performing database operations.
 
 ---
 
@@ -119,9 +128,11 @@ Vinyas/
 │   ├── gemini.js               # AI gateway with multi-key load balancing
 │   ├── templates.js            # Exam syllabus template server
 │   ├── achievements_config.js  # Server-side achievement evaluation engine
-│   ├── cron-backup.js          # Vercel Cron: weekly encrypted email backups
+│   ├── cron-backup.js          # Vercel Cron: weekly backups & inactivity checks
 │   ├── test-backup-mail.js     # Manual backup email trigger
 │   ├── telemetry.js            # Diagnostics console telemetry endpoint
+│   ├── logout.js               # Session logout activity logger
+│   ├── test-inactivity.js      # Developer inactivity simulation suite
 │   ├── db.js                   # MongoDB connection pooling
 │   └── timezone.js             # IST timezone utility
 ├── src/                        # React frontend application
@@ -267,25 +278,9 @@ Vinyas is designed with student privacy as a core priority:
 
 ## 🏅 Achievements System
 
-Vinyas features **13 server-evaluated achievements** that unlock dynamically based on your study patterns:
-
-| Achievement | Trigger |
-|---|---|
-| 🚀 Syllabus Starter | Begin progress on any chapter or DPP |
-| 🎯 First Strike | Log your first mock test or practice log |
-| 🏆 Mock Master | Log 5+ mock tests or practice logs |
-| 🦉 Night Owl | Study between 12 AM – 4 AM IST |
-| 🌅 Early Bird | Study between 5 AM – 8 AM IST |
-| 🎯 DPP Sniper | Achieve 100% completion on 3+ DPPs |
-| 👑 Module Conqueror | 100% completion on any module tracker |
-| 🔥 Perfect Accuracy | 90%+ accuracy on any module or DPP |
-| 📅 Consistent Scholar | Complete 5+ daily routines |
-| 💀 DPP Killer | Submit 3 DPPs with 85%+ accuracy in one day |
-| 🛌 Are you procrastinating? | Fewer than 2 submissions by 11 PM |
-| 😴 Sleeping Beauty | Extended inactivity detected |
-| 🧟 Dead Man Walking | Active study during 2 AM – 5 AM fatigue hours |
-
 Achievements trigger premium **full-screen animated celebrations** with particle effects.
+
+🤫 Discover achievements yourself!
 
 ---
 
@@ -316,6 +311,30 @@ vercel --prod
 ```
 
 Ensure all environment variables are configured in your Vercel project settings. The `vercel.json` handles SPA routing, serverless function bundling, and cron job scheduling automatically.
+
+---
+
+## 📅 Changelog
+
+### v1.2.0 (May 25, 2026) - Latest Update
+- 🔄 **Link-Based Sync Re-Check**: Implemented duplicate overlay asking for confirmation to bypass deduplication or cancel when parsing study results.
+- 🎨 **Empty States**: Created "Nothing to see here" empty state illustration for interactive module question tracker prior to first synced practice.
+- 🔗 **Direct PW Shortcuts**: Added "Open PW" shortcut button in progress logs allowing direct navigation to PhysicsWallah specific DPPs or Modules.
+- 🎯 **Consolidated Suggested Goals**: Lecture & DPP recommendations are merged into a single card with multi-select checklists and stable goal identifiers.
+- 📝 **Manual Module Tracking**: Added native manual module tracking (completion/accuracy sliders) within wrap-ups, syncing directly to database.
+- 🐞 **Developer Telemetry**: Added premium Contact Developer & secure AES-encrypted diagnostics Bug Reporter console.
+- 📸 **Screenshot Attachments**: Support for base64 screenshot attachments (under 2MB) in bug reports, forwarded securely to developer mail via server-side SMTP relay.
+- 🔒 **Privacy & Storage Purge**: Complete `localStorage` and extension `chrome.storage.local` atomic cleanup on session logout or account deletion.
+- ⏱️ **IST Inactivity Lifecycle**: Added 5-day inactivity warning alerts and 6-day automatic account deletion/purges calculated precisely in the Asia/Kolkata (IST) calendar day timezone.
+
+### v1.1.0 (May 10, 2026)
+- 🔐 **Secure Cryptographic Sync IDs**: Configured high-entropy device synchronization identifiers (`vny_sec_`).
+- 📧 **Automated Database Backups**: Added configuration options for automated weekly backups with developer diagnostic email testing tools.
+- ⏱️ **Pomodoro Session Logger**: Integrated client-side Pomodoro focus minutes logs with scaling XP rewards.
+
+### v1.0.0 (April 20, 2026)
+- 🚀 **Initial Beta Release**: Core gamified syllabus organizing matrix dashboard.
+- 🔄 **Auto-Sync Telemetry**: MV3 companion Chrome extension for automatic student practice data intercept.
 
 ---
 

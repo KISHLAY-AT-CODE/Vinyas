@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { YogiLogo } from '../data/constants';
 import { useToast } from './ToastContext';
 
-const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings }) => {
+const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings, onOpenChangeLog }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -149,6 +149,17 @@ const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort,
                                 >
                                     <i className="ph-bold ph-envelope-simple text-sm text-slate-400"></i>
                                     <span>Backup Settings</span>
+                                </button>
+
+                                <button 
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onOpenChangeLog();
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-slate-350 hover:text-white hover:bg-slate-900 flex items-center gap-2.5 transition-all cursor-pointer"
+                                >
+                                    <i className="ph-bold ph-newspaper text-sm text-slate-400"></i>
+                                    <span>Change Logs</span>
                                 </button>
                                 
                                 <button 

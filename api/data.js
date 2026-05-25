@@ -72,14 +72,16 @@ function serializeSyllabus(userData, baseTemplate) {
           chapter: userCh
         });
       } else {
-        // Base template chapter - check if it has active progress
+        // Base template chapter - check if it has active progress or synced module questions
         const hasProgress = 
           userCh.status !== 'None' || 
           userCh.lectures > 0 || 
           (userCh.log && userCh.log.trim() !== '') || 
           (userCh.dpp && (userCh.dpp.acc > 0 || userCh.dpp.comp > 0)) || 
           (userCh.module && (userCh.module.acc > 0 || userCh.module.comp > 0)) ||
-          (userCh.dppLogs && userCh.dppLogs.length > 0);
+          (userCh.dppLogs && Object.keys(userCh.dppLogs).length > 0) ||
+          (userCh.moduleLogs && Object.keys(userCh.moduleLogs).length > 0) ||
+          (userCh.customExerciseConfig && Object.keys(userCh.customExerciseConfig).length > 0);
 
         if (hasProgress) {
           progressList.push({
@@ -91,7 +93,10 @@ function serializeSyllabus(userData, baseTemplate) {
               log: userCh.log,
               dpp: userCh.dpp,
               module: userCh.module,
-              dppLogs: userCh.dppLogs
+              dppLogs: userCh.dppLogs,
+              moduleLogs: userCh.moduleLogs,
+              customExerciseConfig: userCh.customExerciseConfig,
+              exerciseDisplayNames: userCh.exerciseDisplayNames
             }
           });
         }
@@ -149,7 +154,10 @@ function deserializeSyllabus(serialized, baseTemplate) {
             log: savedProgress.progress.log || '',
             dpp: savedProgress.progress.dpp || { acc: 0, comp: 0 },
             module: savedProgress.progress.module || { acc: 0, comp: 0 },
-            dppLogs: savedProgress.progress.dppLogs || []
+            dppLogs: savedProgress.progress.dppLogs || {},
+            moduleLogs: savedProgress.progress.moduleLogs || {},
+            customExerciseConfig: savedProgress.progress.customExerciseConfig || null,
+            exerciseDisplayNames: savedProgress.progress.exerciseDisplayNames || null
           };
         }
 
@@ -161,7 +169,10 @@ function deserializeSyllabus(serialized, baseTemplate) {
           log: '',
           dpp: { acc: 0, comp: 0 },
           module: { acc: 0, comp: 0 },
-          dppLogs: []
+          dppLogs: {},
+          moduleLogs: {},
+          customExerciseConfig: null,
+          exerciseDisplayNames: null
         };
       });
 
@@ -219,6 +230,11 @@ export default async function handler(req, res) {
 
       const userDoc = await collection.findOne({ syncId });
       if (userDoc) {
+        // Clear logout status because user is active
+        await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
+        userDoc.logoutTimestamp = null;
+        userDoc.alertSent = false;
+
         // Reconstruct the full syllabus data before calculating achievements and sending to client
         const baseTemplate = loadTemplate(userDoc.cohort);
         userDoc.data = deserializeSyllabus(userDoc.data, baseTemplate);
@@ -278,6 +294,10 @@ export default async function handler(req, res) {
           email,
           autoBackupEnabled,
           lastUpdated: getISTISOString()
+        },
+        $unset: {
+          logoutTimestamp: "",
+          alertSent: ""
         }
       };
 

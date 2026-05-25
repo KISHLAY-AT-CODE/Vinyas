@@ -1,210 +1,538 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vinyas Tracker</title>
+  <title>Vinyas Extension Sync</title>
   <meta charset="utf-8" />
+  <!-- Import Outfit and Plus Jakarta Sans from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <style>
+    :root {
+      --bg-dark: #070a13;
+      --bg-card: rgba(13, 20, 38, 0.6);
+      --bg-card-hover: rgba(13, 20, 38, 0.85);
+      --border-glow: rgba(59, 130, 246, 0.15);
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      
+      --color-primary: #3b82f6; /* Blue */
+      --color-accent: #10b981; /* Emerald */
+      --color-rose: #f43f5e;
+      --color-amber: #f59e0b;
+      --color-text: #f1f5f9;
+      --color-text-muted: #64748b;
+      --color-text-dim: #94a3b8;
+    }
+
     body {
-      width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      padding: 20px;
-      background-color: #060a13;
-      color: #f8fafc;
+      width: 350px;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--color-text);
       margin: 0;
+      padding: 16px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Cosmic background glow */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
     }
     
+    body::after {
+      content: '';
+      position: absolute;
+      bottom: -50px;
+      left: -50px;
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
     .container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
     }
 
-    h2 {
-      margin: 0 0 4px 0;
-      color: #10b981;
-      font-size: 20px;
-      font-weight: 850;
-      letter-spacing: 0.5px;
+    /* Premium Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-b: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .brand-section {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .subtitle {
-      font-size: 10px;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-bottom: 8px;
-      font-weight: 700;
+    .logo-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 16px;
+      color: white;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    /* Auto-Detect Panel Card */
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--color-text);
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 9px;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--color-text-muted);
+      box-shadow: 0 0 4px var(--color-text-muted);
+      transition: all 0.3s;
+    }
+
+    .status-dot.active {
+      background-color: var(--color-accent);
+      box-shadow: 0 0 8px var(--color-accent);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.error {
+      background-color: var(--color-rose);
+      box-shadow: 0 0 8px var(--color-rose);
+    }
+
+    /* Auto-Detect pairing modal */
     .detect-card {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
-      border: 1px dashed rgba(16, 185, 129, 0.4);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(16, 185, 129, 0.08));
+      border: 1px solid rgba(16, 185, 129, 0.25);
       padding: 12px;
-      border-radius: 12px;
+      border-radius: 14px;
       font-size: 11px;
-      display: none; /* Shown dynamically in popup.js */
+      display: none;
       animation: popIn 0.3s ease-out;
+      backdrop-filter: blur(10px);
     }
 
     .detect-title {
       font-weight: 800;
-      color: #34d399;
+      color: var(--color-accent);
       display: flex;
       align-items: center;
       gap: 6px;
       margin-bottom: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .detect-details {
-      color: #94a3b8;
+      color: var(--color-text-dim);
       margin-bottom: 10px;
       line-height: 1.4;
     }
 
     .detect-btn {
       width: 100%;
-      padding: 6px 12px;
-      background: #10b981;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
+      padding: 8px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-accent);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 10px;
       cursor: pointer;
-      font-weight: 750;
+      font-weight: 800;
       font-size: 11px;
       transition: all 0.2s;
     }
 
     .detect-btn:hover {
-      background: #059669;
-      transform: translateY(-1px);
+      background: var(--color-accent);
+      color: white;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
     }
 
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      color: #94a3b8;
+    /* 💎 MANUAL RESULTS DETECTED CARD 💎 */
+    .results-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      padding: 14px;
+      border-radius: 16px;
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 15px rgba(59, 130, 246, 0.05);
+      backdrop-filter: blur(12px);
+      display: none; /* Renders dynamically in popup.js */
+    }
+
+    .results-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .results-main-title {
+      font-weight: 800;
+      color: var(--color-primary);
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .input-group {
-      position: relative;
+    .results-badge {
+      font-size: 8px;
+      font-weight: 900;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .results-badge.dpp {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--color-primary);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .results-badge.module {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--color-amber);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .results-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Grid stats */
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .results-stat {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 8px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .results-stat-label {
+      font-size: 8px;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .results-stat-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .results-stat-value.score { color: #60a5fa; }
+    .results-stat-value.accuracy { color: #34d399; }
+    .results-stat-value.correct { color: #10b981; }
+    .results-stat-value.incorrect { color: #f43f5e; }
+
+    .btn-send-results {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, var(--color-primary), #2563eb);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 12px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-send-results:hover {
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.45);
+      transform: translateY(-1px);
+    }
+
+    /* Config panel card */
+    .config-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 14px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(12px);
+    }
+
+    .config-title {
+      font-weight: 800;
+      font-size: 10px;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    label {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--color-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     input {
       width: 100%;
       box-sizing: border-box;
-      padding: 10px 12px;
-      background: #0b1324;
-      border: 1px solid #1e293b;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       color: white;
       border-radius: 10px;
-      font-size: 13px;
-      font-family: inherit;
+      font-size: 11px;
       outline: none;
       transition: all 0.2s;
+      font-family: inherit;
     }
 
     input:focus {
-      border-color: #10b981;
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      background: rgba(0, 0, 0, 0.45);
     }
 
     input.mono {
-      font-family: monospace;
-      font-size: 11px;
-      color: #34d399;
+      font-family: 'Outfit', monospace;
+      font-size: 10px;
+      color: var(--color-accent);
+      letter-spacing: 0.5px;
+      font-weight: 600;
     }
 
-    .btn-primary {
-      width: 100%;
-      padding: 11px;
-      background: linear-gradient(to right, #10b981, #059669);
-      color: white;
+    .action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 0;
       border: none;
       border-radius: 10px;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 13px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+      font-weight: 800;
+      font-size: 11px;
+      transition: all 0.15s;
     }
 
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
-    }
-
-    .btn-secondary {
-      width: 100%;
-      padding: 9px;
-      background: #0f172a;
-      color: #94a3b8;
-      border: 1px solid #1e293b;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 12px;
-      transition: all 0.2s;
-    }
-
-    .btn-secondary:hover {
-      background: #1e293b;
+    .btn-save {
+      background: linear-gradient(135deg, var(--color-accent), #059669);
       color: white;
-      border-color: #334155;
+      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.15);
+    }
+
+    .btn-save:hover {
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+      transform: translateY(-0.5px);
+    }
+
+    .btn-test {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--color-text-dim);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-test:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: white;
     }
 
     #status {
-      min-height: 18px;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       text-align: center;
-      transition: all 0.3s;
+      min-height: 16px;
+      transition: all 0.2s;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.75; box-shadow: 0 0 12px var(--color-accent); }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     @keyframes popIn {
-      from { opacity: 0; transform: scale(0.95); }
+      from { opacity: 0; transform: scale(0.96); }
       to { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div>
-      <h2>Vinyas Sync</h2>
-      <div class="subtitle">Chrome Extension Tracker</div>
+    
+    <!-- Premium Header -->
+    <div class="header">
+      <div class="brand-section">
+        <img src="icon.svg" class="logo-badge" alt="Vinyas Logo" style="background: none; box-shadow: none; border: none; padding: 0; width: 32px; height: 32px;" />
+        <div>
+          <div class="brand-title">Vinyas Sync</div>
+          <div class="brand-subtitle">Core tracking engine</div>
+        </div>
+      </div>
+      <div class="conn-status" id="connStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="connText">OFFLINE</span>
+      </div>
     </div>
 
-    <!-- Active Tab Configuration Auto-Detect Panel -->
+    <!-- Active Dashboard Pair Card (Dynamic) -->
     <div id="detectCard" class="detect-card">
       <div class="detect-title">
-        ✨ Active Dashboard Detected
+        ⚡ Active Dashboard Detected
       </div>
       <div class="detect-details">
-        We found <strong><span id="detectUser">Kishlay</span></strong> targeting <strong><span id="detectCohort">BITSAT</span></strong>. Click below to pair instantly.
+        We found <strong><span id="detectUser">Kishlay</span></strong>'s active dashboard configured for <strong><span id="detectCohort">BITSAT</span></strong>. Click below to pair instantly.
       </div>
-      <button id="detectBtn" class="detect-btn">Auto-Pair Configuration</button>
+      <button id="detectBtn" class="detect-btn">Auto-Pair Vinyas App</button>
+    </div>
+
+    <!-- 💎 MANUAL SEND RESULTS MODULE 💎 -->
+    <div id="resultsCard" class="results-card">
+      <div class="results-title-row">
+        <span class="results-main-title" id="resultsMainTitle">📥 Results Detected on Page</span>
+        <span id="resultsBadge" class="results-badge dpp">DPP</span>
+      </div>
+      <div id="resultsName" class="results-name">Haloalkanes & Haloarenes DPP 01</div>
+      
+      <!-- Redundancy notice -->
+      <div id="resultsNotice" style="display:none; background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.15); border-radius:12px; padding:10px; color:#fb7185; font-size:11px; font-weight:700; margin-bottom:12px; text-align:center; line-height: 1.4;">
+        ⚠️ Submission detected but deemed redundant.
+      </div>
+
+      <!-- Stats Grid (DPP / Module scores) -->
+      <div class="results-grid" id="statsGrid">
+        <div class="results-stat">
+          <div class="results-stat-label">Score</div>
+          <div id="resScore" class="results-stat-value score">10/10</div>
+        </div>
+        <div class="results-stat">
+          <div class="results-stat-label">Accuracy</div>
+          <div id="resAccuracy" class="results-stat-value accuracy">100%</div>
+        </div>
+        <div class="results-stat">
+          <div class="results-stat-label">Correct</div>
+          <div id="resCorrect" class="results-stat-value correct">10</div>
+        </div>
+        <div class="results-stat">
+          <div class="results-stat-label">Incorrect</div>
+          <div id="resIncorrect" class="results-stat-value incorrect">0</div>
+        </div>
+      </div>
+
+      <!-- Exercises Config (Module exercise discovery) -->
+      <div id="exercisesContainer" style="display:none; margin-bottom:12px; max-height:120px; overflow-y:auto; padding-right:4px;">
+        <!-- Dynamic list of exercises populated via JS -->
+      </div>
+
+      <!-- Action buttons -->
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button id="discardResultsBtn" class="btn btn-test" style="margin:0; flex:1;">Discard</button>
+        <button id="sendResultsBtn" class="btn-send-results" style="flex:2;">🚀 Send to Vinyas</button>
+      </div>
     </div>
     
-    <div>
-      <label for="syncId">Device Sync ID:</label>
-      <input type="text" id="syncId" class="mono" placeholder="vny_sec_..." />
-    </div>
-    
-    <div>
-      <label for="apiUrl">API Server URL:</label>
-      <input type="text" id="apiUrl" placeholder="https://vinyas-dashboard.vercel.app" />
-    </div>
-    
-    <div style="display: flex; flex-direction: column; gap: 8px;">
-      <button id="saveBtn" class="btn-primary">Save Configuration</button>
-      <button id="testBtn" class="btn-secondary">Test Connection</button>
+    <!-- Config Card -->
+    <div class="config-card">
+      <div class="config-title">
+        ⚙️ Settings Configuration
+      </div>
+      
+      <div class="form-group">
+        <label for="syncId">Device Sync ID</label>
+        <input type="text" id="syncId" class="mono" placeholder="vny_sec_..." />
+      </div>
+      
+      <div class="form-group">
+        <label for="apiUrl">API Server Endpoint</label>
+        <input type="text" id="apiUrl" placeholder="https://vinyas-dashboard.vercel.app" />
+      </div>
+      
+      <div class="action-row">
+        <button id="testBtn" class="btn btn-test">Verify Link</button>
+        <button id="saveBtn" class="btn btn-save">Save Settings</button>
+      </div>
     </div>
     
     <div id="status"></div>

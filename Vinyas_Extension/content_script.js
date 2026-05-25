@@ -143,11 +143,9 @@ let lastLoggedTitle = "";
 let lastLoggedMetricsStr = "";
 let missingResultsCount = 0;
 
-function checkDppScore() {
-
+function parseDppResultsFromDOM() {
     try {
         let metrics = {};
-
         const spans = document.querySelectorAll('span');
         
         for (const span of spans) {
@@ -193,7 +191,6 @@ function checkDppScore() {
         }
 
         if (metrics.accuracy !== undefined && metrics.completion !== undefined) {
-            missingResultsCount = 0;
             let type = "UNKNOWN";
             const titleToSearch = (metrics.quizTitle || document.title || document.body.innerText).toUpperCase();
             if (titleToSearch.includes("DPP")) {
@@ -212,24 +209,52 @@ function checkDppScore() {
                 }
             }
 
-            const currentTitle = finalTitle;
-            const currentMetricsStr = JSON.stringify(metrics);
-
-            if (dppLogged && lastLoggedTitle === currentTitle && lastLoggedMetricsStr === currentMetricsStr) return;
-
-            const activityData = {
+            return {
                 title: finalTitle,
                 url: window.location.href,
                 quizType: type,
                 ...metrics
             };
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error parsing DOM manual:", e);
+    }
+    return null;
+}
 
-            console.log(`[Vinyas Tracker] DPP detected! Type: ${type}. Showing confirmation overlay.`);
-            showConfirmOverlay(activityData);
+function checkDppScore() {
+    try {
+        const activityData = parseDppResultsFromDOM();
+        if (activityData) {
+            const currentTitle = activityData.title;
+            const currentMetricsStr = JSON.stringify(activityData);
+
+            if (dppLogged && lastLoggedTitle === currentTitle && lastLoggedMetricsStr === currentMetricsStr) return;
+
+            console.log(`[Vinyas Tracker] DPP detected! Checking if already logged...`);
+            
+            if (syncId && apiUrl) {
+                chrome.runtime.sendMessage({
+                    action: "checkUrl",
+                    data: { syncId, apiUrl, url: window.location.href }
+                }, (response) => {
+                    const alreadyExists = !!(response && response.exists);
+                    console.log(`[Vinyas Tracker] URL existence check: ${alreadyExists}`);
+                    if (!alreadyExists) {
+                        // Only show overlay if this URL has NOT been logged before
+                        showConfirmOverlay(activityData, false);
+                    } else {
+                        console.log(`[Vinyas Tracker] Silent bypass: URL already logged.`);
+                    }
+                });
+            } else {
+                showConfirmOverlay(activityData, false);
+            }
             
             dppLogged = true;
             lastLoggedTitle = currentTitle;
             lastLoggedMetricsStr = currentMetricsStr;
+            missingResultsCount = 0;
         } else {
             missingResultsCount++;
             if (missingResultsCount > 2) {
@@ -244,10 +269,11 @@ function checkDppScore() {
     }
 }
 
+
 // ----------------------------------------------------
 // CONFIRMATION OVERLAY (Shadow DOM)
 // ----------------------------------------------------
-function showConfirmOverlay(activityData) {
+function showConfirmOverlay(activityData, alreadyExists = false) {
     // Remove any existing overlay
     const existing = document.getElementById('vinyas-overlay-host');
     if (existing) existing.remove();
@@ -261,73 +287,85 @@ function showConfirmOverlay(activityData) {
 
     const accColor = activityData.accuracy > 80 ? '#34d399' : activityData.accuracy > 50 ? '#fbbf24' : '#fb7185';
     const typeLabel = activityData.quizType === 'DPP' ? 'DPP' : activityData.quizType === 'MODULE' ? 'MODULE' : 'QUIZ';
-    const typeBg = activityData.quizType === 'DPP' ? 'rgba(59,130,246,0.2)' : 'rgba(245,158,11,0.2)';
+    const typeBg = activityData.quizType === 'DPP' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)';
     const typeColor = activityData.quizType === 'DPP' ? '#60a5fa' : '#fbbf24';
+    const logoUrl = chrome.runtime.getURL('icon.svg');
+
+    const titleLabel = alreadyExists ? 'Duplicate Detected' : 'Submission Detected';
+    const sendBtnLabel = alreadyExists ? '🔄 Update Again' : '🔥 Send to Vinyas';
+    const cancelBtnLabel = alreadyExists ? 'Cancel' : 'Dismiss';
+    const isDuplicateText = alreadyExists 
+        ? `<div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.15); border-radius:12px; padding:10px; color:#fb7185; font-size:11px; font-weight:700; margin-bottom:12px; text-align:center;">
+             ⚠️ This DPP/Module is already logged. Do you want to update it or cancel?
+           </div>`
+        : '';
 
     shadow.innerHTML = `
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         .backdrop {
             position:fixed; top:0; left:0; width:100%; height:100%;
-            background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);
+            background:rgba(5, 8, 16, 0.65); backdrop-filter:blur(10px);
             display:flex; align-items:flex-start; justify-content:flex-end;
-            padding:20px; pointer-events:all;
-            animation: fadeIn 0.2s ease;
+            padding:24px; pointer-events:all;
+            animation: fadeIn 0.25s ease;
         }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
         .card {
-            background:#1e293b; border:1px solid #334155; border-radius:20px;
-            width:340px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.6);
-            animation: slideIn 0.25s ease;
+            background:rgba(15, 23, 42, 0.85); border:1px solid rgba(255,255,255,0.08); border-radius:24px;
+            width:350px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,0.65), 0 0 25px rgba(59,130,246,0.08);
+            animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            backdrop-filter: blur(16px);
         }
         .header {
-            padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06);
-            display:flex; align-items:center; gap:10px;
+            padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:12px;
         }
-        .logo { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#f97316,#ef4444);
-            display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; color:white; }
-        .brand { font-size:13px; font-weight:800; color:#f1f5f9; letter-spacing:0.5px; }
-        .subtitle { font-size:10px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-top:1px; }
-        .body { padding:16px 20px; }
-        .title-row { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+        .logo { width:32px; height:32px; border-radius:10px; border:none; background:none; padding:0; display:block; }
+        .brand { font-size:14px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
+        .subtitle { font-size:9px; color:#64748b; font-weight:750; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+        .body { padding:18px 22px; }
+        .title-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
         .type-badge {
             font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1px;
-            padding:3px 8px; border-radius:6px; background:${typeBg}; color:${typeColor};
+            padding:4px 9px; border-radius:8px; background:${typeBg}; color:${typeColor};
+            border: 1px solid rgba(255,255,255,0.03);
         }
-        .quiz-title { font-size:13px; font-weight:700; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
-        .stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+        .quiz-title { font-size:13px; font-weight:750; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+        .stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
         .stat {
-            background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:10px;
+            background:rgba(0, 0, 0, 0.3); border:1px solid rgba(255,255,255,0.04); border-radius:14px; padding:10px;
             display:flex; flex-direction:column; align-items:center;
         }
-        .stat-label { font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:3px; }
-        .stat-value { font-size:18px; font-weight:900; }
+        .stat-label { font-size:8px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; font-weight:750; margin-bottom:4px; }
+        .stat-value { font-size:18px; font-weight:800; }
         .stat-value.score { color:#60a5fa; }
         .stat-value.acc { color:${accColor}; }
         .stat-value.correct { color:#34d399; }
         .stat-value.incorrect { color:#fb7185; }
-        .footer { padding:12px 20px 16px; display:flex; gap:10px; }
+        .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
         .btn {
-            flex:1; padding:11px 0; border:none; border-radius:12px; font-size:13px;
-            font-weight:800; cursor:pointer; transition:all 0.15s;
+            flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
+            font-weight:800; cursor:pointer; transition:all 0.2s;
         }
-        .btn-dismiss { background:#334155; color:#94a3b8; }
-        .btn-dismiss:hover { background:#475569; color:#e2e8f0; }
-        .btn-send { background:linear-gradient(135deg,#f97316,#ef4444); color:white;
-            box-shadow:0 4px 15px rgba(239,68,68,0.3); }
-        .btn-send:hover { box-shadow:0 4px 20px rgba(239,68,68,0.5); transform:translateY(-1px); }
+        .btn-dismiss { background:rgba(255,255,255,0.03); color:#94a3b8; border:1px solid rgba(255,255,255,0.06); }
+        .btn-dismiss:hover { background:rgba(255,255,255,0.08); color:#f8fafc; border-color:rgba(255,255,255,0.12); }
+        .btn-send { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white;
+            box-shadow:0 4px 15px rgba(59,130,246,0.35); }
+        .btn-send:hover { box-shadow:0 4px 20px rgba(59,130,246,0.55); transform:translateY(-1px); }
     </style>
     <div class="backdrop" id="backdrop">
         <div class="card">
             <div class="header">
-                <div class="logo">V</div>
+                <img class="logo" src="${logoUrl}" alt="Vinyas Logo" />
                 <div>
                     <div class="brand">Vinyas Tracker</div>
-                    <div class="subtitle">Submission Detected</div>
+                    <div class="subtitle">${titleLabel}</div>
                 </div>
             </div>
             <div class="body">
+                ${isDuplicateText}
                 <div class="title-row">
                     <span class="type-badge">${typeLabel}</span>
                     <span class="quiz-title" title="${escapeHTML(activityData.title)}">${escapeHTML(activityData.title)}</span>
@@ -352,8 +390,8 @@ function showConfirmOverlay(activityData) {
                 </div>
             </div>
             <div class="footer">
-                <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
-                <button class="btn btn-send" id="btn-send">🔥 Send to Vinyas</button>
+                <button class="btn btn-dismiss" id="btn-dismiss">${cancelBtnLabel}</button>
+                <button class="btn btn-send" id="btn-send">${sendBtnLabel}</button>
             </div>
         </div>
     </div>`;
@@ -361,14 +399,18 @@ function showConfirmOverlay(activityData) {
     // Event handlers
     shadow.getElementById('btn-dismiss').addEventListener('click', () => {
         host.remove();
-        console.log('[Vinyas Tracker] User dismissed submission.');
+        console.log('[Vinyas Tracker] User cancelled/dismissed submission.');
     });
 
     shadow.getElementById('btn-send').addEventListener('click', () => {
-        logActivity('DPP_SCORE', activityData);
+        const payload = { ...activityData };
+        if (alreadyExists) {
+            payload.forceUpdate = true;
+        }
+        logActivity('DPP_SCORE', payload);
         // Brief success feedback
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = '✅ Sent!';
+        btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
         btn.style.pointerEvents = 'none';
         setTimeout(() => host.remove(), 800);
     });
@@ -459,19 +501,128 @@ function checkStudyGoals() {
 // ----------------------------------------------------
 let lastLoggedBooksUrl = "";
 
-function checkPwBooksQuestions() {
+function showBooksConfirmOverlay(booksData) {
+    const existing = document.getElementById('vinyas-overlay-host');
+    if (existing) existing.remove();
+
+    const host = document.createElement('div');
+    host.id = 'vinyas-overlay-host';
+    host.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;';
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'closed' });
+
+    const logoUrl = chrome.runtime.getURL('icon.svg');
+
+    let exercisesHtml = '';
+    Object.entries(booksData.exercises).forEach(([exKey, qCount]) => {
+        const displayName = (booksData.displayNames && booksData.displayNames[exKey]) || exKey;
+        exercisesHtml += `
+            <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.04); border-radius:12px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:12px; font-weight:700; color:#e2e8f0;">${escapeHTML(displayName)}</span>
+                <span style="font-size:12px; font-weight:800; color:#60a5fa; background:rgba(59,130,246,0.15); padding:3px 8px; border-radius:6px;">${qCount} Qs</span>
+            </div>
+        `;
+    });
+
+    shadow.innerHTML = `
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .backdrop {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(5, 8, 16, 0.65); backdrop-filter:blur(10px);
+            display:flex; align-items:flex-start; justify-content:flex-end;
+            padding:24px; pointer-events:all;
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+        .card {
+            background:rgba(15, 23, 42, 0.85); border:1px solid rgba(255,255,255,0.08); border-radius:24px;
+            width:350px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,0.65), 0 0 25px rgba(59,130,246,0.08);
+            animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            backdrop-filter: blur(16px);
+        }
+        .header {
+            padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:12px;
+        }
+        .logo { width:32px; height:32px; border-radius:10px; border:none; background:none; padding:0; display:block; }
+        .brand { font-size:14px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
+        .subtitle { font-size:9px; color:#64748b; font-weight:750; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+        .body { padding:18px 22px; }
+        .title-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+        .type-badge {
+            font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1px;
+            padding:4px 9px; border-radius:8px; background:rgba(245,158,11,0.15); color:#fbbf24;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .chapter-title { font-size:13px; font-weight:750; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+        .exercises-container { margin-bottom:16px; max-height:220px; overflow-y:auto; }
+        .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
+        .btn {
+            flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
+            font-weight:800; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-dismiss { background:rgba(255,255,255,0.03); color:#94a3b8; border:1px solid rgba(255,255,255,0.06); }
+        .btn-dismiss:hover { background:rgba(255,255,255,0.08); color:#f8fafc; border-color:rgba(255,255,255,0.12); }
+        .btn-send { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white;
+            box-shadow:0 4px 15px rgba(59,130,246,0.35); }
+        .btn-send:hover { box-shadow:0 4px 20px rgba(59,130,246,0.55); transform:translateY(-1px); }
+    </style>
+    <div class="backdrop" id="backdrop">
+        <div class="card">
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Vinyas Logo" />
+                <div>
+                    <div class="brand">Vinyas Tracker</div>
+                    <div class="subtitle">Syllabus Discovery</div>
+                </div>
+            </div>
+            <div class="body">
+                <div class="title-row">
+                    <span class="type-badge">MODULE</span>
+                    <span class="chapter-title" title="${escapeHTML(booksData.chapterName)}">${escapeHTML(booksData.chapterName)}</span>
+                </div>
+                <div class="exercises-container">
+                    ${exercisesHtml}
+                </div>
+            </div>
+            <div class="footer">
+                <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
+                <button class="btn btn-send" id="btn-send">🔥 Sync Exercises</button>
+            </div>
+        </div>
+    </div>`;
+
+    shadow.getElementById('btn-dismiss').addEventListener('click', () => {
+        host.remove();
+        console.log('[Vinyas Tracker] User cancelled/dismissed books config sync.');
+    });
+
+    shadow.getElementById('btn-send').addEventListener('click', () => {
+        logActivity('PW_BOOKS_QUESTIONS', booksData);
+        const btn = shadow.getElementById('btn-send');
+        btn.textContent = '✅ Synced!';
+        btn.style.pointerEvents = 'none';
+        setTimeout(() => host.remove(), 800);
+    });
+
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
+    });
+}
+
+function parseBooksQuestionsFromDOM() {
     try {
         const url = window.location.href;
         const isBooksDomain = url.includes("books.pw.live") || url.includes("books.physicswallah.live");
-        if (!isBooksDomain || !url.includes("/practice")) return;
-
-        if (lastLoggedBooksUrl === url) return;
+        if (!isBooksDomain || !url.includes("/practice")) return null;
 
         const cardsGrid = document.querySelector('div[class*="cardsGrid"]');
-        if (!cardsGrid) return;
+        if (!cardsGrid) return null;
 
         const cards = cardsGrid.querySelectorAll('div[class*="card-"]');
-        if (cards.length === 0) return;
+        if (cards.length === 0) return null;
 
         // Extract chapter name
         const titleHeader = document.querySelector('div[class*="subHeader"] div, div[class*="header"] div, h1, h2');
@@ -488,7 +639,7 @@ function checkPwBooksQuestions() {
             }
         }
 
-        if (!chapterName) return;
+        if (!chapterName) return null;
 
         const exercises = {};
         const displayNames = {};
@@ -525,18 +676,69 @@ function checkPwBooksQuestions() {
         });
 
         if (Object.keys(exercises).length > 0) {
-            lastLoggedBooksUrl = url;
-            logActivity('PW_BOOKS_QUESTIONS', {
+            return {
                 chapterName,
                 url,
                 exercises,
                 displayNames
-            });
+            };
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error parsing books DOM manual:", e);
+    }
+    return null;
+}
+
+function checkPwBooksQuestions() {
+    try {
+        const url = window.location.href;
+        if (lastLoggedBooksUrl === url) return;
+
+        const booksData = parseBooksQuestionsFromDOM();
+        if (booksData) {
+            if (syncId && apiUrl) {
+                chrome.runtime.sendMessage({
+                    action: "checkUrl",
+                    data: { syncId, apiUrl, url }
+                }, (response) => {
+                    const alreadyExists = !!(response && response.exists);
+                    console.log(`[Vinyas Tracker] Books URL existence check: ${alreadyExists}`);
+                    if (!alreadyExists) {
+                        showBooksConfirmOverlay(booksData);
+                    } else {
+                        console.log(`[Vinyas Tracker] Silent bypass: Books exercises already configured.`);
+                    }
+                });
+            } else {
+                showBooksConfirmOverlay(booksData);
+            }
+            
+            lastLoggedBooksUrl = url;
         }
     } catch (err) {
         console.error("[Vinyas Tracker] Error parsing PW Books Questions:", err);
     }
 }
+
+// ----------------------------------------------------
+// MESSAGE LISTENER (For Popup Trigger)
+// ----------------------------------------------------
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "detectDppResults") {
+        const activityData = parseDppResultsFromDOM();
+        if (activityData) {
+            sendResponse({ success: true, type: "DPP", activityData });
+        } else {
+            const booksData = parseBooksQuestionsFromDOM();
+            if (booksData) {
+                sendResponse({ success: true, type: "MODULE_CONFIG", activityData: booksData });
+            } else {
+                sendResponse({ success: false, error: "No DPP results or Books Practice detected on this page." });
+            }
+        }
+        return true;
+    }
+});
 
 // ----------------------------------------------------
 // START OBSERVERS

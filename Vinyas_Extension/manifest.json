@@ -47,5 +47,11 @@
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icon.svg"],
+      "matches": ["*://*.pw.live/*", "*://pw.live/*", "*://*.physicswallah.live/*", "*://physicswallah.live/*"]
+    }
+  ]
 }

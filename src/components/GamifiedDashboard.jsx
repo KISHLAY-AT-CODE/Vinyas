@@ -39,6 +39,77 @@ const ActivityItem = ({ act, onSelect }) => {
     );
 };
 
+const SuggestedGoalCard = ({ goal, onDiscard, onSave }) => {
+    const [includeLecture, setIncludeLecture] = React.useState(goal.suggestLecture);
+    const [includeDpp, setIncludeDpp] = React.useState(goal.suggestDpp);
+
+    return (
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl relative group animate-pop-in">
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex flex-col">
+                    <div className="flex gap-2 items-center mb-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 self-start">
+                            {goal.time} • {goal.subject}
+                        </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-200">{goal.title}</h3>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs font-semibold text-slate-400 mb-3">
+                {goal.faculty && <span className="flex items-center gap-1"><i className="ph-fill ph-user text-slate-500"></i> {goal.faculty}</span>}
+                <span className={`flex items-center gap-1 ${goal.dppStatus === 'No DPP' ? 'text-rose-450' : 'text-emerald-450'}`}>
+                    <i className="ph-fill ph-file-text"></i> {goal.dppStatus}
+                </span>
+            </div>
+
+            {/* Selection Toggles */}
+            <div className="flex gap-2 bg-slate-955 p-1 rounded-lg mb-3 border border-slate-800">
+                <button
+                    disabled={!goal.suggestLecture}
+                    onClick={() => setIncludeLecture(!includeLecture)}
+                    className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                        !goal.suggestLecture ? 'opacity-30 cursor-not-allowed bg-slate-900/40 text-slate-650' :
+                        includeLecture ? 'bg-blue-650/20 text-blue-400 border border-blue-500/35 shadow-sm shadow-blue-950/20' : 'bg-transparent text-slate-500 border border-transparent hover:text-slate-400'
+                    }`}
+                >
+                    <i className={`ph-bold ${includeLecture ? 'ph-check-circle' : 'ph-circle'} text-xs`}></i>
+                    Lecture
+                </button>
+                {goal.hasDpp && (
+                    <button
+                        disabled={!goal.suggestDpp}
+                        onClick={() => setIncludeDpp(!includeDpp)}
+                        className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                            !goal.suggestDpp ? 'opacity-30 cursor-not-allowed bg-slate-900/40 text-slate-650' :
+                            includeDpp ? 'bg-indigo-650/20 text-indigo-400 border border-indigo-500/35 shadow-sm shadow-indigo-950/20' : 'bg-transparent text-slate-500 border border-transparent hover:text-slate-400'
+                        }`}
+                    >
+                        <i className={`ph-bold ${includeDpp ? 'ph-check-circle' : 'ph-circle'} text-xs`}></i>
+                        DPP
+                    </button>
+                )}
+            </div>
+
+            <div className="flex gap-2">
+                <button 
+                    onClick={onDiscard}
+                    className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-xs transition-colors border border-slate-750 shadow-sm cursor-pointer"
+                >
+                    Discard
+                </button>
+                <button 
+                    disabled={!includeLecture && !includeDpp}
+                    onClick={() => onSave(includeLecture, includeDpp)}
+                    className="flex-1 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-xs transition-all border border-blue-500 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Save to Plan
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, openActivityConsole, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm }) => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     
@@ -134,39 +205,12 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                     </div>
                     <div className="space-y-3">
                         {suggestedGoals.map(goal => (
-                            <div key={goal.id} className="bg-slate-900 border border-slate-700 p-4 rounded-xl relative group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex flex-col">
-                                        <div className="flex gap-2 items-center mb-1">
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${goal.goalType === 'DPP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400'}`}>
-                                                {goal.goalType || 'Lecture'}
-                                            </span>
-                                            <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded self-start">{goal.time} • {goal.subject}</span>
-                                        </div>
-                                        <h3 className="text-sm font-bold text-slate-200">{goal.title}</h3>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mb-4">
-                                    {goal.faculty && <span className="flex items-center gap-1"><i className="ph-fill ph-user text-slate-500"></i> {goal.faculty}</span>}
-                                    <span className={`flex items-center gap-1 ${goal.dppStatus === 'No DPP' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                        <i className="ph-fill ph-file-text"></i> {goal.dppStatus}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => handleDiscardGoal(goal.id)}
-                                        className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-xs transition-colors border border-slate-700 shadow-sm cursor-pointer"
-                                    >
-                                        Discard
-                                    </button>
-                                    <button 
-                                        onClick={() => handleSaveGoal(goal)}
-                                        className="flex-1 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition-all border border-blue-500 shadow-md cursor-pointer"
-                                    >
-                                        Save to Plan
-                                    </button>
-                                </div>
-                            </div>
+                            <SuggestedGoalCard 
+                                key={goal.id} 
+                                goal={goal} 
+                                onDiscard={() => handleDiscardGoal(goal.id, goal.hasDpp)} 
+                                onSave={(includeLec, includeDpp) => handleSaveGoal(goal, includeLec, includeDpp)}
+                            />
                         ))}
                     </div>
                 </div>

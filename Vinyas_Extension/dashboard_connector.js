@@ -38,3 +38,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Return true to keep the message channel open for asynchronous response
     return true;
 });
+
+// Forward secure logout events from the Vinyas App page to the extension backend
+window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === 'VINYAS_LOGOUT_EVENT') {
+        chrome.runtime.sendMessage({ action: "clearExtensionStorage" });
+    }
+});

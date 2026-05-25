@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FireSlider from './FireSlider';
 import { useToast } from './ToastContext';
 
-const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTextAndImage, onCompleteRoutine, initialTargetId }) => {
+const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogModule, onLogTextAndImage, onCompleteRoutine, initialTargetId }) => {
     const { showToast } = useToast();
 
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -61,6 +61,8 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
         
         if (template === 'dpp') {
             onLogDpp(sIdx, cIdx, parseInt(comp), parseInt(acc), resourceNumber);
+        } else if (template === 'module') {
+            onLogModule(sIdx, cIdx, parseInt(comp), parseInt(acc), resourceNumber);
         } else {
             onLogTextAndImage(sIdx, cIdx, template, textLog, resourceNumber);
         }
@@ -82,6 +84,7 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
     const templates = [
         { id: 'lecture', name: 'Lecture', icon: 'ph-video-camera' },
         { id: 'dpp', name: 'DPP', icon: 'ph-fire' },
+        { id: 'module', name: 'Module', icon: 'ph-grid-nine' },
         { id: 'notes', name: 'Notes', icon: 'ph-book-open' },
         { id: 'revision', name: 'Revision', icon: 'ph-arrows-clockwise' },
         { id: 'mock', name: 'Mock', icon: 'ph-exam' }
@@ -138,7 +141,7 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogTe
                                 />
                             </div>
 
-                            {activeTemplate === 'dpp' ? (
+                            {activeTemplate === 'dpp' || activeTemplate === 'module' ? (
                                 <>
                                     <FireSlider label="Completion" value={comp} onChange={(e) => setComp(e.target.value)} />
                                     <FireSlider label="Accuracy" value={acc} onChange={(e) => setAcc(e.target.value)} />

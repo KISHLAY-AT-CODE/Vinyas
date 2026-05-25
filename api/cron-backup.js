@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { MongoClient } from 'mongodb';
-import { getISTDateStringYYYYMMDD, getISTLogPrefix } from './timezone.js';
+import { getISTDateStringYYYYMMDD, getISTLogPrefix, getISTCalendarDaysDifference } from './timezone.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -210,6 +210,60 @@ async function sendEmailViaSMTP(toEmail, syncId, filename, base64Content) {
   return await transporter.sendMail(mailOptions);
 }
 
+// Helper function to send account deletion warning alert email via Gmail SMTP
+async function sendDeletionAlertEmail(toEmail, syncId) {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (!smtpUser || !smtpPass) {
+    throw new Error("SMTP_USER or SMTP_PASS environment variables are not configured");
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass
+    }
+  });
+
+  const mailOptions = {
+    from: `"Vinyas Security" <${smtpUser}>`,
+    to: toEmail,
+    subject: '⚠️ ACTION REQUIRED: Your Vinyas Account is Pending Deletion',
+    html: `
+      <div style="font-family: sans-serif; background-color: #0c0a09; color: #f5f5f4; padding: 40px; border-radius: 16px; border: 1px solid #292524; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444; font-size: 24px; font-weight: 900; margin-bottom: 20px;">⚠️ Inactivity & Deletion Alert</h2>
+        <p style="font-size: 14px; color: #a8a29e; line-height: 1.6;">
+          You logged out of your Vinyas dashboard more than <strong>5 days ago</strong>. To protect privacy and optimize storage, inactive accounts are automatically pruned.
+        </p>
+        
+        <div style="background-color: #1c1917; border: 1px solid #44403c; padding: 20px; border-radius: 12px; margin: 25px 0;">
+          <span style="font-size: 10px; font-weight: 800; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Security Alert Details</span>
+          <div style="margin-top: 10px; font-size: 13px;">
+            <strong>Registered Sync ID:</strong> <code style="font-family: monospace; color: #f43f5e; background-color: #0c0a09; padding: 2px 6px; border-radius: 4px; border: 1px solid #292524;">${syncId}</code>
+          </div>
+          <div style="margin-top: 10px; font-size: 13px; color: #f5f5f4;">
+            <strong>Scheduled Deletion Time:</strong> On the <strong style="color: #ef4444;">6th day</strong> of inactivity (in less than 24 hours).
+          </div>
+        </div>
+
+        <p style="font-size: 14px; color: #e7e5e4; line-height: 1.6;">
+          To stop this deletion and preserve your syllabus data, simply <strong>log back into the Vinyas app</strong> on your browser. Logging in will immediately restore your active status and cancel the deletion schedule.
+        </p>
+        
+        <p style="font-size: 12px; color: #78716c; margin-top: 30px; border-top: 1px solid #292524; padding-top: 20px;">
+          Secure Inactivity Protocols Active • Vinyas Study Ecosystem
+        </p>
+      </div>
+    `
+  };
+
+  return await transporter.sendMail(mailOptions);
+}
+
 export default async function handler(req, res) {
   // Enforce Vercel Cron Authentication validation
   const cronAuthHeader = req.headers.authorization;
@@ -227,6 +281,37 @@ export default async function handler(req, res) {
     await client.connect();
     const db = client.db('vinyas');
     const collection = db.collection('users');
+
+    // --- Inactivity and Deletion Checks (Calculated in IST) ---
+    try {
+      const now = new Date();
+      const usersToCheck = await collection.find({ logoutTimestamp: { $ne: null } }).toArray();
+      
+      for (const user of usersToCheck) {
+        if (!user.logoutTimestamp) continue;
+        const logoutDate = new Date(user.logoutTimestamp);
+        const diffDays = getISTCalendarDaysDifference(logoutDate, now);
+        
+        if (diffDays >= 6) {
+          // Delete account on 6th day
+          await collection.deleteOne({ syncId: user.syncId });
+          console.log(`[Vinyas Inactivity] Deleted inactive account for syncId: ${user.syncId} after ${diffDays} calendar days in IST.`);
+        } else if (diffDays >= 5) {
+          // More than 5 days (5th day onwards) - send deletion alert email if email provided and not sent
+          if (user.email && !user.alertSent) {
+            try {
+              await sendDeletionAlertEmail(user.email, user.syncId);
+              await collection.updateOne({ syncId: user.syncId }, { $set: { alertSent: true } });
+              console.log(`[Vinyas Inactivity] Sent deletion alert email to: ${user.email} for syncId: ${user.syncId}`);
+            } catch (emailErr) {
+              console.error(`[Vinyas Inactivity] Failed to send deletion alert email to: ${user.email}:`, emailErr);
+            }
+          }
+        }
+      }
+    } catch (inactivityErr) {
+      console.error("[Vinyas Inactivity] Error during inactivity checks:", inactivityErr);
+    }
 
     // Retrieve all users who have backups enabled and email configured
     const usersToBackup = await collection.find({

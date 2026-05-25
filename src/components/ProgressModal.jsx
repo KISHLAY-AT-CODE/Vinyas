@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 const normalizeChapterName = (name) => {
     if (!name) return "";
-    return name
+    const normalized = name
         .toLowerCase()
         .replace(/&/g, ' and ') // replace & with 'and'
         .replace(/[^a-z0-9\s]/g, ' ') // replace special characters with spaces
@@ -16,6 +16,25 @@ const normalizeChapterName = (name) => {
         })
         .filter(Boolean)
         .join(' ');
+
+    const CHAPTER_SYNONYMS = {
+        "atomic structure": "structure of atom",
+        "structure of atoms": "structure of atom",
+        "structure of atom": "structure of atom",
+        "periodic table": "classification of elements and periodicity in properties",
+        "periodicity in properties": "classification of elements and periodicity in properties",
+        "periodicity in propertie": "classification of elements and periodicity in properties",
+        "periodic classification": "classification of elements and periodicity in properties",
+        "chemical bonding": "chemical bonding and molecular structure",
+        "goc": "organic chemistry some basic principles and techniques",
+        "general organic chemistry": "organic chemistry some basic principles and techniques",
+        "organic chemistry basic principles": "organic chemistry some basic principles and techniques"
+    };
+
+    if (CHAPTER_SYNONYMS[normalized]) {
+        return CHAPTER_SYNONYMS[normalized];
+    }
+    return normalized;
 };
 
 const extractChapterFromDppTitle = (title) => {
@@ -131,13 +150,25 @@ const ProgressModal = ({
         });
     }, [activities, chapterName, chapterData]);
 
+    // Filter activities for the active tab
+    const tabActivities = useMemo(() => {
+        return chapterActivities.filter(act => {
+            const quizType = act.details?.quizType || 'DPP';
+            if (activeTab === 'dpp') {
+                return quizType === 'DPP';
+            } else {
+                return quizType === 'MODULE';
+            }
+        });
+    }, [chapterActivities, activeTab]);
+
     // Compute averages from detected activities
     const activityAverages = useMemo(() => {
-        if (chapterActivities.length === 0) return null;
+        if (tabActivities.length === 0) return null;
         let totalAcc = 0, totalScore = 0, scoreCount = 0;
         let totalCorrect = 0, totalIncorrect = 0, ratioCount = 0;
         
-        chapterActivities.forEach(act => {
+        tabActivities.forEach(act => {
             const d = act.details || {};
             totalAcc += (d.accuracy || 0);
             if (d.score) {
@@ -154,7 +185,7 @@ const ProgressModal = ({
             }
         });
         
-        const count = chapterActivities.length;
+        const count = tabActivities.length;
         return {
             avgAcc: Math.round(totalAcc / count),
             avgScore: scoreCount > 0 ? Math.round(totalScore / scoreCount) : null,
@@ -163,7 +194,7 @@ const ProgressModal = ({
             hasRatio: ratioCount > 0,
             count
         };
-    }, [chapterActivities]);
+    }, [tabActivities]);
 
     const handleSave = () => {
         onSave(activeTab, { comp: parseInt(comp), acc: parseInt(acc) });
@@ -270,11 +301,11 @@ const ProgressModal = ({
                     )}
 
                     {/* Chapter-Specific Activity Feed with Averages */}
-                    {activeTab === 'dpp' && chapterActivities.length > 0 && (
+                    {tabActivities.length > 0 && (
                         <div className="mt-6 pt-6 border-t border-slate-700/50">
                             <h4 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <i className="ph-fill ph-activity text-sm"></i>
-                                Detected Activity ({chapterActivities.length})
+                                Detected {activeTab === 'dpp' ? 'DPP' : 'Module'} Activity ({tabActivities.length})
                             </h4>
 
                             {/* Average Stats */}
@@ -316,7 +347,7 @@ const ProgressModal = ({
 
                             {/* Activity Items (clickable) */}
                             <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
-                                {chapterActivities.map((act, i) => {
+                                {tabActivities.map((act, i) => {
                                     const d = act.details || {};
                                     const isDpp = d.quizType === 'DPP';
                                     return (
@@ -336,7 +367,19 @@ const ProgressModal = ({
                                                     <span className="text-[10px] text-slate-500 font-medium">
                                                         {new Date(act.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                     </span>
-                                                    <i className="ph-bold ph-arrow-up-right text-slate-500 text-xs ml-auto"></i>
+                                                    {d.url && (
+                                                        <a 
+                                                            href={d.url} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            onClick={(e) => e.stopPropagation()} 
+                                                            className="text-[10px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-0.5 hover:underline ml-auto"
+                                                            title={`Go to PW ${d.quizType || 'DPP'}`}
+                                                        >
+                                                            <i className="ph-bold ph-link"></i> Open PW
+                                                        </a>
+                                                    )}
+                                                    {!d.url && <i className="ph-bold ph-arrow-up-right text-slate-500 text-xs ml-auto"></i>}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-xs">
                                                     <span className="text-slate-400">Acc: <span className={`font-bold ${d.accuracy > 80 ? 'text-emerald-400' : d.accuracy > 50 ? 'text-amber-400' : 'text-rose-400'}`}>{d.accuracy}%</span></span>
@@ -389,6 +432,19 @@ const ProgressModal = ({
                                 <h3 className="text-sm font-bold text-slate-300 mb-1">Title</h3>
                                 <p className="text-slate-100 font-medium leading-snug">{selectedActivity.details.title}</p>
                             </div>
+
+                            {selectedActivity.details.url && (
+                                <div className="mb-6">
+                                    <a 
+                                        href={selectedActivity.details.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 hover:scale-[1.01]"
+                                    >
+                                        <i className="ph-bold ph-link-simple"></i> Open PW Specific {selectedActivity.details.quizType || 'DPP'}
+                                    </a>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3 mb-6">
                                 <div className="bg-slate-700/50 p-4 rounded-2xl flex flex-col items-center justify-center border border-slate-600/50">

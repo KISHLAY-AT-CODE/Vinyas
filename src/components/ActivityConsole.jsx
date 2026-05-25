@@ -39,7 +39,7 @@ const redactObject = (obj) => {
 };
 
 
-const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, pollActivities, lastFetchTime, requestConfirm }) => {
+const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, pollActivities, lastFetchTime, requestConfirm, onOpenBugReport }) => {
     const { showToast } = useToast();
     const [localLogs, setLocalLogs] = useState([]);
     const getISTDateStringYYYYMMDD = (date = new Date()) => {
@@ -613,6 +613,14 @@ const ActivityConsole = ({ isOpen, onClose, syncId, activities = [], isPolling, 
                         >
                             <i className={`ph-bold ${isSendingTelemetry ? 'ph-arrows-clockwise animate-spin' : 'ph-paper-plane-tilt'}`}></i>
                             {isSendingTelemetry ? 'Sending...' : 'Send to Dev'}
+                        </button>
+                        <button 
+                            onClick={onOpenBugReport}
+                            className="px-4 py-2 bg-slate-900 hover:bg-rose-950/20 text-rose-400 border border-slate-800 hover:border-rose-900/50 rounded-lg text-xs font-bold transition-all active:scale-95 flex items-center gap-2"
+                            title="Report a bug or contact developer directly"
+                        >
+                            <i className="ph-bold ph-warning-circle"></i>
+                            Report Bug
                         </button>
                         <button 
                             onClick={handleClearLogs}
