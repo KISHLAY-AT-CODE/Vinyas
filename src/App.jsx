@@ -776,7 +776,14 @@ const App = () => {
                     body: JSON.stringify(payload)
                 });
                 
-                if (!response.ok) throw new Error('Failed to save data');
+                if (!response.ok) {
+                    let errMsg = 'Failed to save data';
+                    try {
+                        const errData = await response.json();
+                        if (errData && errData.error) errMsg = errData.error;
+                    } catch (e) {}
+                    throw new Error(errMsg);
+                }
                 const resData = await response.json();
                 logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
 
@@ -1099,6 +1106,56 @@ const App = () => {
                 }
             }
         );
+    };
+
+    const handleSaveTargetDate = async (newDate) => {
+        if (!syncId) {
+            setTargetDate(newDate);
+            return;
+        }
+
+        // Cancel any pending debounced save to avoid duplicate saves or race conditions
+        debouncedSaveRef.current.cancel();
+
+        try {
+            logEvent('DB_SAVE', { message: 'Syncing target date change to MongoDB immediately...', targetDate: newDate });
+            const payload = {
+                syncId,
+                data,
+                routines,
+                testLogs,
+                achievements,
+                targetDate: newDate,
+                cohort,
+                resolvedActivityIds,
+                email,
+                autoBackupEnabled
+            };
+
+            const response = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                let errMsg = 'Failed to save data';
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error) errMsg = errData.error;
+                } catch (e) {}
+                throw new Error(errMsg);
+            }
+            const resData = await response.json();
+            logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
+            
+            setTargetDate(newDate);
+            handleSaveResponse(resData);
+        } catch (error) {
+            console.error("Save Target Date Error:", error);
+            logEvent('DB_SAVE_ERROR', { error: error.message }, 'error');
+            throw error;
+        }
     };
 
     const handleLogout = async () => {
@@ -2198,6 +2255,7 @@ const App = () => {
                 targetDate={targetDate} 
                 setTargetDate={setTargetDate} 
                 daysLeft={daysLeft} 
+                onSaveTargetDate={handleSaveTargetDate}
                 openCohortSetup={() => setCohortSetupOpen(true)}
                 pollActivities={pollActivities}
                 isPollingActivities={isPollingActivities}

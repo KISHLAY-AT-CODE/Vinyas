@@ -2,11 +2,35 @@ import React, { useRef } from 'react';
 import { YogiLogo } from '../data/constants';
 import { useToast } from './ToastContext';
 
-const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings, onOpenChangeLog }) => {
+const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings, onOpenChangeLog, onSaveTargetDate }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const dropdownRef = React.useRef(null);
+
+    const [localDate, setLocalDate] = React.useState(targetDate);
+    const [isSaving, setIsSaving] = React.useState(false);
+
+    React.useEffect(() => {
+        setLocalDate(targetDate);
+    }, [targetDate]);
+
+    const handleSave = async () => {
+        if (isSaving) return;
+        setIsSaving(true);
+        try {
+            if (onSaveTargetDate) {
+                await onSaveTargetDate(localDate);
+            } else {
+                setTargetDate(localDate);
+            }
+            showToast("Target date has been updated!", "success");
+        } catch (err) {
+            showToast("Failed to save target date: " + err.message, "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     React.useEffect(() => {
         const handleClickOutside = (event) => {
@@ -191,12 +215,29 @@ const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort,
                     <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 px-6 py-4 rounded-2xl flex items-center gap-6 shadow-xl relative overflow-hidden group hover:border-slate-700/80 transition-all duration-300 w-full md:w-auto justify-between md:justify-start">
                         <div>
                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Target Date</div>
-                            <input 
-                                type="date" 
-                                value={targetDate} 
-                                onChange={e => setTargetDate(e.target.value)} 
-                                className="bg-transparent border-b border-slate-800 text-slate-200 font-semibold outline-none focus:border-orange-500/60 transition-colors cursor-pointer py-0.5" 
-                            />
+                            <div className="flex items-center gap-3">
+                                <input 
+                                    type="date" 
+                                    value={localDate} 
+                                    onChange={e => setLocalDate(e.target.value)} 
+                                    className="bg-transparent border-b border-slate-800 text-slate-200 font-semibold outline-none focus:border-orange-500/60 transition-colors cursor-pointer py-0.5" 
+                                />
+                                {localDate !== targetDate && (
+                                    <button 
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                        className="bg-gradient-to-r from-orange-600 to-red-500 hover:from-orange-500 hover:to-red-400 border border-orange-500/30 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all duration-300 flex items-center gap-1.5 animate-fade-in cursor-pointer"
+                                        title="Save target date to cloud"
+                                    >
+                                        {isSaving ? (
+                                            <i className="ph-bold ph-circle-notch animate-spin"></i>
+                                        ) : (
+                                            <i className="ph-bold ph-floppy-disk"></i>
+                                        )}
+                                        <span>Save</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         
                         <div className="w-px h-10 bg-slate-800"></div>
