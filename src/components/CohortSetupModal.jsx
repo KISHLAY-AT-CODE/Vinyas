@@ -74,7 +74,16 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                     lectures: 0,
                     log: '',
                     dpp: { acc: 0, comp: 0 },
-                    module: { acc: 0, comp: 0 }
+                    module: { acc: 0, comp: 0 },
+                    dppLogs: {},
+                    moduleLogs: {},
+                    customExerciseConfig: null,
+                    exerciseDisplayNames: null,
+                    moduleQuestionStates: {},
+                    focusTime: 0,
+                    reviewsDone: 0,
+                    nextReview: null,
+                    lastReviewRating: null
                 }))
             }));
             setCustomSyllabus(loadedSyllabus);
@@ -141,7 +150,16 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                     lectures: 0,
                     log: '',
                     dpp: { acc: 0, comp: 0 },
-                    module: { acc: 0, comp: 0 }
+                    module: { acc: 0, comp: 0 },
+                    dppLogs: {},
+                    moduleLogs: {},
+                    customExerciseConfig: null,
+                    exerciseDisplayNames: null,
+                    moduleQuestionStates: {},
+                    focusTime: 0,
+                    reviewsDone: 0,
+                    nextReview: null,
+                    lastReviewRating: null
                 }]
             };
         }));

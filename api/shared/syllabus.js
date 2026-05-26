@@ -73,7 +73,13 @@ export function serializeSyllabus(userData, baseTemplate) {
           (userCh.module && (userCh.module.acc > 0 || userCh.module.comp > 0)) ||
           (userCh.dppLogs && Object.keys(userCh.dppLogs).length > 0) ||
           (userCh.moduleLogs && Object.keys(userCh.moduleLogs).length > 0) ||
-          (userCh.customExerciseConfig && Object.keys(userCh.customExerciseConfig).length > 0);
+          (userCh.customExerciseConfig && Object.keys(userCh.customExerciseConfig).length > 0) ||
+          (userCh.exerciseDisplayNames && Object.keys(userCh.exerciseDisplayNames).length > 0) ||
+          (userCh.moduleQuestionStates && Object.keys(userCh.moduleQuestionStates).length > 0) ||
+          (userCh.focusTime > 0) ||
+          (userCh.reviewsDone > 0) ||
+          (userCh.nextReview && userCh.nextReview.trim() !== '') ||
+          (userCh.lastReviewRating && userCh.lastReviewRating.trim() !== '');
 
         if (hasProgress) {
           progressList.push({
@@ -88,7 +94,12 @@ export function serializeSyllabus(userData, baseTemplate) {
               dppLogs: userCh.dppLogs,
               moduleLogs: userCh.moduleLogs,
               customExerciseConfig: userCh.customExerciseConfig,
-              exerciseDisplayNames: userCh.exerciseDisplayNames
+              exerciseDisplayNames: userCh.exerciseDisplayNames,
+              moduleQuestionStates: userCh.moduleQuestionStates,
+              focusTime: userCh.focusTime,
+              reviewsDone: userCh.reviewsDone,
+              nextReview: userCh.nextReview,
+              lastReviewRating: userCh.lastReviewRating
             }
           });
         }
@@ -146,7 +157,12 @@ export function deserializeSyllabus(serialized, baseTemplate) {
             dppLogs: savedProgress.progress.dppLogs || {},
             moduleLogs: savedProgress.progress.moduleLogs || {},
             customExerciseConfig: savedProgress.progress.customExerciseConfig || null,
-            exerciseDisplayNames: savedProgress.progress.exerciseDisplayNames || null
+            exerciseDisplayNames: savedProgress.progress.exerciseDisplayNames || null,
+            moduleQuestionStates: savedProgress.progress.moduleQuestionStates || {},
+            focusTime: savedProgress.progress.focusTime || 0,
+            reviewsDone: savedProgress.progress.reviewsDone || 0,
+            nextReview: savedProgress.progress.nextReview || null,
+            lastReviewRating: savedProgress.progress.lastReviewRating || null
           };
         }
 
@@ -161,7 +177,12 @@ export function deserializeSyllabus(serialized, baseTemplate) {
           dppLogs: {},
           moduleLogs: {},
           customExerciseConfig: null,
-          exerciseDisplayNames: null
+          exerciseDisplayNames: null,
+          moduleQuestionStates: {},
+          focusTime: 0,
+          reviewsDone: 0,
+          nextReview: null,
+          lastReviewRating: null
         };
       });
 

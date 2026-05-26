@@ -4,7 +4,16 @@ import React from 'react';
 export const generateEmptyChapter = (name) => ({
     name, status: 'None', lectures: 0, log: '',
     dpp: { acc: 0, comp: 0 },
-    module: { acc: 0, comp: 0 }
+    module: { acc: 0, comp: 0 },
+    dppLogs: {},
+    moduleLogs: {},
+    customExerciseConfig: null,
+    exerciseDisplayNames: null,
+    moduleQuestionStates: {},
+    focusTime: 0,
+    reviewsDone: 0,
+    nextReview: null,
+    lastReviewRating: null
 });
 
 export const initialSyllabus = [];
