@@ -106,6 +106,16 @@ const UnresolvedItem = ({ sub, data, onAddChapter, onLinkChapter, onDismiss }) =
                 </div>
             </div>
 
+            {sub.message && (
+                <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-xs flex items-start gap-2.5 shadow-inner">
+                    <i className="ph-fill ph-warning-circle text-amber-500 text-lg mt-0.5"></i>
+                    <div>
+                        <span className="font-semibold block text-amber-300 mb-0.5">Multiple Chapters Found</span>
+                        <span>{sub.message}</span>
+                    </div>
+                </div>
+            )}
+
             {mode === 'add' && (
                 <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700 flex items-center gap-3 animate-fade-in">
                     <span className="text-sm text-slate-400">Subject:</span>

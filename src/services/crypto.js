@@ -1,5 +1,18 @@
 // Secure cryptographic services utilizing native Web Crypto API
 // Provides zero-dependency, high-security AES-256-GCM encryption with PBKDF2 key derivation
+// Universal: works in both Browser and Node.js environments
+
+// Helper to get crypto implementation dynamically depending on environment
+async function getCrypto() {
+    if (typeof window !== 'undefined' && window.crypto) {
+        return window.crypto;
+    }
+    if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+        return globalThis.crypto;
+    }
+    const { webcrypto } = await import('crypto');
+    return webcrypto;
+}
 
 // Helper to convert array buffer to hex string
 const bufferToHex = (buffer) => {
@@ -23,8 +36,9 @@ const hexToBuffer = (hex) => {
  * @returns {Promise<CryptoKey>} Derived key ready for AES-GCM operations
  */
 async function deriveKey(passphrase, salt) {
+    const crypto = await getCrypto();
     const encoder = new TextEncoder();
-    const baseKey = await window.crypto.subtle.importKey(
+    const baseKey = await crypto.subtle.importKey(
         "raw",
         encoder.encode(passphrase),
         { name: "PBKDF2" },
@@ -32,7 +46,7 @@ async function deriveKey(passphrase, salt) {
         ["deriveKey"]
     );
     
-    return window.crypto.subtle.deriveKey(
+    return crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
             salt: salt,
@@ -57,12 +71,13 @@ export async function aesEncrypt(passphrase, plaintext) {
         throw new Error("Encryption failed: Passphrase is required.");
     }
     
+    const crypto = await getCrypto();
     const encoder = new TextEncoder();
-    const salt = window.crypto.getRandomValues(new Uint8Array(16));
-    const iv = window.crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV is 12 bytes
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV is 12 bytes
     
     const key = await deriveKey(passphrase, salt);
-    const ciphertextBuffer = await window.crypto.subtle.encrypt(
+    const ciphertextBuffer = await crypto.subtle.encrypt(
         {
             name: "AES-GCM",
             iv: iv
@@ -92,12 +107,13 @@ export async function aesDecrypt(passphrase, { salt, iv, ciphertext }) {
         throw new Error("Decryption failed: Invalid or incomplete encrypted payload bundle.");
     }
     
+    const crypto = await getCrypto();
     const saltBuffer = hexToBuffer(salt);
     const ivBuffer = hexToBuffer(iv);
     const ciphertextBuffer = hexToBuffer(ciphertext);
     
     const key = await deriveKey(passphrase, saltBuffer);
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
+    const decryptedBuffer = await crypto.subtle.decrypt(
         {
             name: "AES-GCM",
             iv: ivBuffer
@@ -108,3 +124,20 @@ export async function aesDecrypt(passphrase, { salt, iv, ciphertext }) {
     
     return new TextDecoder().decode(decryptedBuffer);
 }
+
+/**
+ * Computes the SHA-256 hash of a Sync ID on the client.
+ * @param {string} plainSyncId Plaintext Sync ID
+ * @returns {Promise<string>} Hex-encoded SHA-256 hash
+ */
+export async function hashSyncId(plainSyncId) {
+    if (!plainSyncId) return '';
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plainSyncId.trim());
+    const crypto = await getCrypto();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+

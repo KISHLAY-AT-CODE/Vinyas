@@ -133,6 +133,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; 
     }
 
+    if (message.action === "autoSyncDashboardConfig") {
+        const { syncId, apiUrl } = message.data;
+        if (syncId && apiUrl) {
+            if (isValidApiUrl(apiUrl)) {
+                chrome.storage.local.set({
+                    vinyasSyncId: syncId,
+                    vinyasApiUrl: apiUrl
+                }, () => {
+                    console.log("[Vinyas Tracker Background] Auto-synced config from dashboard in background: Sync ID and API URL updated.");
+                    sendResponse({ success: true });
+                });
+            } else {
+                console.error("[Vinyas Tracker Background] Blocked invalid/unsafe auto-sync API URL:", apiUrl);
+                sendResponse({ success: false, error: "Unsafe API URL" });
+            }
+        } else {
+            sendResponse({ success: false, error: "Missing syncId or apiUrl" });
+        }
+        return true;
+    }
+
     if (message.action === "clearExtensionStorage") {
         chrome.storage.local.clear(() => {
             console.log("[Vinyas Tracker Background] Extension local storage cleared successfully.");

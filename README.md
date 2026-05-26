@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.0-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.2.1-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -316,7 +316,14 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
-### v1.2.0 (May 25, 2026) - Latest Update
+### v1.2.1 (May 26, 2026) - Latest Update
+- 🔒 **Secured Sync ID Login**: Configured credentials load system utilizing Sync ID as secure password verification.
+- 📧 **Inactivity Warning Fixes**: Cancel active profile warning countdowns on user logins, resetting inactivity limits.
+- 🔄 **Duplicate Chapter Resolver**: Reroute study telemetry to unresolved queues if duplicate chapter names are matched.
+- 🆕 **What's New Popup**: Automatically alerts users of version updates on loading the dashboard.
+- 🚨 **Pinned Extension Warning**: Pinned a persistent warning banner in the app header if outdated browser extensions are active.
+
+### v1.2.0 (May 25, 2026)
 - 🔄 **Link-Based Sync Re-Check**: Implemented duplicate overlay asking for confirmation to bypass deduplication or cancel when parsing study results.
 - 🎨 **Empty States**: Created "Nothing to see here" empty state illustration for interactive module question tracker prior to first synced practice.
 - 🔗 **Direct PW Shortcuts**: Added "Open PW" shortcut button in progress logs allowing direct navigation to PhysicsWallah specific DPPs or Modules.

@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { YogiLogo } from '../data/constants';
 import { useToast } from './ToastContext';
 
-const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings, onOpenChangeLog, onSaveTargetDate }) => {
+const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort, openCohortSetup, onExportData, onImportData, onLogout, onDeleteAccount, onNavigateToExtension, onOpenBackupSettings, onOpenChangeLog, onSaveTargetDate, showExtensionWarning }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -71,6 +71,34 @@ const Header = ({ userName, syncId, targetDate, setTargetDate, daysLeft, cohort,
             
             {/* The thin, glowing brand border bottom matching the icon's key colors */}
             <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-600 via-red-500 to-blue-600 opacity-60"></div>
+
+            {/* Red Extension Alert Banner */}
+            {showExtensionWarning && (
+                <div className="max-w-7xl mx-auto mb-5 bg-rose-950/65 border border-rose-900/60 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in relative z-50">
+                    <div className="flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-full bg-rose-500/15 border border-rose-500/25 flex items-center justify-center text-rose-450 flex-shrink-0 animate-pulse">
+                            <i className="ph-bold ph-warning text-lg"></i>
+                        </span>
+                        <div>
+                            <h4 className="text-xs font-black text-rose-350 uppercase tracking-wider">
+                                Vinyas Tracker Extension Action Required
+                            </h4>
+                            <p className="text-[11px] font-semibold text-slate-300 mt-0.5 leading-relaxed">
+                                Missing or outdated extension detected (required: v1.2.1). This will affect your study tracking and auto-sync. Please download and load the updated extension in your browser.
+                            </p>
+                        </div>
+                    </div>
+                    <a
+                        href="/Vinyas_Extension.zip"
+                        download="Vinyas_Extension.zip"
+                        className="bg-rose-600 hover:bg-rose-500 border border-rose-500/30 text-white text-[11px] font-black px-4.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-rose-950/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
+                        title="Download Extension ZIP file"
+                    >
+                        <i className="ph-bold ph-download-simple text-sm"></i>
+                        <span>Download Extension v1.2.1</span>
+                    </a>
+                </div>
+            )}
             
             <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-6 relative z-10">
                 <div className="flex items-center gap-5">

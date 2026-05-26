@@ -1,218 +1,14 @@
+import crypto from 'crypto';
 import { connectToDatabase } from './db.js';
 import { calculateAchievements, getAllAchievementsStatus } from './achievements_config.js';
 import { getISTISOString, getISTLogPrefix } from './timezone.js';
-import fs from 'fs';
-import path from 'path';
-
-// Load base template subjects and chapters from templates directory
-function loadTemplate(cohortName) {
-  if (!cohortName) return null;
-  
-  const filename = cohortName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '.json';
-  const filePath = path.join(process.cwd(), 'templates', filename);
-  
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const parsed = JSON.parse(content);
-      return parsed.subjects || null;
-    }
-  } catch (err) {
-    console.error(`${getISTLogPrefix()} Failed to load template ${cohortName} from ${filePath}:`, err);
-  }
-  
-  return null;
-}
-
-// Convert full syllabus array to optimized diff format for MongoDB
-function serializeSyllabus(userData, baseTemplate) {
-  if (!baseTemplate || !Array.isArray(userData)) {
-    return { isRaw: true, data: userData };
-  }
-
-  const additions = [];
-  const deletions = [];
-  const progressList = [];
-
-  userData.forEach(sub => {
-    if (!sub || !sub.name) return;
-    const baseSub = baseTemplate.find(s => s.name.trim().toLowerCase() === sub.name.trim().toLowerCase());
-    
-    if (!baseSub) {
-      // Custom subject added by user
-      additions.push({
-        type: 'subject',
-        subjectName: sub.name,
-        color: sub.color,
-        chapters: sub.chapters
-      });
-      return;
-    }
-
-    // Check for deleted chapters
-    baseSub.chapters.forEach(baseCh => {
-      const userCh = sub.chapters.find(c => c.name.trim().toLowerCase() === baseCh.name.trim().toLowerCase());
-      if (!userCh) {
-        deletions.push({
-          subjectName: sub.name,
-          chapterName: baseCh.name
-        });
-      }
-    });
-
-    // Check for custom added chapters and active progress
-    sub.chapters.forEach(userCh => {
-      const baseCh = baseSub.chapters.find(c => c.name.trim().toLowerCase() === userCh.name.trim().toLowerCase());
-      
-      if (!baseCh) {
-        // Custom chapter added by user
-        additions.push({
-          type: 'chapter',
-          subjectName: sub.name,
-          chapter: userCh
-        });
-      } else {
-        // Base template chapter - check if it has active progress or synced module questions
-        const hasProgress = 
-          userCh.status !== 'None' || 
-          userCh.lectures > 0 || 
-          (userCh.log && userCh.log.trim() !== '') || 
-          (userCh.dpp && (userCh.dpp.acc > 0 || userCh.dpp.comp > 0)) || 
-          (userCh.module && (userCh.module.acc > 0 || userCh.module.comp > 0)) ||
-          (userCh.dppLogs && Object.keys(userCh.dppLogs).length > 0) ||
-          (userCh.moduleLogs && Object.keys(userCh.moduleLogs).length > 0) ||
-          (userCh.customExerciseConfig && Object.keys(userCh.customExerciseConfig).length > 0);
-
-        if (hasProgress) {
-          progressList.push({
-            subjectName: sub.name,
-            chapterName: userCh.name,
-            progress: {
-              status: userCh.status,
-              lectures: userCh.lectures,
-              log: userCh.log,
-              dpp: userCh.dpp,
-              module: userCh.module,
-              dppLogs: userCh.dppLogs,
-              moduleLogs: userCh.moduleLogs,
-              customExerciseConfig: userCh.customExerciseConfig,
-              exerciseDisplayNames: userCh.exerciseDisplayNames
-            }
-          });
-        }
-      }
-    });
-  });
-
-  return {
-    isRaw: false,
-    additions,
-    deletions,
-    progressList,
-    subjectColors: userData.map(s => ({ name: s.name, color: s.color }))
-  };
-}
-
-// Reconstruct full syllabus array by combining template structure and diff modifications
-function deserializeSyllabus(serialized, baseTemplate) {
-  if (!serialized) return [];
-  if (Array.isArray(serialized)) return serialized;
-  if (serialized.isRaw) return serialized.data || [];
-
-  if (!baseTemplate) {
-    return [];
-  }
-
-  const COLORS = ["bg-blue-600", "bg-emerald-600", "bg-indigo-600", "bg-purple-600", "bg-rose-600", "bg-amber-600", "bg-cyan-600"];
-  
-  // 1. Build initial list from baseTemplate
-  const reconstructed = baseTemplate.map((baseSub, idx) => {
-    const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === baseSub.name.toLowerCase());
-    const color = savedColorObj ? savedColorObj.color : COLORS[idx % COLORS.length];
-
-    // Filter chapters (remove deletions)
-    const filteredChapters = baseSub.chapters
-      .filter(baseCh => {
-        const isDeleted = serialized.deletions?.some(d => 
-          d.subjectName.trim().toLowerCase() === baseSub.name.trim().toLowerCase() &&
-          d.chapterName.trim().toLowerCase() === baseCh.name.trim().toLowerCase()
-        );
-        return !isDeleted;
-      })
-      .map(baseCh => {
-        // Find if there is saved progress
-        const savedProgress = serialized.progressList?.find(p => 
-          p.subjectName.trim().toLowerCase() === baseSub.name.trim().toLowerCase() &&
-          p.chapterName.trim().toLowerCase() === baseCh.name.trim().toLowerCase()
-        );
-
-        if (savedProgress) {
-          return {
-            name: baseCh.name,
-            status: savedProgress.progress.status || 'None',
-            lectures: savedProgress.progress.lectures || 0,
-            log: savedProgress.progress.log || '',
-            dpp: savedProgress.progress.dpp || { acc: 0, comp: 0 },
-            module: savedProgress.progress.module || { acc: 0, comp: 0 },
-            dppLogs: savedProgress.progress.dppLogs || {},
-            moduleLogs: savedProgress.progress.moduleLogs || {},
-            customExerciseConfig: savedProgress.progress.customExerciseConfig || null,
-            exerciseDisplayNames: savedProgress.progress.exerciseDisplayNames || null
-          };
-        }
-
-        // Untouched chapter default state
-        return {
-          name: baseCh.name,
-          status: 'None',
-          lectures: 0,
-          log: '',
-          dpp: { acc: 0, comp: 0 },
-          module: { acc: 0, comp: 0 },
-          dppLogs: {},
-          moduleLogs: {},
-          customExerciseConfig: null,
-          exerciseDisplayNames: null
-        };
-      });
-
-    return {
-      name: baseSub.name,
-      color,
-      chapters: filteredChapters
-    };
-  });
-
-  // 2. Apply custom additions
-  if (serialized.additions && Array.isArray(serialized.additions)) {
-    serialized.additions.forEach(add => {
-      if (add.type === 'subject') {
-        reconstructed.push({
-          name: add.subjectName,
-          color: add.color || "bg-indigo-600",
-          chapters: add.chapters || []
-        });
-      } else if (add.type === 'chapter') {
-        const sub = reconstructed.find(s => s.name.trim().toLowerCase() === add.subjectName.trim().toLowerCase());
-        if (sub) {
-          sub.chapters.push(add.chapter);
-        } else {
-          reconstructed.push({
-            name: add.subjectName,
-            color: "bg-indigo-600",
-            chapters: [add.chapter]
-          });
-        }
-      }
-    });
-  }
-
-  return reconstructed;
-}
+import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
+import { resolveUser, hashSyncId } from './shared/auth.js';
 
 export default async function handler(req, res) {
   // Enforce global request body size limit of 2MB to protect MongoDB and Vercel functions
-  if (req.body && JSON.stringify(req.body).length > 2 * 1024 * 1024) {
+  const contentLength = req.headers['content-length'] ? parseInt(req.headers['content-length'], 10) : 0;
+  if (contentLength > 2 * 1024 * 1024 || (req.body && JSON.stringify(req.body).length > 2 * 1024 * 1024)) {
     return res.status(413).json({ error: 'Payload too large (limit is 2MB)' });
   }
 
@@ -228,12 +24,31 @@ export default async function handler(req, res) {
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
-      const userDoc = await collection.findOne({ syncId });
+      const userDoc = await resolveUser(db, syncId);
+      let sessionToken = null;
+
       if (userDoc) {
+        if (userDoc.logoutTimestamp) {
+          console.log(`[Vinyas Inactivity] User ${userDoc.syncId} logged back in / active. Resetting inactivity countdown and warning flags. Previous logoutTimestamp: ${userDoc.logoutTimestamp}`);
+        }
         // Clear logout status because user is active
-        await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
+        await collection.updateOne({ syncId: userDoc.syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
         userDoc.logoutTimestamp = null;
         userDoc.alertSent = false;
+        
+        // If lookup was done via a plaintext syncId, generate a new session token
+        if (syncId.startsWith('vny_sec_')) {
+          sessionToken = 'vny_sess_' + crypto.randomBytes(24).toString('hex');
+          const newSession = {
+            token: sessionToken,
+            createdAt: new Date().toISOString(),
+            lastUsedAt: new Date().toISOString()
+          };
+          await collection.updateOne(
+            { syncId: userDoc.syncId },
+            { $push: { sessions: newSession } }
+          );
+        }
 
         // Reconstruct the full syllabus data before calculating achievements and sending to client
         const baseTemplate = loadTemplate(userDoc.cohort);
@@ -241,28 +56,48 @@ export default async function handler(req, res) {
         
         userDoc.achievements = calculateAchievements(userDoc);
         userDoc.allAchievements = getAllAchievementsStatus(userDoc);
+
+        if (sessionToken) {
+          userDoc.sessionToken = sessionToken;
+        }
       }
       return res.status(200).json(userDoc || { exists: false });
     } 
     
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled } = req.body;
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion } = req.body;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
 
-      // Retrieve existing doc to get activities and preserve existing achievements
-      const existingDoc = await collection.findOne({ syncId });
+      const userDoc = await resolveUser(db, syncId);
       const isSecure = syncId.startsWith('vny_sec_');
 
-      if (!isSecure && !existingDoc) {
+      if (!isSecure && !userDoc) {
         return res.status(400).json({ 
           error: 'Security Enforcement: The Sync ID provided is not secure and does not exist in the database. New sync profiles must be created with a cryptographically secure Sync ID (starts with "vny_sec_") generated by the Vinyas console.' 
         });
       }
 
-      const docToUse = existingDoc || {};
+      const targetHashedSyncId = userDoc ? userDoc.syncId : hashSyncId(syncId);
+      let sessionToken = null;
+
+      if (!userDoc) {
+        // This is a first-time registration save with a plaintext Sync ID.
+        sessionToken = 'vny_sess_' + crypto.randomBytes(24).toString('hex');
+      }
+
+      const docToUse = userDoc || {};
       const activities = docToUse.activities || [];
+      const sessions = docToUse.sessions || [];
+
+      if (sessionToken) {
+        sessions.push({
+          token: sessionToken,
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString()
+        });
+      }
 
       // Construct a temporary full userDoc to evaluate achievements (using the incoming full data)
       const tempUserDoc = {
@@ -293,6 +128,7 @@ export default async function handler(req, res) {
           resolvedActivityIds,
           email,
           autoBackupEnabled,
+          sessions,
           lastUpdated: getISTISOString()
         },
         $unset: {
@@ -301,12 +137,28 @@ export default async function handler(req, res) {
         }
       };
 
-      await collection.updateOne({ syncId }, updateDoc, { upsert: true });
-      return res.status(200).json({ 
+      if (lastSeenAppVersion !== undefined) {
+        updateDoc.$set.lastSeenAppVersion = lastSeenAppVersion;
+      }
+      if (lastSeenExtVersion !== undefined) {
+        updateDoc.$set.lastSeenExtVersion = lastSeenExtVersion;
+      }
+
+      if (userDoc && userDoc.logoutTimestamp) {
+        console.log(`[Vinyas Inactivity] User ${userDoc.syncId} logged active via POST data. Resetting inactivity countdown and warning flags. Previous logoutTimestamp: ${userDoc.logoutTimestamp}`);
+      }
+
+      await collection.updateOne({ syncId: targetHashedSyncId }, updateDoc, { upsert: true });
+
+      const responsePayload = { 
         success: true, 
         achievements: calculatedAchievements,
         allAchievements 
-      });
+      };
+      if (sessionToken) {
+        responsePayload.sessionToken = sessionToken;
+      }
+      return res.status(200).json(responsePayload);
     }
 
     return res.status(405).json({ error: 'Method Not Allowed' });

@@ -1,10 +1,6 @@
-const LOG_LIMIT = 500;
+import { getISTISOString } from '../shared/time.js';
 
-const getISTISOString = (date = new Date()) => {
-    const tzOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(date.getTime() + tzOffset);
-    return istDate.toISOString().replace('Z', '+05:30');
-};
+const LOG_LIMIT = 500;
 
 export const logEvent = (type, details, severity = 'info') => {
     try {

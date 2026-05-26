@@ -1,0 +1,200 @@
+import fs from 'fs';
+import path from 'path';
+
+export function loadTemplate(cohortName) {
+  if (!cohortName) return null;
+  const filename = cohortName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '.json';
+  const filePath = path.join(process.cwd(), 'templates', filename);
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(content);
+      return parsed.subjects || null;
+    }
+  } catch (err) {
+    console.error(`Failed to load template ${cohortName} from ${filePath}:`, err);
+  }
+  return null;
+}
+
+export function serializeSyllabus(userData, baseTemplate) {
+  if (!baseTemplate || !Array.isArray(userData)) {
+    return { isRaw: true, data: userData };
+  }
+
+  const additions = [];
+  const deletions = [];
+  const progressList = [];
+
+  userData.forEach(sub => {
+    if (!sub || !sub.name) return;
+    const baseSub = baseTemplate.find(s => s.name.trim().toLowerCase() === sub.name.trim().toLowerCase());
+    
+    if (!baseSub) {
+      // Custom subject added by user
+      additions.push({
+        type: 'subject',
+        subjectName: sub.name,
+        color: sub.color,
+        chapters: sub.chapters
+      });
+      return;
+    }
+
+    // Check for deleted chapters
+    baseSub.chapters.forEach(baseCh => {
+      const userCh = sub.chapters.find(c => c.name.trim().toLowerCase() === baseCh.name.trim().toLowerCase());
+      if (!userCh) {
+        deletions.push({
+          subjectName: sub.name,
+          chapterName: baseCh.name
+        });
+      }
+    });
+
+    // Check for custom added chapters and active progress
+    sub.chapters.forEach(userCh => {
+      const baseCh = baseSub.chapters.find(c => c.name.trim().toLowerCase() === userCh.name.trim().toLowerCase());
+      
+      if (!baseCh) {
+        // Custom chapter added by user
+        additions.push({
+          type: 'chapter',
+          subjectName: sub.name,
+          chapter: userCh
+        });
+      } else {
+        // Base template chapter - check if it has active progress or synced module questions
+        const hasProgress = 
+          userCh.status !== 'None' || 
+          userCh.lectures > 0 || 
+          (userCh.log && userCh.log.trim() !== '') || 
+          (userCh.dpp && (userCh.dpp.acc > 0 || userCh.dpp.comp > 0)) || 
+          (userCh.module && (userCh.module.acc > 0 || userCh.module.comp > 0)) ||
+          (userCh.dppLogs && Object.keys(userCh.dppLogs).length > 0) ||
+          (userCh.moduleLogs && Object.keys(userCh.moduleLogs).length > 0) ||
+          (userCh.customExerciseConfig && Object.keys(userCh.customExerciseConfig).length > 0);
+
+        if (hasProgress) {
+          progressList.push({
+            subjectName: sub.name,
+            chapterName: userCh.name,
+            progress: {
+              status: userCh.status,
+              lectures: userCh.lectures,
+              log: userCh.log,
+              dpp: userCh.dpp,
+              module: userCh.module,
+              dppLogs: userCh.dppLogs,
+              moduleLogs: userCh.moduleLogs,
+              customExerciseConfig: userCh.customExerciseConfig,
+              exerciseDisplayNames: userCh.exerciseDisplayNames
+            }
+          });
+        }
+      }
+    });
+  });
+
+  return {
+    isRaw: false,
+    additions,
+    deletions,
+    progressList,
+    subjectColors: userData.map(s => ({ name: s.name, color: s.color }))
+  };
+}
+
+export function deserializeSyllabus(serialized, baseTemplate) {
+  if (!serialized) return [];
+  if (Array.isArray(serialized)) return serialized;
+  if (serialized.isRaw) return serialized.data || [];
+
+  if (!baseTemplate) return [];
+
+  const COLORS = ["bg-blue-600", "bg-emerald-600", "bg-indigo-600", "bg-purple-600", "bg-rose-600", "bg-amber-600", "bg-cyan-600"];
+  
+  // 1. Build initial list from baseTemplate
+  const reconstructed = baseTemplate.map((baseSub, idx) => {
+    const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === baseSub.name.toLowerCase());
+    const color = savedColorObj ? savedColorObj.color : COLORS[idx % COLORS.length];
+
+    // Filter chapters (remove deletions)
+    const filteredChapters = baseSub.chapters
+      .filter(baseCh => {
+        const isDeleted = serialized.deletions?.some(d => 
+          d.subjectName.trim().toLowerCase() === baseSub.name.trim().toLowerCase() &&
+          d.chapterName.trim().toLowerCase() === baseCh.name.trim().toLowerCase()
+        );
+        return !isDeleted;
+      })
+      .map(baseCh => {
+        // Find if there is saved progress
+        const savedProgress = serialized.progressList?.find(p => 
+          p.subjectName.trim().toLowerCase() === baseSub.name.trim().toLowerCase() &&
+          p.chapterName.trim().toLowerCase() === baseCh.name.trim().toLowerCase()
+        );
+
+        if (savedProgress) {
+          return {
+            name: baseCh.name,
+            status: savedProgress.progress.status || 'None',
+            lectures: savedProgress.progress.lectures || 0,
+            log: savedProgress.progress.log || '',
+            dpp: savedProgress.progress.dpp || { acc: 0, comp: 0 },
+            module: savedProgress.progress.module || { acc: 0, comp: 0 },
+            dppLogs: savedProgress.progress.dppLogs || {},
+            moduleLogs: savedProgress.progress.moduleLogs || {},
+            customExerciseConfig: savedProgress.progress.customExerciseConfig || null,
+            exerciseDisplayNames: savedProgress.progress.exerciseDisplayNames || null
+          };
+        }
+
+        // Untouched chapter default state
+        return {
+          name: baseCh.name,
+          status: 'None',
+          lectures: 0,
+          log: '',
+          dpp: { acc: 0, comp: 0 },
+          module: { acc: 0, comp: 0 },
+          dppLogs: {},
+          moduleLogs: {},
+          customExerciseConfig: null,
+          exerciseDisplayNames: null
+        };
+      });
+
+    return {
+      name: baseSub.name,
+      color,
+      chapters: filteredChapters
+    };
+  });
+
+  // 2. Apply custom additions
+  if (serialized.additions && Array.isArray(serialized.additions)) {
+    serialized.additions.forEach(add => {
+      if (add.type === 'subject') {
+        reconstructed.push({
+          name: add.subjectName,
+          color: add.color || "bg-indigo-600",
+          chapters: add.chapters || []
+        });
+      } else if (add.type === 'chapter') {
+        const sub = reconstructed.find(s => s.name.trim().toLowerCase() === add.subjectName.trim().toLowerCase());
+        if (sub) {
+          sub.chapters.push(add.chapter);
+        } else {
+          reconstructed.push({
+            name: add.subjectName,
+            color: "bg-indigo-600",
+            chapters: [add.chapter]
+          });
+        }
+      }
+    });
+  }
+
+  return reconstructed;
+}

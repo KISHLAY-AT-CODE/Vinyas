@@ -1,26 +1,35 @@
-import { getISTLogPrefix } from './timezone.js';
+import { getISTLogPrefix } from '../src/shared/time.js';
 import { connectToDatabase } from './db.js';
+import { resolveUser } from './shared/auth.js';
 
-const requestCounts = new Map();
-
-function isRateLimited(syncId) {
-  const now = Date.now();
+async function isRateLimited(syncId, db) {
+  const now = new Date();
+  const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
   const limit = 15; // Max 15 requests per minute
-  const windowMs = 60 * 1000;
   
-  if (!requestCounts.has(syncId)) {
-    requestCounts.set(syncId, []);
-  }
+  const rateLimitCol = db.collection('rate_limits');
   
-  const timestamps = requestCounts.get(syncId);
-  const activeTimestamps = timestamps.filter(ts => now - ts < windowMs);
+  // Clean up timestamps older than 1 minute and upsert to ensure the document exists
+  await rateLimitCol.updateOne(
+    { _id: syncId },
+    { $pull: { timestamps: { $lt: oneMinuteAgo } } },
+    { upsert: true }
+  );
   
-  if (activeTimestamps.length >= limit) {
+  // Find current rate limits document
+  const doc = await rateLimitCol.findOne({ _id: syncId });
+  const count = doc && doc.timestamps ? doc.timestamps.length : 0;
+  
+  if (count >= limit) {
     return true;
   }
   
-  activeTimestamps.push(now);
-  requestCounts.set(syncId, activeTimestamps);
+  // Record current request timestamp
+  await rateLimitCol.updateOne(
+    { _id: syncId },
+    { $push: { timestamps: now } }
+  );
+  
   return false;
 }
 
@@ -65,25 +74,33 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Authentication required: syncId cannot be empty' });
   }
 
-  // Rate Limiting per syncId (Max 15 requests per minute)
-  if (isRateLimited(syncId)) {
-    return res.status(429).json({ error: 'Too many AI requests. Please slow down (limit is 15 requests per minute)' });
+  let db = null;
+  try {
+    db = await connectToDatabase();
+  } catch (dbErr) {
+    console.error('Database connection error in Gemini handler:', dbErr);
+    return res.status(500).json({ error: 'Database connection failed' });
   }
 
-  // Verify syncId is secure or exists in DB
-  const isSecure = syncId.startsWith('vny_sec_');
-  let exists = false;
+  // Resolve user document using security helper
+  let resolvedUserDoc = null;
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection('users');
-    const userDoc = await collection.findOne({ syncId });
-    exists = !!userDoc;
+    resolvedUserDoc = await resolveUser(db, syncId);
   } catch (dbErr) {
     console.error('Database check error in Gemini handler:', dbErr);
   }
 
-  if (!isSecure && !exists) {
+  const userExists = !!resolvedUserDoc;
+  const isSecure = syncId.startsWith('vny_sec_') || (resolvedUserDoc && resolvedUserDoc.syncId);
+
+  if (!isSecure && !userExists) {
     return res.status(403).json({ error: 'Access denied: Sync ID must be secure or registered in the database.' });
+  }
+
+  // Rate Limiting per hashed syncId (or fallback to passed syncId if first-time linking / unregistered secure ID)
+  const rateLimitId = resolvedUserDoc ? resolvedUserDoc.syncId : syncId;
+  if (await isRateLimited(rateLimitId, db)) {
+    return res.status(429).json({ error: 'Too many AI requests. Please slow down (limit is 15 requests per minute)' });
   }
 
   // Truncate overly long prompts
@@ -357,8 +374,14 @@ export default async function handler(req, res) {
     }
   }
 
-  // Set the attempts header for client monitoring
-  res.setHeader('x-gemini-attempts', JSON.stringify(attempts));
+  // Set the attempts header for client monitoring, sanitizing error details in production to prevent API key leaks
+  const sanitizedAttempts = attempts.map(att => {
+    if (process.env.NODE_ENV === 'production' && att.error) {
+      return { index: att.index, status: att.status, error: 'Detailed error hidden in production' };
+    }
+    return att;
+  });
+  res.setHeader('x-gemini-attempts', JSON.stringify(sanitizedAttempts));
 
   if (success) {
     if (isJson) {

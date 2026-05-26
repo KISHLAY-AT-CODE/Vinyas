@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { generateGeminiContent } from './services/gemini';
 import debounce from 'lodash.debounce';
 import { logEvent } from './services/logger';
-import { aesEncrypt, aesDecrypt } from './services/crypto';
+import { aesEncrypt, aesDecrypt, hashSyncId } from './services/crypto';
 
 import { initialSyllabus, YogiLogo, generateEmptyChapter } from './data/constants';
 import Header from './components/Header';
@@ -25,91 +25,12 @@ import ResolveSubmissionsModal from './components/ResolveSubmissionsModal';
 import { AI_SYSTEM_PROMPT } from './data/ai_instructions';
 import DevToolsOverlay from './components/DevToolsOverlay';
 import { useToast } from './components/ToastContext';
+import WhatsNewModal from './components/WhatsNewModal';
+import { VINYAS_APP_VERSION, VINYAS_EXTENSION_VERSION, WHATS_NEW_CHANGELOG } from './data/version';
 
 // Timezone-safe Indian Standard Time (IST) Helpers
-const getISTDateString = (date = new Date()) => {
-    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-    const formatter = new Intl.DateTimeFormat('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-    return formatter.format(d); // DD/MM/YYYY
-};
-
-const getISTDateStringYYYYMMDD = (date = new Date()) => {
-    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
-    const [{ value: month },,{ value: day },,{ value: year }] = formatter.formatToParts(d);
-    return `${year}-${month}-${day}`; // YYYY-MM-DD
-};
-
-const getISTISOString = (date = new Date()) => {
-    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-    const tzOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(d.getTime() + tzOffset);
-    return istDate.toISOString().replace('Z', '+05:30');
-};
-
-const getISTTimeString = (date = new Date()) => {
-    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-    return d.toLocaleTimeString('en-US', {
-        timeZone: 'Asia/Kolkata',
-        hour12: false
-    });
-};
-
-const getISTLocaleString = (date = new Date(), options = {}) => {
-    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-    return d.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        ...options
-    });
-};
-
-// Utility: normalize chapter names to handle plurals, special chars, and minor variations
-const normalizeChapterName = (name) => {
-    if (!name) return "";
-    const normalized = name
-        .toLowerCase()
-        .replace(/&/g, ' and ') // replace & with 'and'
-        .replace(/[^a-z0-9\s]/g, ' ') // replace special characters with spaces
-        .split(/\s+/)
-        .map(word => {
-            // Singularize words ending in 's' (length > 3, e.g. haloalkanes -> haloalkane)
-            if (word.length > 3 && word.endsWith('s')) {
-                return word.slice(0, -1);
-            }
-            return word;
-        })
-        .filter(Boolean)
-        .join(' ');
-
-    const CHAPTER_SYNONYMS = {
-        "atomic structure": "structure of atom",
-        "structure of atoms": "structure of atom",
-        "structure of atom": "structure of atom",
-        "periodic table": "classification of elements and periodicity in properties",
-        "periodicity in properties": "classification of elements and periodicity in properties",
-        "periodicity in propertie": "classification of elements and periodicity in properties",
-        "periodic classification": "classification of elements and periodicity in properties",
-        "chemical bonding": "chemical bonding and molecular structure",
-        "goc": "organic chemistry some basic principles and techniques",
-        "general organic chemistry": "organic chemistry some basic principles and techniques",
-        "organic chemistry basic principles": "organic chemistry some basic principles and techniques"
-    };
-
-    if (CHAPTER_SYNONYMS[normalized]) {
-        return CHAPTER_SYNONYMS[normalized];
-    }
-    return normalized;
-};
+import { getISTDateString, getISTDateStringYYYYMMDD, getISTISOString, getISTTimeString, getISTLogPrefix } from './shared/time.js';
+import { normalizeChapterName } from './shared/normalize.js';
 
 // Utility: fuzzy-match a search string against all chapter names in the syllabus
 const findChapterByName = (data, searchName) => {
@@ -152,6 +73,55 @@ const findChapterByName = (data, searchName) => {
     }
     
     return null;
+};
+
+// Utility: find all chapters matching a search name (returns an array of { sIdx, cIdx })
+const findAllChaptersByName = (data, searchName) => {
+    if (!data || !Array.isArray(data) || !searchName) return [];
+    const qNormalized = normalizeChapterName(searchName);
+    if (!qNormalized) return [];
+    
+    // Priority 1: Exact normalized matches
+    const exactMatches = [];
+    for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
+        for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
+            const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
+            if (chNameNormalized === qNormalized) {
+                exactMatches.push({ sIdx, cIdx });
+            }
+        }
+    }
+    
+    if (exactMatches.length > 0) {
+        return exactMatches;
+    }
+    
+    // Priority 2: Substring/fuzzy matches
+    const candidates = [];
+    for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
+        for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
+            const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
+            if (chNameNormalized.length > 2 && (chNameNormalized.includes(qNormalized) || qNormalized.includes(chNameNormalized))) {
+                candidates.push({
+                    sIdx,
+                    cIdx,
+                    length: chNameNormalized.length
+                });
+            }
+        }
+    }
+    
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => b.length - a.length);
+        const maxLen = candidates[0].length;
+        return candidates.filter(c => c.length === maxLen).map(c => ({ sIdx: c.sIdx, cIdx: c.cIdx }));
+    }
+    
+    return [];
 };
 
 // Utility: extract chapter name from a DPP title (handles formats like "DPP - Thermodynamics #1" or "Haloalkane : DPP 08 MCQ Quiz")
@@ -246,6 +216,82 @@ const generateSecureSyncId = () => {
     return `${prefix}${randomHex}`;
 };
 
+// Utility: Apply matched activities to a chapter object
+const applyActivitiesToChapter = (chapter, activities, targetChapterSearch, specificActivityId = null) => {
+    const updatedChapter = { ...chapter };
+    const linkedActIds = [];
+
+    activities.forEach(act => {
+        if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return;
+        if (specificActivityId && act.id !== specificActivityId) return;
+        
+        let actChapterSearch = null;
+        let actSection = '';
+
+        if (act.type === 'DPP_SCORE') {
+            const details = act.details || {};
+            if (details.quizType === 'DPP') {
+                actChapterSearch = extractChapterFromDppTitle(details.title);
+            } else if (details.quizType === 'MODULE') {
+                actChapterSearch = extractChapterFromModuleUrl(details.url);
+            }
+            actSection = details.quizType === 'DPP' ? 'dpp' : 'module';
+        } else if (act.type === 'PW_BOOKS_QUESTIONS') {
+            actChapterSearch = act.details?.chapterName;
+            actSection = 'module_layout';
+        }
+
+        const actNorm = normalizeChapterName(actChapterSearch);
+        const targetNorm = normalizeChapterName(targetChapterSearch);
+
+        if (actNorm && targetNorm && actNorm === targetNorm) {
+            linkedActIds.push(act.id);
+
+            if (act.type === 'PW_BOOKS_QUESTIONS') {
+                updatedChapter.customExerciseConfig = act.details.exercises;
+                updatedChapter.exerciseDisplayNames = act.details.displayNames;
+            } else if (actSection === 'dpp') {
+                updatedChapter.dppLogs = { ...(updatedChapter.dppLogs || {}) };
+                updatedChapter.dppLogs[act.id] = { 
+                    comp: Math.round(act.details.completion || 0), 
+                    acc: Math.round(act.details.accuracy || 0) 
+                };
+                
+                const values = Object.values(updatedChapter.dppLogs);
+                const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+                updatedChapter.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
+
+                const dateStr = getISTDateString(new Date(act.timestamp));
+                const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
+                updatedChapter.log = updatedChapter.log ? `${updatedChapter.log}\n\n${logEntry}` : logEntry;
+            } else if (actSection === 'module') {
+                updatedChapter.moduleLogs = { ...(updatedChapter.moduleLogs || {}) };
+                updatedChapter.moduleLogs[act.id] = { 
+                    comp: Math.round(act.details.completion || 0), 
+                    acc: Math.round(act.details.accuracy || 0) 
+                };
+                
+                const values = Object.values(updatedChapter.moduleLogs);
+                const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+                updatedChapter.module = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
+
+                const dateStr = getISTDateString(new Date(act.timestamp));
+                const logEntry = `[${dateStr} - Module: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
+                updatedChapter.log = updatedChapter.log ? `${updatedChapter.log}\n\n${logEntry}` : logEntry;
+            } else {
+                updatedChapter[actSection] = {
+                    comp: Math.max(updatedChapter[actSection]?.comp || 0, Math.round(act.details.completion || 0)),
+                    acc: Math.max(updatedChapter[actSection]?.acc || 0, Math.round(act.details.accuracy || 0))
+                };
+            }
+        }
+    });
+
+    return { updatedChapter, linkedActIds };
+};
+
 const App = () => {
     const { showToast } = useToast();
     const [syncId, setSyncId] = useState(() => localStorage.getItem('vinyasBitsatSyncId') || '');
@@ -290,6 +336,14 @@ const App = () => {
     const [email, setEmail] = useState('');
     const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
     const [backupSettingsOpen, setBackupSettingsOpen] = useState(false);
+
+    // Versioning & Extension states
+    const [showWhatsNew, setShowWhatsNew] = useState(false);
+    const [installedExtVersion, setInstalledExtVersion] = useState(null);
+    const [showExtWarningHeader, setShowExtWarningHeader] = useState(false);
+    const [extensionChecked, setExtensionChecked] = useState(false);
+    const [lastSeenAppVersion, setLastSeenAppVersion] = useState(null);
+    const [lastSeenExtVersion, setLastSeenExtVersion] = useState(null);
     
     // Isolated Achievements State & Logic
     const {
@@ -326,6 +380,7 @@ const App = () => {
     const [selectedInorganicChapter, setSelectedInorganicChapter] = useState(null);
     
     const [routineLogInput, setRoutineLogInput] = useState('');
+    const [testImagePreview, setTestImagePreview] = useState(null);
     const [tempSyncId, setTempSyncId] = useState('');
     const [tempUserName, setTempUserName] = useState('');
     const [tempCohort, setTempCohort] = useState('BITSAT');
@@ -357,6 +412,27 @@ const App = () => {
 
     // SPA Routing
     const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+    const resolvedActivityIdsRef = useRef(resolvedActivityIds);
+    useEffect(() => {
+        resolvedActivityIdsRef.current = resolvedActivityIds;
+    }, [resolvedActivityIds]);
+
+    const resetAppState = useCallback(() => {
+        localStorage.clear();
+        window.postMessage({ type: 'VINYAS_LOGOUT_EVENT' }, '*');
+        setSyncId('');
+        setUserName('');
+        setCohort('BITSAT');
+        setIsSyncIdSet(false);
+        setIsLoaded(false);
+        setData([...initialSyllabus]);
+        setRoutines([]);
+        setTestLogs([]);
+        setActiveProgressChapter(null);
+        setActiveModuleTracker(null);
+        setProgressModalOpen(false);
+    }, []);
 
     useEffect(() => {
         const handlePopState = () => {
@@ -417,10 +493,10 @@ const App = () => {
                 if (!active) return;
                 
                 if (serverData && serverData.exists === false) {
-                    setData([...initialSyllabus]);
-                    resetAchievements();
-                    setIsLoaded(true);
-                    logEvent('DB_LOAD_SUCCESS', { message: 'New user profile, initialized syllabus' }, 'success');
+                    logEvent('DB_LOAD_NOT_FOUND', { message: 'Sync session not found or deleted from database' }, 'warning');
+                    resetAppState();
+                    showToast("This Sync session does not exist or has been deleted.", "error");
+                    return;
                 } else if (serverData) {
                     let parsedData = [];
                     if (serverData.data) {
@@ -495,6 +571,13 @@ const App = () => {
                     } else {
                         setAutoBackupEnabled(false);
                     }
+
+                    if (serverData.lastSeenAppVersion) {
+                        setLastSeenAppVersion(serverData.lastSeenAppVersion);
+                    }
+                    if (serverData.lastSeenExtVersion) {
+                        setLastSeenExtVersion(serverData.lastSeenExtVersion);
+                    }
                     
                     setIsLoaded(true);
                     logEvent('DB_LOAD_SUCCESS', { 
@@ -502,6 +585,10 @@ const App = () => {
                         subjectsCount: parsedData.length,
                         chaptersCount: parsedData.reduce((acc, sub) => acc + (sub.chapters?.length || 0), 0)
                     }, 'success');
+
+                    if (serverData.lastSeenAppVersion !== VINYAS_APP_VERSION) {
+                        setShowWhatsNew(true);
+                    }
                 }
             } catch (error) {
                 console.error("Data Load Error:", error);
@@ -519,6 +606,193 @@ const App = () => {
         };
     }, [isSyncIdSet, syncId, retryTrigger]);
 
+    // --- Debounced Save to MongoDB (Promise-Backed & Flushable) ---
+    const saveTimeoutRef = useRef(null);
+    const savePromiseRef = useRef(null);
+    const saveResolveRef = useRef(null);
+    const stateRef = useRef({});
+
+    useEffect(() => {
+        stateRef.current = {
+            data,
+            routines,
+            testLogs,
+            achievements,
+            targetDate,
+            cohort,
+            resolvedActivityIds,
+            syncId,
+            email,
+            autoBackupEnabled,
+            lastSeenAppVersion,
+            lastSeenExtVersion
+        };
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion]);
+
+    const saveCompleteSyllabus = useCallback(async (payload) => {
+        if (!payload.syncId) return;
+        try {
+            logEvent('DB_SAVE', { message: 'Syncing syllabus and state changes to MongoDB...' });
+            const response = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                let errMsg = 'Failed to save data';
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error) errMsg = errData.error;
+                } catch (e) {}
+                throw new Error(errMsg);
+            }
+            const resData = await response.json();
+            logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
+            handleSaveResponse(resData);
+        } catch (error) {
+            console.error("Save Error:", error);
+            logEvent('DB_SAVE_ERROR', { error: error.message }, 'error');
+        }
+    }, [handleSaveResponse]);
+
+    const triggerSave = useCallback(() => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        if (!savePromiseRef.current) {
+            savePromiseRef.current = new Promise((resolve) => {
+                saveResolveRef.current = resolve;
+            });
+        }
+        saveTimeoutRef.current = setTimeout(async () => {
+            const currentPayload = {
+                syncId: stateRef.current.syncId,
+                data: stateRef.current.data,
+                routines: stateRef.current.routines,
+                testLogs: stateRef.current.testLogs,
+                achievements: stateRef.current.achievements,
+                targetDate: stateRef.current.targetDate,
+                cohort: stateRef.current.cohort,
+                resolvedActivityIds: stateRef.current.resolvedActivityIds,
+                email: stateRef.current.email,
+                autoBackupEnabled: stateRef.current.autoBackupEnabled,
+                lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
+                lastSeenExtVersion: stateRef.current.lastSeenExtVersion
+            };
+            await saveCompleteSyllabus(currentPayload);
+            const resolve = saveResolveRef.current;
+            savePromiseRef.current = null;
+            saveResolveRef.current = null;
+            if (resolve) resolve();
+        }, 3000);
+    }, [saveCompleteSyllabus]);
+
+    const flushSave = useCallback(async () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+            const currentPayload = {
+                syncId: stateRef.current.syncId,
+                data: stateRef.current.data,
+                routines: stateRef.current.routines,
+                testLogs: stateRef.current.testLogs,
+                achievements: stateRef.current.achievements,
+                targetDate: stateRef.current.targetDate,
+                cohort: stateRef.current.cohort,
+                resolvedActivityIds: stateRef.current.resolvedActivityIds,
+                email: stateRef.current.email,
+                autoBackupEnabled: stateRef.current.autoBackupEnabled,
+                lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
+                lastSeenExtVersion: stateRef.current.lastSeenExtVersion
+            };
+            const promise = saveCompleteSyllabus(currentPayload);
+            const resolve = saveResolveRef.current;
+            savePromiseRef.current = null;
+            saveResolveRef.current = null;
+            if (resolve) resolve();
+            await promise;
+        } else if (savePromiseRef.current) {
+            await savePromiseRef.current;
+        }
+    }, [saveCompleteSyllabus]);
+
+    useEffect(() => {
+        if (isLoaded && isSyncIdSet && syncId) {
+            triggerSave();
+        }
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled, triggerSave]);
+
+    // --- Versioning and Extension Detection Logic ---
+    const pingExtension = useCallback(() => {
+        window.postMessage({ type: 'VINYAS_REQUEST_EXT_VERSION' }, '*');
+    }, []);
+
+    // Handle extension messaging
+    useEffect(() => {
+        const handleExtensionMessage = (event) => {
+            if (event.data && event.data.type === 'VINYAS_EXT_VERSION_RESPONSE') {
+                const extVer = event.data.version;
+                console.log("[Vinyas App] Detected extension version:", extVer);
+                setInstalledExtVersion(extVer);
+                setExtensionChecked(true);
+            }
+        };
+        window.addEventListener('message', handleExtensionMessage);
+        return () => window.removeEventListener('message', handleExtensionMessage);
+    }, []);
+
+    // Ping extension on load and periodically
+    useEffect(() => {
+        if (isLoaded) {
+            pingExtension();
+            // Fallback timeout to assume extension is missing
+            const timer = setTimeout(() => {
+                setExtensionChecked(true);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoaded, pingExtension]);
+
+    // Update alert header banner based on extension version match
+    useEffect(() => {
+        if (isLoaded && extensionChecked) {
+            const isOutdated = installedExtVersion !== VINYAS_EXTENSION_VERSION;
+            if (!showWhatsNew && isOutdated) {
+                setShowExtWarningHeader(true);
+            } else {
+                setShowExtWarningHeader(false);
+            }
+        }
+    }, [isLoaded, extensionChecked, installedExtVersion, showWhatsNew]);
+
+    const handleWhatsNewDismiss = async () => {
+        setShowWhatsNew(false);
+        setLastSeenAppVersion(VINYAS_APP_VERSION);
+        setLastSeenExtVersion(installedExtVersion);
+        
+        // Save immediately to persist version seen
+        const payload = {
+            syncId: stateRef.current.syncId,
+            data: stateRef.current.data,
+            routines: stateRef.current.routines,
+            testLogs: stateRef.current.testLogs,
+            achievements: stateRef.current.achievements,
+            targetDate: stateRef.current.targetDate,
+            cohort: stateRef.current.cohort,
+            resolvedActivityIds: stateRef.current.resolvedActivityIds,
+            email: stateRef.current.email,
+            autoBackupEnabled: stateRef.current.autoBackupEnabled,
+            lastSeenAppVersion: VINYAS_APP_VERSION,
+            lastSeenExtVersion: installedExtVersion
+        };
+        await saveCompleteSyllabus(payload);
+    };
+
     // --- Background Activity Polling ---
     const [isPollingActivities, setIsPollingActivities] = useState(false);
     const [lastActivitiesFetchTime, setLastActivitiesFetchTime] = useState(null);
@@ -527,6 +801,7 @@ const App = () => {
         if (!syncId || !isLoaded) return;
         try {
             setIsPollingActivities(true);
+            await flushSave();
             const response = await fetch(`/api/data?syncId=${encodeURIComponent(syncId)}&_t=${Date.now()}`);
             if (response.ok) {
                 const serverData = await response.json();
@@ -586,23 +861,21 @@ const App = () => {
         } finally {
             setIsPollingActivities(false);
         }
-    }, [syncId, isLoaded, loadAchievements, showToast]);
-
-    useEffect(() => {
-        if (!isSyncIdSet || !syncId) return;
-
-        if (isLoaded) {
-            pollActivities();
-        }
-    }, [isSyncIdSet, syncId, pollActivities, isLoaded]);
+    }, [syncId, isLoaded, loadAchievements, showToast, flushSave]);
 
     // --- Reactive Activity Processor & Auto-Matcher ---
+    const dataRef = useRef(data);
+    useEffect(() => {
+        dataRef.current = data;
+    }, [data]);
+
     useEffect(() => {
         if (!isLoaded || activities.length === 0) return;
 
         let syllabusUpdated = false;
-        let nextData = [...data];
-        let nextResolvedIds = [...resolvedActivityIds];
+        let nextData = [...dataRef.current];
+        let nextResolvedIds = [...resolvedActivityIdsRef.current];
+        let nextResolvedIdsSet = new Set(nextResolvedIds);
         let resolvedIdsUpdated = false;
 
         activities.forEach(act => {
@@ -611,14 +884,16 @@ const App = () => {
                 const chapterSearch = details.chapterName;
                 
                 if (!chapterSearch) {
-                    if (!nextResolvedIds.includes(act.id)) {
+                    if (!nextResolvedIdsSet.has(act.id)) {
                         nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
                         resolvedIdsUpdated = true;
                     }
                     return;
                 }
 
-                const match = findChapterByName(nextData, chapterSearch);
+                const matches = findAllChaptersByName(nextData, chapterSearch);
+                const match = matches.length === 1 ? matches[0] : null;
                 
                 if (match) {
                     const { sIdx, cIdx } = match;
@@ -626,7 +901,7 @@ const App = () => {
                     
                     // Force update if config is missing in syllabus or if it hasn't been resolved yet
                     const hasConfig = ch.customExerciseConfig && Object.keys(ch.customExerciseConfig).length > 0;
-                    const isAlreadyResolved = nextResolvedIds.includes(act.id);
+                    const isAlreadyResolved = nextResolvedIdsSet.has(act.id);
                     
                     if (!hasConfig || !isAlreadyResolved) {
                         const updatedCh = { 
@@ -640,6 +915,7 @@ const App = () => {
 
                         if (!isAlreadyResolved) {
                             nextResolvedIds.push(act.id);
+                            nextResolvedIdsSet.add(act.id);
                             resolvedIdsUpdated = true;
                         }
                     }
@@ -648,7 +924,7 @@ const App = () => {
             }
 
             if (act.type !== 'DPP_SCORE') return;
-            if (nextResolvedIds.includes(act.id)) return;
+            if (nextResolvedIdsSet.has(act.id)) return;
 
             const details = act.details || {};
             let chapterSearch = null;
@@ -660,11 +936,13 @@ const App = () => {
 
             if (!chapterSearch) {
                 nextResolvedIds.push(act.id);
+                nextResolvedIdsSet.add(act.id);
                 resolvedIdsUpdated = true;
                 return;
             }
 
-            const match = findChapterByName(nextData, chapterSearch);
+            const matches = findAllChaptersByName(nextData, chapterSearch);
+            const match = matches.length === 1 ? matches[0] : null;
             if (match) {
                 const { sIdx, cIdx } = match;
                 const section = details.quizType === 'DPP' ? 'dpp' : 'module';
@@ -704,6 +982,7 @@ const App = () => {
                 syllabusUpdated = true;
 
                 nextResolvedIds.push(act.id);
+                nextResolvedIdsSet.add(act.id);
                 resolvedIdsUpdated = true;
             }
         });
@@ -714,9 +993,8 @@ const App = () => {
         if (resolvedIdsUpdated) {
             setResolvedActivityIds(nextResolvedIds);
         }
-    }, [activities, resolvedActivityIds, data, isLoaded]);
+    }, [activities, isLoaded]);
 
-    // --- Dynamic Unresolved Submissions ---
     // --- Dynamic Unresolved Submissions ---
     const unresolvedSubmissions = useMemo(() => {
         const unresolved = [];
@@ -740,69 +1018,22 @@ const App = () => {
                 section = 'module_layout';
             }
 
-            if (!chapterSearch) return;
-
-            const match = findChapterByName(data, chapterSearch);
-            if (!match) {
-                unresolved.push({ act, chapterSearch, section });
+            const matches = findAllChaptersByName(data, chapterSearch);
+            const isDuplicate = matches.length > 1;
+            if (matches.length === 0 || isDuplicate) {
+                unresolved.push({ 
+                    act, 
+                    chapterSearch, 
+                    section,
+                    isDuplicate,
+                    message: isDuplicate ? "Search found more than one chapter with same names which you are refferring to ?" : null
+                });
             }
         });
         return unresolved;
     }, [activities, data, resolvedActivityIds]);
 
-    // --- Debounced Save to MongoDB ---
-    const debouncedSaveRef = useRef(
-        debounce(async (newData, newRoutines, newTestLogs, newAchievements, newTargetDate, newCohort, newResolvedIds, sId, newEmail, newAutoBackup) => {
-            if (!sId) return;
-            
-            try {
-                logEvent('DB_SAVE', { message: 'Syncing syllabus and state changes to MongoDB...' });
-                const payload = {
-                    syncId: sId,
-                    data: newData,
-                    routines: newRoutines,
-                    testLogs: newTestLogs,
-                    achievements: newAchievements,
-                    targetDate: newTargetDate,
-                    cohort: newCohort,
-                    resolvedActivityIds: newResolvedIds,
-                    email: newEmail,
-                    autoBackupEnabled: newAutoBackup
-                };
-
-                const response = await fetch('/api/data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    let errMsg = 'Failed to save data';
-                    try {
-                        const errData = await response.json();
-                        if (errData && errData.error) errMsg = errData.error;
-                    } catch (e) {}
-                    throw new Error(errMsg);
-                }
-                const resData = await response.json();
-                logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
-
-                handleSaveResponse(resData);
-            } catch (error) {
-                console.error("Save Error:", error);
-                logEvent('DB_SAVE_ERROR', { error: error.message }, 'error');
-            }
-        }, 3000)
-    );
-
-    useEffect(() => {
-        if (isLoaded && isSyncIdSet && syncId) {
-            debouncedSaveRef.current(data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled);
-        }
-        return () => {
-            debouncedSaveRef.current.cancel();
-        };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled]);
+    // Note: Auto-save is handled reactively by triggerSave and flushSave.
 
     // --- Developer / Testing Mode Functions ---
     const handleTriggerTestDpp = async () => {
@@ -845,16 +1076,50 @@ const App = () => {
             "Are you sure you want to delete all synced activities and reset chapter progress? This action is irreversible.",
             async () => {
                 try {
-                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}`, {
+                    // Reset client-side state first
+                    setData([...initialSyllabus]);
+                    setRoutines([]);
+                    setTestLogs([]);
+                    setResolvedActivityIds([]);
+                    resetAchievements();
+
+                    // Cancel any pending debounced saves of the old state
+                    if (saveTimeoutRef.current) {
+                        clearTimeout(saveTimeoutRef.current);
+                        saveTimeoutRef.current = null;
+                    }
+                    const resolve = saveResolveRef.current;
+                    savePromiseRef.current = null;
+                    saveResolveRef.current = null;
+                    if (resolve) resolve();
+
+                    // Delete activities and database record completely
+                    const response = await fetch(`/api/activity?syncId=${encodeURIComponent(syncId)}&fullDelete=true`, {
                         method: 'DELETE'
                     });
+
                     if (response.ok) {
-                        console.log('Activities nuked successfully');
-                        pollActivities();
+                        console.log('Database records nuked successfully');
+                        
+                        // Immediately sync the clean initial state back to database
+                        const cleanPayload = {
+                            syncId,
+                            data: [...initialSyllabus],
+                            routines: [],
+                            testLogs: [],
+                            achievements: [],
+                            targetDate: '2026-05-23',
+                            cohort: cohort,
+                            resolvedActivityIds: [],
+                            email: email,
+                            autoBackupEnabled: autoBackupEnabled
+                        };
+                        await saveCompleteSyllabus(cleanPayload);
+
                         setRetryTrigger(prev => prev + 1);
                         showToast("Synced activities and progress reset successfully.", "success");
                     } else {
-                        throw new Error("Failed to clear activities database");
+                        throw new Error("Failed to clear database records");
                     }
                 } catch (err) {
                     console.error('Error nuking activities:', err);
@@ -867,7 +1132,7 @@ const App = () => {
 
     const handleExportData = async () => {
         try {
-            let encryptionKey = syncId;
+            let encryptionKey = localStorage.getItem('vinyasBackupKey') || (syncId && !syncId.startsWith('vny_sess_') ? syncId : '');
             
             if (!encryptionKey) {
                 const password = prompt("You are not logged in / do not have a Device Sync ID configured.\n\nPlease enter a custom password to secure your backup file:");
@@ -942,7 +1207,16 @@ const App = () => {
             };
             
             const jsonString = JSON.stringify(exportObj);
-            const encryptedBundle = await aesEncrypt(syncId, jsonString);
+            
+            const plainBackupKey = localStorage.getItem('vinyasBackupKey') || (syncId && !syncId.startsWith('vny_sess_') ? syncId : '');
+            let encryptionKey = plainBackupKey;
+            if (plainBackupKey) {
+                encryptionKey = await hashSyncId(plainBackupKey);
+            } else {
+                encryptionKey = syncId;
+            }
+            
+            const encryptedBundle = await aesEncrypt(encryptionKey, jsonString);
             
             const backupWrapper = {
                 vinyasBackup: true,
@@ -991,13 +1265,21 @@ const App = () => {
                     let decryptedStr = null;
                     let decryptedSuccess = false;
                     
-                    if (syncId) {
+                    const plainBackupKey = localStorage.getItem('vinyasBackupKey') || (syncId && !syncId.startsWith('vny_sess_') ? syncId : '');
+                    if (plainBackupKey) {
                         try {
-                            logEvent('BACKUP_DECRYPT', { message: 'Attempting to decrypt backup with current Sync ID...' });
-                            decryptedStr = await aesDecrypt(syncId, importedWrapper.payload);
+                            logEvent('BACKUP_DECRYPT', { message: 'Attempting to decrypt manual backup with current backup key...' });
+                            decryptedStr = await aesDecrypt(plainBackupKey, importedWrapper.payload);
                             decryptedSuccess = true;
                         } catch (e) {
-                            // Sync ID decryption failed, will prompt user
+                            try {
+                                logEvent('BACKUP_DECRYPT', { message: 'Attempting to decrypt weekly backup with hashed backup key...' });
+                                const hashedKey = await hashSyncId(plainBackupKey);
+                                decryptedStr = await aesDecrypt(hashedKey, importedWrapper.payload);
+                                decryptedSuccess = true;
+                            } catch (ee) {
+                                // Sync ID decryption failed, will prompt user
+                            }
                         }
                     }
                     
@@ -1010,7 +1292,18 @@ const App = () => {
                         }
                         
                         logEvent('BACKUP_DECRYPT', { message: 'Decrypting secure AES-GCM backup with user-provided key...' });
-                        decryptedStr = await aesDecrypt(password.trim(), importedWrapper.payload);
+                        try {
+                            decryptedStr = await aesDecrypt(password.trim(), importedWrapper.payload);
+                            decryptedSuccess = true;
+                        } catch (e) {
+                            try {
+                                const hashedKey = await hashSyncId(password.trim());
+                                decryptedStr = await aesDecrypt(hashedKey, importedWrapper.payload);
+                                decryptedSuccess = true;
+                            } catch (ee) {
+                                // Decryption error will be handled by catch block
+                            }
+                        }
                     }
                     
                     importedObj = JSON.parse(decryptedStr);
@@ -1115,7 +1408,14 @@ const App = () => {
         }
 
         // Cancel any pending debounced save to avoid duplicate saves or race conditions
-        debouncedSaveRef.current.cancel();
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+        const resolve = saveResolveRef.current;
+        savePromiseRef.current = null;
+        saveResolveRef.current = null;
+        if (resolve) resolve();
 
         try {
             logEvent('DB_SAVE', { message: 'Syncing target date change to MongoDB immediately...', targetDate: newDate });
@@ -1170,19 +1470,7 @@ const App = () => {
                 console.error("Failed to notify backend on logout:", err);
             }
         }
-        localStorage.clear();
-        window.postMessage({ type: 'VINYAS_LOGOUT_EVENT' }, '*');
-        setSyncId('');
-        setUserName('');
-        setCohort('BITSAT');
-        setIsSyncIdSet(false);
-        setIsLoaded(false);
-        setData([...initialSyllabus]);
-        setRoutines([]);
-        setTestLogs([]);
-        setActiveProgressChapter(null);
-        setActiveModuleTracker(null);
-        setProgressModalOpen(false);
+        resetAppState();
         showToast("Logged out successfully.", "success");
     };
 
@@ -1196,19 +1484,7 @@ const App = () => {
                         method: 'DELETE'
                     });
                     if (response.ok) {
-                        localStorage.clear();
-                        window.postMessage({ type: 'VINYAS_LOGOUT_EVENT' }, '*');
-                        setSyncId('');
-                        setUserName('');
-                        setCohort('BITSAT');
-                        setIsSyncIdSet(false);
-                        setIsLoaded(false);
-                        setData([...initialSyllabus]);
-                        setRoutines([]);
-                        setTestLogs([]);
-                        setActiveProgressChapter(null);
-                        setActiveModuleTracker(null);
-                        setProgressModalOpen(false);
+                        resetAppState();
                         showToast("Account deleted and reset successfully.", "success");
                     } else {
                         throw new Error("Failed to delete account from server.");
@@ -1241,7 +1517,7 @@ const App = () => {
         if (overlaySearchOpen && overlayInputRef.current) overlayInputRef.current.focus();
     }, [overlaySearchOpen]);
 
-    const handleSetSyncId = (isGenerating = false) => {
+    const handleSetSyncId = async (isGenerating = false) => {
         const name = tempUserName.trim();
         const cohortVal = isGenerating ? 'BITSAT' : tempCohort.trim() || 'BITSAT';
         
@@ -1264,9 +1540,67 @@ const App = () => {
             }
         }
 
+        if (!isGenerating) {
+            // Verify that the Sync ID exists in the database
+            try {
+                const checkResponse = await fetch(`/api/data?syncId=${encodeURIComponent(targetSyncId)}`);
+                if (!checkResponse.ok) {
+                    throw new Error("Failed to verify Sync ID");
+                }
+                const checkData = await checkResponse.json();
+                if (checkData && checkData.exists === false) {
+                    showToast("This Sync ID does not exist or has been deleted.", "error");
+                    return;
+                }
+            } catch (err) {
+                showToast("Verification failed: " + err.message, "error");
+                return;
+            }
+        } else {
+            // Save clean new profile immediately to DB before setting state to avoid "not found" checks
+            try {
+                const cleanPayload = {
+                    syncId: targetSyncId,
+                    data: [...initialSyllabus],
+                    routines: [],
+                    testLogs: [],
+                    achievements: [],
+                    targetDate: '2026-05-23',
+                    cohort: cohortVal,
+                    resolvedActivityIds: [],
+                    email: '',
+                    autoBackupEnabled: false,
+                    lastSeenAppVersion: VINYAS_APP_VERSION,
+                    lastSeenExtVersion: installedExtVersion
+                };
+                
+                const response = await fetch('/api/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cleanPayload)
+                });
+                
+                if (!response.ok) {
+                    throw new Error("Failed to initialize profile in cloud database");
+                }
+            } catch (err) {
+                showToast("Profile generation failed: " + err.message, "error");
+                return;
+            }
+        }
+
         localStorage.setItem('vinyasBitsatSyncId', targetSyncId);
         localStorage.setItem('vinyasUserName', name);
         localStorage.setItem('vinyasCohort', cohortVal);
+        
+        window.postMessage({ 
+            type: 'VINYAS_LOGIN_EVENT', 
+            syncId: targetSyncId, 
+            userName: name, 
+            cohort: cohortVal,
+            apiUrl: window.location.origin
+        }, '*');
+
         setSyncId(targetSyncId);
         setUserName(name);
         setCohort(cohortVal);
@@ -1523,12 +1857,15 @@ const App = () => {
     const overlaySearchResults = useMemo(() => getSearchResults(overlaySearchQuery), [overlaySearchQuery, data]);
     
     const inorganicSearchResults = useMemo(() => {
-        if (!inorganicChapterInput.trim() || data.length < 2 || !data[1] || !data[1].chapters) return [];
+        if (!inorganicChapterInput.trim()) return [];
+        const chemIdx = data.findIndex(s => s.name.toLowerCase().includes('chemistry'));
+        if (chemIdx === -1 || !data[chemIdx] || !data[chemIdx].chapters) return [];
+        
         const q = inorganicChapterInput.toLowerCase();
         const results = [];
-        data[1].chapters.forEach((ch, cIdx) => {
+        data[chemIdx].chapters.forEach((ch, cIdx) => {
             if (ch.name.toLowerCase().includes(q)) {
-                results.push({ sIdx: 1, cIdx, name: ch.name });
+                results.push({ sIdx: chemIdx, cIdx, name: ch.name });
             }
         });
         return results.slice(0, 5);
@@ -1646,84 +1983,19 @@ const App = () => {
 
     const handleResolveAddChapter = (sub, subjectName) => {
         const targetChapterSearch = sub.chapterSearch;
-        const linkedActIds = [];
+        let linkedActIds = [];
 
         setData(prevData => {
             const newData = [...prevData];
             const sIdx = newData.findIndex(s => s.name === subjectName);
             if (sIdx === -1) return prevData;
             
-            const newChapter = generateEmptyChapter(sub.chapterSearch);
+            const emptyCh = generateEmptyChapter(targetChapterSearch);
+            const specificId = sub.isDuplicate ? sub.act.id : null;
+            const { updatedChapter, linkedActIds: matchedIds } = applyActivitiesToChapter(emptyCh, activities, targetChapterSearch, specificId);
+            linkedActIds = matchedIds;
 
-            // Find all unresolved activities that match this chapterSearch
-            activities.forEach(act => {
-                if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return;
-                
-                let actChapterSearch = null;
-                let actSection = '';
-
-                if (act.type === 'DPP_SCORE') {
-                    const details = act.details || {};
-                    if (details.quizType === 'DPP') {
-                        actChapterSearch = extractChapterFromDppTitle(details.title);
-                    } else if (details.quizType === 'MODULE') {
-                        actChapterSearch = extractChapterFromModuleUrl(details.url);
-                    }
-                    actSection = details.quizType === 'DPP' ? 'dpp' : 'module';
-                } else if (act.type === 'PW_BOOKS_QUESTIONS') {
-                    actChapterSearch = act.details?.chapterName;
-                    actSection = 'module_layout';
-                }
-
-                const actNorm = normalizeChapterName(actChapterSearch);
-                const targetNorm = normalizeChapterName(targetChapterSearch);
-
-                if (actNorm && targetNorm && actNorm === targetNorm) {
-                    linkedActIds.push(act.id);
-
-                    if (act.type === 'PW_BOOKS_QUESTIONS') {
-                        newChapter.customExerciseConfig = act.details.exercises;
-                        newChapter.exerciseDisplayNames = act.details.displayNames;
-                    } else if (actSection === 'dpp') {
-                        newChapter.dppLogs = { ...(newChapter.dppLogs || {}) };
-                        newChapter.dppLogs[act.id] = { 
-                            comp: Math.round(act.details.completion || 0), 
-                            acc: Math.round(act.details.accuracy || 0) 
-                        };
-                        
-                        const values = Object.values(newChapter.dppLogs);
-                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
-                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
-                        newChapter.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
-
-                        const dateStr = getISTDateString(new Date(act.timestamp));
-                        const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
-                        newChapter.log = newChapter.log ? `${newChapter.log}\n\n${logEntry}` : logEntry;
-                    } else if (actSection === 'module') {
-                        newChapter.moduleLogs = { ...(newChapter.moduleLogs || {}) };
-                        newChapter.moduleLogs[act.id] = { 
-                            comp: Math.round(act.details.completion || 0), 
-                            acc: Math.round(act.details.accuracy || 0) 
-                        };
-                        
-                        const values = Object.values(newChapter.moduleLogs);
-                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
-                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
-                        newChapter.module = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
-
-                        const dateStr = getISTDateString(new Date(act.timestamp));
-                        const logEntry = `[${dateStr} - Module: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
-                        newChapter.log = newChapter.log ? `${newChapter.log}\n\n${logEntry}` : logEntry;
-                    } else {
-                        newChapter[actSection] = {
-                            comp: Math.max(newChapter[actSection]?.comp || 0, Math.round(act.details.completion || 0)),
-                            acc: Math.max(newChapter[actSection]?.acc || 0, Math.round(act.details.accuracy || 0))
-                        };
-                    }
-                }
-            });
-
-            newData[sIdx] = { ...newData[sIdx], chapters: [...newData[sIdx].chapters, newChapter] };
+            newData[sIdx] = { ...newData[sIdx], chapters: [...newData[sIdx].chapters, updatedChapter] };
             return newData;
         });
 
@@ -1748,83 +2020,18 @@ const App = () => {
     const handleResolveLinkChapter = (sub, sIdx, cIdx) => {
         let chName = '';
         const targetChapterSearch = sub.chapterSearch;
-        const linkedActIds = [];
+        let linkedActIds = [];
 
         setData(prevData => {
             const newData = [...prevData];
-            const ch = { ...newData[sIdx].chapters[cIdx] };
+            const ch = newData[sIdx].chapters[cIdx];
             chName = ch.name;
 
-            // Find all unresolved activities that match this chapterSearch
-            activities.forEach(act => {
-                if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return;
-                
-                let actChapterSearch = null;
-                let actSection = '';
-
-                if (act.type === 'DPP_SCORE') {
-                    const details = act.details || {};
-                    if (details.quizType === 'DPP') {
-                        actChapterSearch = extractChapterFromDppTitle(details.title);
-                    } else if (details.quizType === 'MODULE') {
-                        actChapterSearch = extractChapterFromModuleUrl(details.url);
-                    }
-                    actSection = details.quizType === 'DPP' ? 'dpp' : 'module';
-                } else if (act.type === 'PW_BOOKS_QUESTIONS') {
-                    actChapterSearch = act.details?.chapterName;
-                    actSection = 'module_layout';
-                }
-
-                const actNorm = normalizeChapterName(actChapterSearch);
-                const targetNorm = normalizeChapterName(targetChapterSearch);
-
-                if (actNorm && targetNorm && actNorm === targetNorm) {
-                    linkedActIds.push(act.id);
-
-                    if (act.type === 'PW_BOOKS_QUESTIONS') {
-                        ch.customExerciseConfig = act.details.exercises;
-                        ch.exerciseDisplayNames = act.details.displayNames;
-                    } else if (actSection === 'dpp') {
-                        ch.dppLogs = { ...(ch.dppLogs || {}) };
-                        ch.dppLogs[act.id] = { 
-                            comp: Math.round(act.details.completion || 0), 
-                            acc: Math.round(act.details.accuracy || 0) 
-                        };
-                        
-                        const values = Object.values(ch.dppLogs);
-                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
-                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
-                        ch.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
-
-                        const dateStr = getISTDateString(new Date(act.timestamp));
-                        const logEntry = `[${dateStr} - DPP: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
-                        ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
-                    } else if (actSection === 'module') {
-                        ch.moduleLogs = { ...(ch.moduleLogs || {}) };
-                        ch.moduleLogs[act.id] = { 
-                            comp: Math.round(act.details.completion || 0), 
-                            acc: Math.round(act.details.accuracy || 0) 
-                        };
-                        
-                        const values = Object.values(ch.moduleLogs);
-                        const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
-                        const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
-                        ch.module = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
-
-                        const dateStr = getISTDateString(new Date(act.timestamp));
-                        const logEntry = `[${dateStr} - Module: ${act.details.title}]\nCompletion: ${act.details.completion}%, Accuracy: ${act.details.accuracy}%`;
-                        ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
-                    } else {
-                        ch[actSection] = {
-                            comp: Math.max(ch[actSection]?.comp || 0, Math.round(act.details.completion || 0)),
-                            acc: Math.max(ch[actSection]?.acc || 0, Math.round(act.details.accuracy || 0))
-                        };
-                    }
-                }
-            });
+            const { updatedChapter, linkedActIds: matchedIds } = applyActivitiesToChapter(ch, activities, targetChapterSearch, sub.isDuplicate ? sub.act.id : null);
+            linkedActIds = matchedIds;
 
             newData[sIdx] = { ...newData[sIdx], chapters: [...newData[sIdx].chapters] };
-            newData[sIdx].chapters[cIdx] = ch;
+            newData[sIdx].chapters[cIdx] = updatedChapter;
             return newData;
         });
 
@@ -2088,6 +2295,7 @@ const App = () => {
             totalCh += sub.chapters.length;
             doneCh += sub.chapters.filter(c => getEffectiveStatusInfo(c).isDone).length;
         });
+        if (totalCh === 0) return "0.0";
         return ((doneCh / totalCh) * 100).toFixed(1);
     };
 
@@ -2268,6 +2476,7 @@ const App = () => {
                 onNavigateToExtension={() => navigate('/extension')}
                 onOpenBackupSettings={() => setBackupSettingsOpen(true)}
                 onOpenChangeLog={() => setChangeLogOpen(true)}
+                showExtensionWarning={showExtWarningHeader}
             />
 
             {/* Standard Search Bar */}
@@ -2392,6 +2601,7 @@ const App = () => {
                 chapterName={activeProgressChapter && data && data[activeProgressChapter.sIdx] && data[activeProgressChapter.sIdx].chapters && data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx] ? data[activeProgressChapter.sIdx].chapters[activeProgressChapter.cIdx].name : ''}
                 onSave={handleSaveProgress}
                 activities={activities}
+                data={data}
                 onOpenTracker={() => {
                     if (!activeProgressChapter || !data || !data[activeProgressChapter.sIdx]) return;
                     const { sIdx, cIdx } = activeProgressChapter;
@@ -2587,6 +2797,14 @@ const App = () => {
                 onCancel={confirmModal.onCancel}
             />
 
+            <WhatsNewModal 
+                isOpen={showWhatsNew}
+                changelog={WHATS_NEW_CHANGELOG}
+                currentExtVersion={VINYAS_EXTENSION_VERSION}
+                installedExtVersion={installedExtVersion}
+                onDismiss={handleWhatsNewDismiss}
+            />
+
             {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && localStorage.getItem('devMode') === 'true' && (
                 <DevToolsOverlay 
                     syncId={syncId}
@@ -2599,6 +2817,7 @@ const App = () => {
                     email={email}
                     onSendTestBackupMail={handleSendTestBackupMail}
                     onLogout={handleLogout}
+                    onNukeActivities={handleNukeActivities}
                 />
             )}
         </div>

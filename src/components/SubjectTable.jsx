@@ -107,7 +107,7 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
                                     
                                     <td className="px-4 py-3 border-l border-slate-700/50 bg-slate-800/10 text-center">
                                         <button 
-                                            onClick={() => openProgressModal(sIdx, cIdx, chapter)}
+                                            onClick={() => openProgressModal(sIdx, cIdx)}
                                             className="group relative inline-flex items-center justify-center px-4 py-1.5 font-bold text-xs text-white transition-all duration-200 bg-slate-700 border border-slate-600 rounded-xl hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 shadow-sm overflow-hidden"
                                         >
                                             <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>

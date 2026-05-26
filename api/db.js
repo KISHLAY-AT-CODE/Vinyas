@@ -29,6 +29,13 @@ export async function connectToDatabase() {
   await client.connect();
   const db = client.db('vinyas');
 
+  // Ensure unique index on syncId (idempotent operation)
+  try {
+    await db.collection('users').createIndex({ syncId: 1 }, { unique: true });
+  } catch (e) {
+    console.error('[DB Index] Failed to create syncId index on users collection:', e.message);
+  }
+
   cachedClient = client;
   cachedDb = db;
   return db;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useToast } from './ToastContext';
 import { aesEncrypt } from '../services/crypto';
 import { getLocalLogs } from '../services/logger';
+import { WHATS_NEW_CHANGELOG } from '../data/version';
 
 const Modals = ({
     routineModalType,
@@ -65,9 +66,17 @@ const Modals = ({
 
     const releaseNotes = [
         {
+            version: `v${WHATS_NEW_CHANGELOG.version}`,
+            date: WHATS_NEW_CHANGELOG.date,
+            badge: 'Latest Update',
+            changes: [
+                ...WHATS_NEW_CHANGELOG.coreChanges,
+                ...WHATS_NEW_CHANGELOG.clientChanges
+            ]
+        },
+        {
             version: 'v1.2.0',
             date: 'May 25, 2026',
-            badge: 'Latest Update',
             changes: [
                 '🔄 Implemented link-based re-check & duplicate overlay asking for confirmation to bypass deduplication or cancel.',
                 '🎯 Created "Nothing to see here" empty state illustration for interactive module question tracker prior to first synced practice.',

@@ -82,6 +82,58 @@ const extractChapterFromModuleUrl = (url) => {
     return null;
 };
 
+const hasDuplicateChaptersInSyllabus = (data, searchName) => {
+    if (!data || !Array.isArray(data) || !searchName) return false;
+    const qNormalized = normalizeChapterName(searchName);
+    if (!qNormalized) return false;
+    
+    // Priority 1: Exact matches
+    const exactMatches = [];
+    for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
+        for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
+            const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
+            if (chNameNormalized === qNormalized) {
+                exactMatches.push({ sIdx, cIdx });
+            }
+        }
+    }
+    
+    if (exactMatches.length > 1) {
+        return true;
+    }
+    if (exactMatches.length === 1) {
+        return false;
+    }
+    
+    // Priority 2: Substring/fuzzy matches
+    const candidates = [];
+    for (let sIdx = 0; sIdx < data.length; sIdx++) {
+        if (!data[sIdx] || !data[sIdx].chapters) continue;
+        for (let cIdx = 0; cIdx < data[sIdx].chapters.length; cIdx++) {
+            if (!data[sIdx].chapters[cIdx]) continue;
+            const chNameNormalized = normalizeChapterName(data[sIdx].chapters[cIdx].name);
+            if (chNameNormalized.length > 2 && (chNameNormalized.includes(qNormalized) || qNormalized.includes(chNameNormalized))) {
+                candidates.push({
+                    sIdx,
+                    cIdx,
+                    length: chNameNormalized.length
+                });
+            }
+        }
+    }
+    
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => b.length - a.length);
+        const maxLen = candidates[0].length;
+        const topCandidates = candidates.filter(c => c.length === maxLen);
+        return topCandidates.length > 1;
+    }
+    
+    return false;
+};
+
 const ProgressModal = ({ 
     isOpen, 
     onClose, 
@@ -89,7 +141,8 @@ const ProgressModal = ({
     chapterName,
     onSave,
     activities,
-    onOpenTracker
+    onOpenTracker,
+    data = []
 }) => {
     // Local state for the modal
     const [activeTab, setActiveTab] = useState('dpp');
@@ -120,8 +173,10 @@ const ProgressModal = ({
             if (seenIds.has(act.id)) return false;
             seenIds.add(act.id);
             
-            // 1. Direct match by resolved ID inside chapterData.dppLogs
-            if (chapterData && chapterData.dppLogs && chapterData.dppLogs[act.id]) {
+            // 1. Direct match by resolved ID inside chapterData.dppLogs or chapterData.moduleLogs
+            const isDirectDppMatch = !!(chapterData && chapterData.dppLogs && chapterData.dppLogs[act.id]);
+            const isDirectModuleMatch = !!(chapterData && chapterData.moduleLogs && chapterData.moduleLogs[act.id]);
+            if (isDirectDppMatch || isDirectModuleMatch) {
                 return true;
             }
             
@@ -136,6 +191,12 @@ const ProgressModal = ({
             }
             
             if (chapterSearch) {
+                // If the submitted chapter search maps to multiple chapters with the same name,
+                // we ONLY allow showing this activity if it was directly matched/resolved to this chapter.
+                if (hasDuplicateChaptersInSyllabus(data, chapterSearch)) {
+                    return false;
+                }
+
                 const qNormalized = normalizeChapterName(chapterSearch);
                 if (qNormalized.length > 2 && (chNameNormalized.includes(qNormalized) || qNormalized.includes(chNameNormalized))) {
                     return true;
@@ -143,12 +204,17 @@ const ProgressModal = ({
             }
             
             // 3. Fallback to basic substring matching
+            // If the current chapter name has duplicates, skip fallback to avoid displaying duplicate-named activities.
+            if (hasDuplicateChaptersInSyllabus(data, chapterName)) {
+                return false;
+            }
+
             const chNameLower = chapterName.toLowerCase().trim();
             if (details.title && details.title.toLowerCase().includes(chNameLower)) return true;
             
             return false;
         });
-    }, [activities, chapterName, chapterData]);
+    }, [activities, chapterName, chapterData, data]);
 
     // Filter activities for the active tab
     const tabActivities = useMemo(() => {

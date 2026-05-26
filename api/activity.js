@@ -1,5 +1,7 @@
 import { connectToDatabase } from './db.js';
-import { getISTISOString, getISTLogPrefix } from './timezone.js';
+import { getISTISOString, getISTLogPrefix } from '../src/shared/time.js';
+import { normalizeChapterName } from '../src/shared/normalize.js';
+import { resolveUser, hashSyncId } from './shared/auth.js';
 
 function normalizeUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return '';
@@ -39,42 +41,7 @@ function normalizeUrl(urlStr) {
   }
 }
 
-function normalizeChapterName(name) {
-  if (!name) return "";
-  const normalized = name
-      .toLowerCase()
-      .replace(/&/g, ' and ') // replace & with 'and'
-      .replace(/[^a-z0-9\s]/g, ' ') // replace special characters with spaces
-      .split(/\s+/)
-      .map(word => {
-          // Singularize words ending in 's' (length > 3, e.g. haloalkanes -> haloalkane)
-          if (word.length > 3 && word.endsWith('s')) {
-              return word.slice(0, -1);
-          }
-          return word;
-      })
-      .filter(Boolean)
-      .join(' ');
-
-  const CHAPTER_SYNONYMS = {
-      "atomic structure": "structure of atom",
-      "structure of atoms": "structure of atom",
-      "structure of atom": "structure of atom",
-      "periodic table": "classification of elements and periodicity in properties",
-      "periodicity in properties": "classification of elements and periodicity in properties",
-      "periodicity in propertie": "classification of elements and periodicity in properties",
-      "periodic classification": "classification of elements and periodicity in properties",
-      "chemical bonding": "chemical bonding and molecular structure",
-      "goc": "organic chemistry some basic principles and techniques",
-      "general organic chemistry": "organic chemistry some basic principles and techniques",
-      "organic chemistry basic principles": "organic chemistry some basic principles and techniques"
-  };
-
-  if (CHAPTER_SYNONYMS[normalized]) {
-      return CHAPTER_SYNONYMS[normalized];
-  }
-  return normalized;
-}
+// normalizeChapterName imported from shared module
 
 export default async function handler(req, res) {
   // Setup CORS to allow requests from the Chrome Extension & specific origins
@@ -104,7 +71,8 @@ export default async function handler(req, res) {
   }
 
   // Enforce body size limit of 500KB for activity payloads
-  if (req.body && JSON.stringify(req.body).length > 500 * 1024) {
+  const contentLength = req.headers['content-length'] ? parseInt(req.headers['content-length'], 10) : 0;
+  if (contentLength > 500 * 1024 || (req.body && JSON.stringify(req.body).length > 500 * 1024)) {
     return res.status(413).json({ error: 'Payload too large (limit is 500KB)' });
   }
 
@@ -116,11 +84,11 @@ export default async function handler(req, res) {
       const { syncId: rawSyncId, type, details, timestamp } = req.body;
       
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
-      const syncId = String(rawSyncId).trim();
-      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
+      const rawSyncIdTrimmed = String(rawSyncId).trim();
+      if (!rawSyncIdTrimmed) return res.status(400).json({ error: 'syncId cannot be empty' });
 
-      const isSecure = syncId.startsWith('vny_sec_');
-      const existingDoc = await collection.findOne({ syncId });
+      const existingDoc = await resolveUser(db, rawSyncIdTrimmed);
+      const isSecure = rawSyncIdTrimmed.startsWith('vny_sec_') || rawSyncIdTrimmed.startsWith('vny_sess_');
 
       if (!isSecure && !existingDoc) {
         return res.status(400).json({ 
@@ -128,7 +96,12 @@ export default async function handler(req, res) {
         });
       }
 
+      const syncId = existingDoc ? existingDoc.syncId : hashSyncId(rawSyncIdTrimmed);
+
       if (existingDoc) {
+        if (existingDoc.logoutTimestamp) {
+          console.log(`[Vinyas Inactivity] User ${existingDoc.syncId} logged active via POST activity. Resetting inactivity countdown and warning flags. Previous logoutTimestamp: ${existingDoc.logoutTimestamp}`);
+        }
         await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
       }
 
@@ -250,13 +223,16 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { syncId: rawSyncId, date, checkUrl } = req.query;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
-      const syncId = String(rawSyncId).trim();
-      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
+      const rawSyncIdTrimmed = String(rawSyncId).trim();
+      if (!rawSyncIdTrimmed) return res.status(400).json({ error: 'syncId cannot be empty' });
+
+      const userDoc = await resolveUser(db, rawSyncIdTrimmed);
+      if (!userDoc) return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
+      const syncId = userDoc.syncId;
 
       if (checkUrl) {
         // Find if a normalized matching URL exists in the database for the given syncId
-        const userDoc = await collection.findOne({ syncId }, { projection: { activities: 1, data: 1 } });
-        const activities = userDoc?.activities || [];
+        const activities = userDoc.activities || [];
         const normCheckUrl = normalizeUrl(checkUrl);
         let exists = activities.some(act => 
           (act.type === 'DPP_SCORE' || act.type === 'PW_BOOKS_QUESTIONS') && 
@@ -273,7 +249,7 @@ export default async function handler(req, res) {
             const chapterSearchName = raw.trim();
             const normSearchName = normalizeChapterName(chapterSearchName);
             
-            const syllabus = userDoc?.data || {};
+            const syllabus = userDoc.data || {};
             let isConfigured = false;
             
             if (syllabus.isRaw && Array.isArray(syllabus.data)) {
@@ -317,11 +293,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ exists });
       }
 
-      const userDoc = await collection.findOne({ syncId }, { projection: { activities: 1 } });
-      if (userDoc) {
-        await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
+      if (userDoc && userDoc.logoutTimestamp) {
+        console.log(`[Vinyas Inactivity] User ${userDoc.syncId} logged active via GET activities. Resetting inactivity countdown and warning flags. Previous logoutTimestamp: ${userDoc.logoutTimestamp}`);
       }
-      let activities = userDoc?.activities || [];
+      await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
+      let activities = userDoc.activities || [];
 
       if (date) {
         // filter activities that start with the requested date
@@ -335,8 +311,12 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const { syncId: rawSyncId, fullDelete } = req.query;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
-      const syncId = String(rawSyncId).trim();
-      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
+      const rawSyncIdTrimmed = String(rawSyncId).trim();
+      if (!rawSyncIdTrimmed) return res.status(400).json({ error: 'syncId cannot be empty' });
+
+      const userDoc = await resolveUser(db, rawSyncIdTrimmed);
+      if (!userDoc) return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
+      const syncId = userDoc.syncId;
 
       if (fullDelete === 'true') {
         // Permanently Delete Account

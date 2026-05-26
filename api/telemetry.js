@@ -2,6 +2,7 @@ import { connectToDatabase } from './db.js';
 import { getISTISOString, getISTLogPrefix } from './timezone.js';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { resolveUser, hashSyncId } from './shared/auth.js';
 
 function safeCompare(input, expected) {
   const inputBuffer = Buffer.from(input);
@@ -78,8 +79,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid or missing encryptedTelemetry' });
       }
 
+      // Resolve plaintext / session tokens to hashed Sync ID for DB storage (prevents session hijacking / plaintext leakage)
+      const userDoc = await resolveUser(db, syncId);
+      const targetSyncId = userDoc ? userDoc.syncId : hashSyncId(syncId);
+
       const telemetryRecord = {
-        syncId,
+        syncId: targetSyncId,
         encryptedTelemetry,
         timestamp: new Date(),
         timestampIST: getISTISOString()
