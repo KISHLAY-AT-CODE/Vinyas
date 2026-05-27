@@ -26,11 +26,19 @@ import { AI_SYSTEM_PROMPT } from './data/ai_instructions';
 import DevToolsOverlay from './components/DevToolsOverlay';
 import { useToast } from './components/ToastContext';
 import WhatsNewModal from './components/WhatsNewModal';
+import ProfileModal from './components/ProfileModal';
 import { VINYAS_APP_VERSION, VINYAS_EXTENSION_VERSION, WHATS_NEW_CHANGELOG } from './data/version';
 
 // Timezone-safe Indian Standard Time (IST) Helpers
 import { getISTDateString, getISTDateStringYYYYMMDD, getISTISOString, getISTTimeString, getISTLogPrefix } from './shared/time.js';
 import { normalizeChapterName } from './shared/normalize.js';
+
+// Dynamic default date helper (100 days from today)
+const getDefaultTargetDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 100);
+    return date.toISOString().split('T')[0];
+};
 
 // Utility: fuzzy-match a search string against all chapter names in the syllabus
 const findChapterByName = (data, searchName) => {
@@ -331,7 +339,7 @@ const App = () => {
     // Core States
     const [data, setData] = useState(initialSyllabus);
     const [routines, setRoutines] = useState([]);
-    const [targetDate, setTargetDate] = useState('2026-05-23');
+    const [targetDate, setTargetDate] = useState(getDefaultTargetDate());
     const [testLogs, setTestLogs] = useState([]);
     const [email, setEmail] = useState('');
     const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
@@ -402,9 +410,22 @@ const App = () => {
     const [nightlyWrapUpOpen, setNightlyWrapUpOpen] = useState(false);
     const [nightlyWrapUpTargetId, setNightlyWrapUpTargetId] = useState(null);
     const [cohortSetupOpen, setCohortSetupOpen] = useState(false);
+    const [profileModalOpen, setProfileModalOpen] = useState(false);
     
     // Unresolved Submissions State
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
+    const [fabOpen, setFabOpen] = useState(false);
+    const fabRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (fabRef.current && !fabRef.current.contains(event.target)) {
+                setFabOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     // Change Log & Bug Report Modals States
     const [changeLogOpen, setChangeLogOpen] = useState(false);
@@ -537,7 +558,7 @@ const App = () => {
                     if (serverData.targetDate) {
                         setTargetDate(serverData.targetDate);
                     } else {
-                        setTargetDate('2026-05-23');
+                        setTargetDate(getDefaultTargetDate());
                     }
                     
                     if (serverData.resolvedActivityIds) {
@@ -577,6 +598,10 @@ const App = () => {
                     }
                     if (serverData.lastSeenExtVersion) {
                         setLastSeenExtVersion(serverData.lastSeenExtVersion);
+                    }
+                    if (serverData.userName) {
+                        setUserName(serverData.userName);
+                        localStorage.setItem('vinyasUserName', serverData.userName);
                     }
                     
                     setIsLoaded(true);
@@ -625,9 +650,10 @@ const App = () => {
             email,
             autoBackupEnabled,
             lastSeenAppVersion,
-            lastSeenExtVersion
+            lastSeenExtVersion,
+            userName
         };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion]);
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName]);
 
     const saveCompleteSyllabus = useCallback(async (payload) => {
         if (!payload.syncId) return;
@@ -677,7 +703,8 @@ const App = () => {
                 email: stateRef.current.email,
                 autoBackupEnabled: stateRef.current.autoBackupEnabled,
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
-                lastSeenExtVersion: stateRef.current.lastSeenExtVersion
+                lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
+                userName: stateRef.current.userName
             };
             await saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -703,7 +730,8 @@ const App = () => {
                 email: stateRef.current.email,
                 autoBackupEnabled: stateRef.current.autoBackupEnabled,
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
-                lastSeenExtVersion: stateRef.current.lastSeenExtVersion
+                lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
+                userName: stateRef.current.userName
             };
             const promise = saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -788,7 +816,8 @@ const App = () => {
             email: stateRef.current.email,
             autoBackupEnabled: stateRef.current.autoBackupEnabled,
             lastSeenAppVersion: VINYAS_APP_VERSION,
-            lastSeenExtVersion: installedExtVersion
+            lastSeenExtVersion: installedExtVersion,
+            userName: stateRef.current.userName
         };
         await saveCompleteSyllabus(payload);
     };
@@ -1108,11 +1137,12 @@ const App = () => {
                             routines: [],
                             testLogs: [],
                             achievements: [],
-                            targetDate: '2026-05-23',
+                            targetDate: getDefaultTargetDate(),
                             cohort: cohort,
                             resolvedActivityIds: [],
                             email: email,
-                            autoBackupEnabled: autoBackupEnabled
+                            autoBackupEnabled: autoBackupEnabled,
+                            userName
                         };
                         await saveCompleteSyllabus(cleanPayload);
 
@@ -1375,7 +1405,8 @@ const App = () => {
                         achievements: achievements,
                         targetDate: importedObj.targetDate || targetDate,
                         cohort: importedObj.cohort || cohort,
-                        resolvedActivityIds: importedObj.resolvedActivityIds || resolvedActivityIds
+                        resolvedActivityIds: importedObj.resolvedActivityIds || resolvedActivityIds,
+                        userName: importedObj.userName || userName
                     };
 
                     logEvent('DB_SAVE', { message: 'Importing and syncing decrypted syllabus/state to MongoDB immediately...' });
@@ -1454,6 +1485,74 @@ const App = () => {
         } catch (error) {
             console.error("Save Target Date Error:", error);
             logEvent('DB_SAVE_ERROR', { error: error.message }, 'error');
+            throw error;
+        }
+    };
+
+    const handleSaveUsername = async (newUsername) => {
+        const trimmed = newUsername.trim();
+        if (!trimmed) {
+            showToast("Username cannot be empty", "error");
+            return;
+        }
+
+        if (!syncId) {
+            setUserName(trimmed);
+            localStorage.setItem('vinyasUserName', trimmed);
+            showToast("Username updated locally!", "success");
+            return;
+        }
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+        const resolve = saveResolveRef.current;
+        savePromiseRef.current = null;
+        saveResolveRef.current = null;
+        if (resolve) resolve();
+
+        try {
+            logEvent('DB_SAVE', { message: 'Syncing username change to MongoDB immediately...', userName: trimmed });
+            const payload = {
+                syncId,
+                data,
+                routines,
+                testLogs,
+                achievements,
+                targetDate,
+                cohort,
+                resolvedActivityIds,
+                email,
+                autoBackupEnabled,
+                userName: trimmed
+            };
+
+            const response = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                let errMsg = 'Failed to save data';
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error) errMsg = errData.error;
+                } catch (e) {}
+                throw new Error(errMsg);
+            }
+            const resData = await response.json();
+            logEvent('DB_SAVE_SUCCESS', { message: 'Successfully synced all changes to MongoDB' }, 'success');
+            
+            setUserName(trimmed);
+            localStorage.setItem('vinyasUserName', trimmed);
+            handleSaveResponse(resData);
+            showToast("Profile username updated and synced successfully!", "success");
+        } catch (error) {
+            console.error("Save Username Error:", error);
+            logEvent('DB_SAVE_ERROR', { error: error.message }, 'error');
+            showToast("Failed to sync username: " + error.message, "error");
             throw error;
         }
     };
@@ -1565,13 +1664,14 @@ const App = () => {
                     routines: [],
                     testLogs: [],
                     achievements: [],
-                    targetDate: '2026-05-23',
+                    targetDate: getDefaultTargetDate(),
                     cohort: cohortVal,
                     resolvedActivityIds: [],
                     email: '',
                     autoBackupEnabled: false,
                     lastSeenAppVersion: VINYAS_APP_VERSION,
-                    lastSeenExtVersion: installedExtVersion
+                    lastSeenExtVersion: installedExtVersion,
+                    userName: name
                 };
                 
                 const response = await fetch('/api/data', {
@@ -2381,8 +2481,8 @@ const App = () => {
                                 <span className="text-[10px] font-black text-emerald-450 uppercase tracking-widest block mb-1">
                                     <i className="ph-bold ph-shield-checkered mr-1 text-xs"></i> Cryptographic Security Active
                                 </span>
-                                <p className="text-[10px] text-slate-450 leading-relaxed">
-                                    The system will auto-generate a private, high-entropy Sync Identifier. Only devices configured with this key will have access to read or update your study database.
+                               <p className="text-[10px] text-slate-450 leading-relaxed">
+                                    🔒 Cryptographic Sync ID will be auto-generated to secure access to your study database.
                                 </p>
                             </div>
                         )}
@@ -2465,6 +2565,7 @@ const App = () => {
                 daysLeft={daysLeft} 
                 onSaveTargetDate={handleSaveTargetDate}
                 openCohortSetup={() => setCohortSetupOpen(true)}
+                onOpenProfile={() => setProfileModalOpen(true)}
                 pollActivities={pollActivities}
                 isPollingActivities={isPollingActivities}
                 onTriggerTestDpp={handleTriggerTestDpp}
@@ -2477,39 +2578,13 @@ const App = () => {
                 onOpenBackupSettings={() => setBackupSettingsOpen(true)}
                 onOpenChangeLog={() => setChangeLogOpen(true)}
                 showExtensionWarning={showExtWarningHeader}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                isSearchFocused={isSearchFocused}
+                setIsSearchFocused={setIsSearchFocused}
+                searchResults={searchResults}
+                handleInlineSearchSelect={handleInlineSearchSelect}
             />
-
-            {/* Standard Search Bar */}
-            <div className="max-w-7xl mx-auto px-4 mb-8" ref={searchContainerCallbackRef}>
-                <div className="relative">
-                    <div className={`flex items-center bg-slate-800 border ${isSearchFocused ? 'border-bitsat-500 shadow-[0_0_15px_rgba(2,132,199,0.3)]' : 'border-slate-700'} rounded-xl px-4 py-3 transition-all z-20 relative`}>
-                        <i className={`ph-bold ph-magnifying-glass text-xl ${isSearchFocused ? 'text-bitsat-400' : 'text-slate-500'} mr-3`}></i>
-                        <input 
-                            type="text" 
-                            placeholder="Search any chapter to instantly scroll and fill..." 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onFocus={() => setIsSearchFocused(true)}
-                            className="bg-transparent text-slate-100 w-full outline-none placeholder-slate-500 font-medium"
-                        />
-                        {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="text-slate-500 hover:text-slate-300 ml-2">
-                                <i className="ph-fill ph-x-circle text-lg"></i>
-                            </button>
-                        )}
-                    </div>
-                    {isSearchFocused && searchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-40 overflow-hidden modal-animate">
-                            {searchResults.map((res, i) => (
-                                <div key={i} onMouseDown={() => handleInlineSearchSelect(res.sIdx, res.cIdx)} className="px-4 py-3 hover:bg-slate-700 cursor-pointer flex items-center justify-between border-b border-slate-700/50 last:border-0 transition-colors">
-                                    <span className="font-semibold text-slate-200">{res.name}</span>
-                                    <span className={`text-xs px-2 py-1 rounded-md font-bold text-white ${res.color}`}>{res.subject}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
 
             <main className="max-w-7xl mx-auto px-4 grid grid-cols-1 xl:grid-cols-4 gap-8">
                 <GamifiedDashboard 
@@ -2562,24 +2637,6 @@ const App = () => {
                     ))}
                 </div>
             </main>
-
-            {/* Floating Action Buttons Container */}
-            <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-40">
-                <button 
-                    onClick={handleScrollToTop}
-                    className={`w-14 h-14 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center shadow-lg hover:bg-slate-700 hover:scale-105 transition-all duration-300 ease-out origin-bottom ${isScrolledPastSearch ? 'scale-100 opacity-100 translate-y-0' : 'scale-0 opacity-0 translate-y-8'}`}
-                    title="Scroll to Top"
-                >
-                    <i className="ph-bold ph-arrow-up text-2xl text-slate-300"></i>
-                </button>
-                <button 
-                    onClick={() => setOverlaySearchOpen(true)}
-                    className={`w-14 h-14 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center shadow-lg hover:bg-slate-700 hover:scale-105 transition-all duration-300 ease-out origin-bottom ${isScrolledPastSearch ? 'scale-100 opacity-100 translate-y-0' : 'scale-0 opacity-0 translate-y-8'}`}
-                    title="Spotlight Search"
-                >
-                    <i className="ph-bold ph-magnifying-glass text-2xl text-slate-300"></i>
-                </button>
-            </div>
 
             <SearchOverlay 
                 overlaySearchOpen={overlaySearchOpen}
@@ -2733,15 +2790,58 @@ const App = () => {
                         onDismiss={handleResolveDismiss}
                     />
 
-                    {/* Sticky Floating Refresh Button */}
-                    <button
-                        onClick={pollActivities}
-                        disabled={isPollingActivities}
-                        className="fixed bottom-6 right-6 z-[100] bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-[0_4px_25px_rgba(37,99,235,0.5)] border border-blue-400 transition-all flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-                        title="Refresh Cloud Data"
-                    >
-                        <i className={`ph-bold ph-arrows-clockwise text-2xl ${isPollingActivities ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}></i>
-                    </button>
+                    {/* Unified Floating Action Button (FAB) Menu */}
+                    <div ref={fabRef} className="fixed bottom-6 right-6 z-[100] flex flex-col items-center gap-3">
+                        {/* Expanded Menu Actions */}
+                        {fabOpen && (
+                            <div className="flex flex-col items-center gap-3 animate-fade-in mb-1">
+                                {isScrolledPastSearch && (
+                                    <button
+                                        onClick={() => {
+                                            handleScrollToTop();
+                                            setFabOpen(false);
+                                        }}
+                                        className="w-12 h-12 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full shadow-lg border border-slate-650 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                                        title="Scroll to Top"
+                                    >
+                                        <i className="ph-bold ph-arrow-up text-lg text-slate-300"></i>
+                                    </button>
+                                )}
+                                
+                                <button
+                                    onClick={() => {
+                                        setOverlaySearchOpen(true);
+                                        setFabOpen(false);
+                                    }}
+                                    className="w-12 h-12 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full shadow-lg border border-slate-650 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                                    title="Spotlight Search"
+                                >
+                                    <i className="ph-bold ph-magnifying-glass text-lg text-slate-300"></i>
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        pollActivities();
+                                        setFabOpen(false);
+                                    }}
+                                    disabled={isPollingActivities}
+                                    className="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg border border-blue-400 flex items-center justify-center disabled:opacity-50 hover:scale-105 active:scale-95 transition-all"
+                                    title="Refresh Cloud Data"
+                                >
+                                    <i className={`ph-bold ph-arrows-clockwise text-lg ${isPollingActivities ? 'animate-spin' : ''}`}></i>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Main FAB Trigger Button */}
+                        <button
+                            onClick={() => setFabOpen(!fabOpen)}
+                            className="w-14 h-14 bg-gradient-to-r from-orange-600 to-red-500 hover:from-orange-500 hover:to-red-400 text-white rounded-full shadow-[0_4px_25px_rgba(249,115,22,0.4)] border border-orange-400 transition-all flex items-center justify-center hover:scale-105 active:scale-95"
+                            title="Quick Actions Menu"
+                        >
+                            <i className={`ph-bold ${fabOpen ? 'ph-x text-xl rotate-90' : 'ph-compass text-2xl'} transition-transform duration-300`}></i>
+                        </button>
+                    </div>
                 </>
             ) : currentPath === '/console' ? (
                 <ActivityConsole 
@@ -2803,6 +2903,14 @@ const App = () => {
                 currentExtVersion={VINYAS_EXTENSION_VERSION}
                 installedExtVersion={installedExtVersion}
                 onDismiss={handleWhatsNewDismiss}
+                onExport={handleExportData}
+            />
+
+            <ProfileModal 
+                isOpen={profileModalOpen}
+                onClose={() => setProfileModalOpen(false)}
+                currentUsername={userName}
+                onSave={handleSaveUsername}
             />
 
             {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && localStorage.getItem('devMode') === 'true' && (
@@ -2818,6 +2926,7 @@ const App = () => {
                     onSendTestBackupMail={handleSendTestBackupMail}
                     onLogout={handleLogout}
                     onNukeActivities={handleNukeActivities}
+                    onTriggerWhatsNew={() => setShowWhatsNew(true)}
                 />
             )}
         </div>

@@ -429,10 +429,10 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                                     type="checkbox"
                                     checked={includeDiagnostics}
                                     onChange={e => setIncludeDiagnostics(e.target.checked)}
-                                    className="w-4.5 h-4.5 rounded bg-slate-900 border-slate-750 text-rose-500 focus:ring-0 focus:ring-offset-0"
+                                    className="w-4 h-4 rounded bg-slate-900 border-slate-750 text-rose-500 focus:ring-0 focus:ring-offset-0"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-slate-350">Include Diagnostic Logs</span>
+                                    <span className="text-xs font-bold text-slate-300">Include Diagnostic Logs</span>
                                     <span className="text-[10px] text-slate-500">Appends platform spec and last 15 local core kernel logs automatically</span>
                                 </div>
                             </label>

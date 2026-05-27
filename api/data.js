@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     } 
     
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion } = req.body;
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName } = req.body;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
@@ -137,11 +137,14 @@ export default async function handler(req, res) {
         }
       };
 
-      if (lastSeenAppVersion !== undefined) {
+       if (lastSeenAppVersion !== undefined) {
         updateDoc.$set.lastSeenAppVersion = lastSeenAppVersion;
       }
       if (lastSeenExtVersion !== undefined) {
         updateDoc.$set.lastSeenExtVersion = lastSeenExtVersion;
+      }
+      if (userName !== undefined) {
+        updateDoc.$set.userName = userName;
       }
 
       if (userDoc && userDoc.logoutTimestamp) {

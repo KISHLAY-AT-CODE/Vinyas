@@ -375,7 +375,7 @@ const ExtensionPage = ({ onBack }) => {
                                             Designed with Student Privacy First
                                         </span>
                                         <p className="text-[10px] text-slate-450 leading-relaxed">
-                                            We do not collect passwords or track other websites. Vinyas strictly listens for curriculum progress pages and routes logs directly to your MongoDB securely using encryption.
+                                            🔒 Zero passwords collected. Progress logs are sent directly to your database securely via encryption.
                                         </p>
                                     </div>
                                 </div>
@@ -482,7 +482,7 @@ const ExtensionPage = ({ onBack }) => {
                         <span>End-to-End Cryptographic Security Active</span>
                     </p>
                     <p className="mt-1 font-semibold text-slate-650">
-                        Vinyas tracker uses secure client-side proxying to safeguard student logs and data privacy.
+                        🔒 Uses secure client-side proxying to protect your study logs.
                     </p>
                 </div>
             </div>

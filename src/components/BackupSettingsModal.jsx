@@ -89,7 +89,7 @@ const BackupSettingsModal = ({ isOpen, onClose, email, setEmail, autoBackupEnabl
                                 Client-Side Encrypted
                             </span>
                             <p className="text-[10px] text-slate-450 leading-relaxed">
-                                Backups are client-side encrypted utilizing your private Sync ID. The mailed file is secure even if your email mailbox is compromised. To restore, simply load the encrypted `.json` bundle and supply your Sync ID!
+                                🔒 Backups are client-side encrypted utilizing your private Sync ID. Secure even if your email is compromised.
                             </p>
                         </div>
                     </div>
