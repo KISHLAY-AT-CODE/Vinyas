@@ -23,11 +23,12 @@ import ExtensionPage from './components/ExtensionPage';
 import BackupSettingsModal from './components/BackupSettingsModal';
 import ResolveSubmissionsModal from './components/ResolveSubmissionsModal';
 import { AI_SYSTEM_PROMPT } from './data/ai_instructions';
-import DevToolsOverlay from './components/DevToolsOverlay';
+import ThemeModal from './components/ThemeModal';
 import { useToast } from './components/ToastContext';
 import WhatsNewModal from './components/WhatsNewModal';
 import ProfileModal from './components/ProfileModal';
 import { VINYAS_APP_VERSION, VINYAS_EXTENSION_VERSION, WHATS_NEW_CHANGELOG } from './data/version';
+import DevToolsOverlay from './components/DevToolsOverlay';
 
 // Timezone-safe Indian Standard Time (IST) Helpers
 import { getISTDateString, getISTDateStringYYYYMMDD, getISTISOString, getISTTimeString, getISTLogPrefix } from './shared/time.js';
@@ -54,31 +55,6 @@ const slideVariants = {
         x: direction > 0 ? -55 : 55,
         opacity: 0
     })
-};
-
-// Helper: resolve subject identities to glowing caret colors
-const getSubjectColorTheme = (subjectName) => {
-    const nameLower = (subjectName || '').toLowerCase();
-    if (nameLower.includes('physic')) return {
-        borderHover: 'hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.35)]',
-        textHover: 'hover:text-blue-400'
-    };
-    if (nameLower.includes('chem')) return {
-        borderHover: 'hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.35)]',
-        textHover: 'hover:text-emerald-400'
-    };
-    if (nameLower.includes('math') || nameLower.includes('calculus') || nameLower.includes('algeb')) return {
-        borderHover: 'hover:border-rose-500/50 hover:shadow-[0_0_15px_rgba(244,63,94,0.35)]',
-        textHover: 'hover:text-rose-400'
-    };
-    if (nameLower.includes('biolog') || nameLower.includes('botan') || nameLower.includes('zool')) return {
-        borderHover: 'hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.35)]',
-        textHover: 'hover:text-purple-400'
-    };
-    return {
-        borderHover: 'hover:border-indigo-500/50 hover:shadow-[0_0_15px_rgba(99,102,241,0.35)]',
-        textHover: 'hover:text-indigo-400'
-    };
 };
 
 // Utility: fuzzy-match a search string against all chapter names in the syllabus
@@ -381,6 +357,17 @@ const App = () => {
     const [data, setData] = useState(initialSyllabus);
     const [activeSubjectIdx, setActiveSubjectIdx] = useState(0);
     const [direction, setDirection] = useState(0);
+
+    // Page loading animation state (only for app boot & dev testing)
+    const [isLoadingPage, setIsLoadingPage] = useState(false);
+
+    const triggerPageLoading = useCallback(() => {
+        setIsLoadingPage(true);
+        setTimeout(() => {
+            setIsLoadingPage(false);
+        }, 2000); // 2 seconds for testing in dev overlay
+    }, []);
+
     const lastTransitionTime = useRef(0);
     const touchStartY = useRef(0);
 
@@ -396,10 +383,7 @@ const App = () => {
         if (activeSubjectIdx > 0) {
             setDirection(-1);
             setActiveSubjectIdx(prev => prev - 1);
-            // Defer scrolling to bottom so previous card height finishes mounting in DOM
-            setTimeout(() => {
-                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-            }, 80);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }, [activeSubjectIdx]);
 
@@ -437,6 +421,9 @@ const App = () => {
         };
 
         const handleWheel = (e) => {
+            // Ignore scroll events originating from inside fixed overlays (DevTools, modals, etc.)
+            if (e.target && e.target.closest && e.target.closest('.fixed')) return;
+
             const deltaY = e.deltaY;
             if (!ticking) {
                 window.requestAnimationFrame(() => {
@@ -559,6 +546,162 @@ const App = () => {
         try { return JSON.parse(localStorage.getItem('vinyasDismissedGoals') || '[]'); } 
         catch (e) { return []; }
     });
+
+    // Theme Customizer States
+    const [themeSettings, setThemeSettings] = useState(() => {
+        try {
+            const saved = localStorage.getItem('vinyasThemeSettings');
+            return saved ? JSON.parse(saved) : {
+                preset: 'default',
+                accentColor: '#f97316',
+                secondaryColor: '#ef4444',
+                bodyBg: '#110b05',
+                headerBackdrop: 'rgba(28, 18, 10, 0.65)',
+                cardBackdrop: 'rgba(20, 12, 6, 0.4)',
+                hoverBorderGlow: '#f97316',
+                bgStyle: 'gradient',
+                svgMeshCoords: null,
+                bgOpacity: 0.25,
+                bgBlur: 0,
+                bgScale: 100,
+                bgPositionX: 50,
+                bgPositionY: 0
+            };
+        } catch (e) {
+            return {
+                preset: 'default',
+                accentColor: '#f97316',
+                secondaryColor: '#ef4444',
+                bodyBg: '#110b05',
+                headerBackdrop: 'rgba(28, 18, 10, 0.65)',
+                cardBackdrop: 'rgba(20, 12, 6, 0.4)',
+                hoverBorderGlow: '#f97316',
+                bgStyle: 'gradient',
+                svgMeshCoords: null,
+                bgOpacity: 0.25,
+                bgBlur: 100
+            };
+        }
+    });
+    const [themeModalOpen, setThemeModalOpen] = useState(false);
+    const [backdropImage, setBackdropImage] = useState(() => {
+        try { return localStorage.getItem('vinyasCustomLocalBg') || ''; }
+        catch (e) { return ''; }
+    });
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            try { setBackdropImage(localStorage.getItem('vinyasCustomLocalBg') || ''); }
+            catch (e) {}
+        };
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('vinyas-bg-update', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('vinyas-bg-update', handleStorageChange);
+        };
+    }, []);
+
+    useEffect(() => {
+        const hexToRgb = (hex) => {
+            const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        };
+
+        const activePresetId = themeSettings.preset || 'default';
+        const defaultsByPreset = {
+            default: {
+                bodyBg: '#110b05',
+                headerBackdrop: 'rgba(28, 18, 10, 0.65)',
+                cardBackdrop: 'rgba(20, 12, 6, 0.4)',
+                hoverBorderGlow: '#f97316',
+                primary: '#f97316',
+                secondary: '#ef4444'
+            },
+            emerald: {
+                bodyBg: '#020c08',
+                headerBackdrop: 'rgba(8, 30, 20, 0.65)',
+                cardBackdrop: 'rgba(4, 20, 12, 0.45)',
+                hoverBorderGlow: '#10b981',
+                primary: '#10b981',
+                secondary: '#059669'
+            },
+            blue: {
+                bodyBg: '#020c1b',
+                headerBackdrop: 'rgba(4, 20, 40, 0.65)',
+                cardBackdrop: 'rgba(2, 12, 28, 0.42)',
+                hoverBorderGlow: '#0ea5e9',
+                primary: '#0ea5e9',
+                secondary: '#3b82f6'
+            },
+            purple: {
+                bodyBg: '#0f0219',
+                headerBackdrop: 'rgba(28, 6, 44, 0.7)',
+                cardBackdrop: 'rgba(18, 3, 30, 0.48)',
+                hoverBorderGlow: '#ec4899',
+                primary: '#a855f7',
+                secondary: '#ec4899'
+            },
+            slate: {
+                bodyBg: '#090a0c',
+                headerBackdrop: 'rgba(20, 22, 26, 0.85)',
+                cardBackdrop: 'rgba(14, 15, 18, 0.65)',
+                hoverBorderGlow: '#94a3b8',
+                primary: '#e2e8f0',
+                secondary: '#94a3b8'
+            },
+            custom: {
+                bodyBg: '#090a0f',
+                headerBackdrop: 'rgba(15, 23, 42, 0.65)',
+                cardBackdrop: 'rgba(10, 15, 30, 0.4)',
+                hoverBorderGlow: '#f97316',
+                primary: '#f97316',
+                secondary: '#ec4899'
+            }
+        };
+
+        const presetDefaults = defaultsByPreset[activePresetId] || defaultsByPreset.default;
+
+        const root = document.documentElement;
+        const primary = themeSettings.accentColor || presetDefaults.primary;
+        const secondary = themeSettings.secondaryColor || presetDefaults.secondary;
+        const rgb = hexToRgb(primary);
+        
+        root.style.setProperty('--primary-accent', primary);
+        root.style.setProperty('--secondary-accent', secondary);
+        root.style.setProperty('--glass-opacity', themeSettings.bgOpacity !== undefined ? themeSettings.bgOpacity : 0.25);
+        root.style.setProperty('--glass-blur', `${themeSettings.bgBlur !== undefined ? themeSettings.bgBlur : 100}px`);
+
+        const bodyBg = themeSettings.bodyBg || presetDefaults.bodyBg;
+        const headerBackdrop = themeSettings.headerBackdrop || presetDefaults.headerBackdrop;
+        const cardBackdrop = themeSettings.cardBackdrop || presetDefaults.cardBackdrop;
+        const hoverBorderGlow = themeSettings.hoverBorderGlow || presetDefaults.hoverBorderGlow;
+        const hoverRgb = hexToRgb(hoverBorderGlow);
+
+        root.style.setProperty('--body-bg-color', bodyBg);
+        root.style.setProperty('--header-backdrop', headerBackdrop);
+        root.style.setProperty('--card-backdrop', cardBackdrop);
+        root.style.setProperty('--hover-border-glow', hoverBorderGlow);
+        if (hoverRgb) {
+            root.style.setProperty('--hover-border-glow-rgb', `${hoverRgb.r}, ${hoverRgb.g}, ${hoverRgb.b}`);
+        }
+
+        if (rgb) {
+            root.style.setProperty('--primary-accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+            root.style.setProperty('--primary-accent-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18)`);
+            const hoverR = Math.max(0, rgb.r - 20);
+            const hoverG = Math.max(0, rgb.g - 20);
+            const hoverB = Math.max(0, rgb.b - 20);
+            root.style.setProperty('--primary-accent-hover', `rgb(${hoverR}, ${hoverG}, ${hoverB})`);
+        }
+        localStorage.setItem('vinyasThemeSettings', JSON.stringify(themeSettings));
+    }, [themeSettings]);
 
     // AI State
     // Progress Modal State
@@ -764,6 +907,9 @@ const App = () => {
                         setUserName(serverData.userName);
                         localStorage.setItem('vinyasUserName', serverData.userName);
                     }
+                    if (serverData.themeSettings) {
+                        setThemeSettings(typeof serverData.themeSettings === 'string' ? JSON.parse(serverData.themeSettings) : serverData.themeSettings);
+                    }
                     
                     setIsLoaded(true);
                     logEvent('DB_LOAD_SUCCESS', { 
@@ -812,9 +958,10 @@ const App = () => {
             autoBackupEnabled,
             lastSeenAppVersion,
             lastSeenExtVersion,
-            userName
+            userName,
+            themeSettings
         };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName]);
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings]);
 
     const saveCompleteSyllabus = useCallback(async (payload) => {
         if (!payload.syncId) return;
@@ -865,7 +1012,8 @@ const App = () => {
                 autoBackupEnabled: stateRef.current.autoBackupEnabled,
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
                 lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
-                userName: stateRef.current.userName
+                userName: stateRef.current.userName,
+                themeSettings: stateRef.current.themeSettings
             };
             await saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -892,7 +1040,8 @@ const App = () => {
                 autoBackupEnabled: stateRef.current.autoBackupEnabled,
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
                 lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
-                userName: stateRef.current.userName
+                userName: stateRef.current.userName,
+                themeSettings: stateRef.current.themeSettings
             };
             const promise = saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -914,7 +1063,7 @@ const App = () => {
                 clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled, triggerSave]);
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled, themeSettings, triggerSave]);
 
     // --- Versioning and Extension Detection Logic ---
     const pingExtension = useCallback(() => {
@@ -2694,15 +2843,62 @@ const App = () => {
 
     if (!isLoaded) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-900">
-                <i className="ph-bold ph-spinner-gap text-4xl animate-spin text-bitsat-500"></i>
-                <p className="text-slate-400 font-medium">Loading {userName || 'Vinyas'}'s Data from MongoDB...</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#070a13]">
+                <div className="flex flex-col items-center select-none">
+                    <img 
+                        src="/loading.gif" 
+                        alt="Loading..." 
+                        className="w-36 h-36 object-contain mb-6 drop-shadow-[0_0_20px_rgba(249,115,22,0.35)]" 
+                    />
+                    <div className="relative w-64 h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800/40">
+                        <div className="loading-bar-inner"></div>
+                    </div>
+                </div>
             </div>
         );
     }
 
+    const activeCustomImg = themeSettings.uploadedImgLocal ? backdropImage : themeSettings.uploadedImgUrl;
+
     return (
-        <div className="min-h-screen pb-24 relative">
+        <div className="h-screen flex flex-col relative overflow-hidden text-slate-100">
+            {/* Global Ambient Glassmorphic Background */}
+            <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none w-full h-full">
+                {(themeSettings.bgStyle === 'crisp-image' || themeSettings.bgStyle === 'pixelated-image') && activeCustomImg ? (
+                    <div 
+                        className="absolute inset-0 w-full h-full animate-fade-in bg-[#070a13]"
+                        style={{ 
+                            backgroundImage: `url(${activeCustomImg})`,
+                            backgroundAttachment: 'fixed',
+                            backgroundSize: themeSettings.bgScale && themeSettings.bgScale !== 100 ? `${themeSettings.bgScale}%` : 'cover',
+                            backgroundPosition: `${themeSettings.bgPositionX !== undefined ? themeSettings.bgPositionX : 50}% ${themeSettings.bgPositionY !== undefined ? themeSettings.bgPositionY : 0}%`,
+                            backgroundRepeat: 'no-repeat',
+                            filter: themeSettings.bgBlur ? `blur(${themeSettings.bgBlur * 0.15}px)` : 'none', 
+                            opacity: themeSettings.bgOpacity !== undefined ? themeSettings.bgOpacity : 0.25,
+                            ...(themeSettings.bgStyle === 'pixelated-image' ? { imageRendering: 'pixelated' } : {})
+                        }}
+                    />
+                ) : themeSettings.bgStyle === 'svg-mesh' && themeSettings.svgMeshCoords ? (
+                    <svg className="absolute inset-0 w-full h-full animate-fade-in" style={{ filter: `blur(${themeSettings.bgBlur || 100}px)`, opacity: themeSettings.bgOpacity || 0.25 }} xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100%" height="100%" fill="#0a0f1d" />
+                        {themeSettings.svgMeshCoords.map((blob, idx) => (
+                            <circle key={idx} cx={blob.cx} cy={blob.cy} r={blob.r} fill={blob.color} opacity="0.85" />
+                        ))}
+                    </svg>
+                ) : (
+                    // Default stunning Vinyas mesh gradients
+                    <div className="absolute inset-0 bg-[#070a13]">
+                        <div 
+                            className="absolute w-[500px] h-[500px] rounded-full blur-[130px] opacity-15 -top-40 -left-40"
+                            style={{ backgroundColor: themeSettings.accentColor || '#f97316' }}
+                        />
+                        <div 
+                            className="absolute w-[600px] h-[600px] rounded-full blur-[140px] opacity-10 -bottom-40 -right-40"
+                            style={{ backgroundColor: themeSettings.secondaryColor || '#ec4899' }}
+                        />
+                    </div>
+                )}
+            </div>
             {currentPath === '/' ? (
                 <>
             {unresolvedSubmissions.length > 0 && (
@@ -2718,6 +2914,9 @@ const App = () => {
             )}
 
             <Header 
+                themeSettings={themeSettings}
+                customBgImage={activeCustomImg}
+                onOpenTheme={() => setThemeModalOpen(true)}
                 userName={userName} 
                 syncId={syncId} 
                 cohort={cohort}
@@ -2750,7 +2949,8 @@ const App = () => {
                 onOpenBugReport={() => setBugReportOpen(true)}
             />
 
-            <main className={`w-full max-w-none mx-auto grid grid-cols-1 xl:grid-cols-4 gap-8 transition-all duration-300 ${isCardHidden ? 'pl-4 xl:pl-28 pr-4 xl:pr-8' : 'pl-4 xl:pl-8 pr-4 xl:pr-8'}`}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 w-full pb-24">
+                <main className={`w-full max-w-none mx-auto grid grid-cols-1 xl:grid-cols-4 gap-8 pt-6 transition-all duration-300 ${isCardHidden ? 'pl-4 xl:pl-28 pr-4 xl:pr-8' : 'pl-4 xl:pl-8 pr-4 xl:pr-8'}`}>
                 <GamifiedDashboard 
                     currentLevel={currentLevel} 
                     focusPoints={focusPoints} 
@@ -2782,126 +2982,31 @@ const App = () => {
                     requestConfirm={requestConfirm}
                     isCardHidden={isCardHidden}
                     handleToggleCardHidden={handleToggleCardHidden}
+                    onTabChange={null}
                 />
 
                 <div className={`flex flex-col relative transition-all duration-300 ${isCardHidden ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
                     {data.length > 0 ? (
-                        <>
-                            {/* Sleek Glassy Subject Pagination Nav */}
-                            <div className="flex justify-center items-center gap-4 mb-6 select-none animate-fade-in relative z-10 px-4">
-                                {/* Left Caret Button - Integrated inside the Nav Bar */}
-                                <button 
-                                    onClick={handlePrevSubject}
-                                    disabled={activeSubjectIdx === 0}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center bg-slate-950/60 backdrop-blur-md border border-slate-800/80 shadow-lg text-slate-450 hover:text-white transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed group ${
-                                        activeSubjectIdx > 0 ? getSubjectColorTheme(data[activeSubjectIdx - 1]?.name).borderHover + ' ' + getSubjectColorTheme(data[activeSubjectIdx - 1]?.name).textHover : ''
-                                    }`}
-                                    title={activeSubjectIdx > 0 ? `Go to ${data[activeSubjectIdx - 1]?.name}` : ''}
-                                >
-                                    <i className="ph-bold ph-caret-left text-base group-hover:-translate-x-0.5 transition-transform"></i>
-                                </button>
-
-                                {/* Tabs Capsule Container */}
-                                <div className="flex items-center gap-3 bg-slate-950/40 p-1.5 rounded-full border border-slate-800/60 shadow-inner">
-                                    {data.map((sub, sIdx) => {
-                                        const isActive = sIdx === activeSubjectIdx;
-                                        
-                                        // Dynamic color highlight mapped to subject identity
-                                        const nameLower = (sub.name || '').toLowerCase();
-                                        let theme = {
-                                            active: 'bg-indigo-500/25 border-indigo-500/40 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.25)] ring-1 ring-indigo-500/30',
-                                            hover: 'hover:border-indigo-500/30 hover:text-indigo-300'
-                                        };
-                                        if (nameLower.includes('physic')) {
-                                            theme = {
-                                                active: 'bg-blue-500/25 border-blue-500/40 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.25)] ring-1 ring-blue-500/30',
-                                                hover: 'hover:border-blue-500/30 hover:text-blue-300'
-                                            };
-                                        } else if (nameLower.includes('chem')) {
-                                            theme = {
-                                                active: 'bg-emerald-500/25 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30',
-                                                hover: 'hover:border-emerald-500/30 hover:text-emerald-300'
-                                            };
-                                        } else if (nameLower.includes('math') || nameLower.includes('calculus') || nameLower.includes('algeb')) {
-                                            theme = {
-                                                active: 'bg-rose-500/25 border-rose-500/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/30',
-                                                hover: 'hover:border-rose-500/30 hover:text-rose-300'
-                                            };
-                                        } else if (nameLower.includes('biolog') || nameLower.includes('botan') || nameLower.includes('zool')) {
-                                            theme = {
-                                                active: 'bg-purple-500/25 border-purple-500/40 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)] ring-1 ring-purple-500/30',
-                                                hover: 'hover:border-purple-500/30 hover:text-purple-300'
-                                            };
-                                        }
-
-                                        return (
-                                            <button
-                                                key={sIdx}
-                                                onClick={() => {
-                                                    if (sIdx !== activeSubjectIdx) {
-                                                        setDirection(sIdx > activeSubjectIdx ? 1 : -1);
-                                                        setActiveSubjectIdx(sIdx);
-                                                    }
-                                                }}
-                                                className={`px-5 py-2 rounded-full text-xs font-black border transition-all duration-300 cursor-pointer ${
-                                                    isActive 
-                                                        ? `${theme.active} scale-105` 
-                                                        : `bg-slate-900/40 border-slate-800/85 text-slate-450 hover:bg-slate-850/40 ${theme.hover}`
-                                                }`}
-                                            >
-                                                {sub.name}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Right Caret Button - Integrated inside the Nav Bar */}
-                                <button 
-                                    onClick={handleNextSubject}
-                                    disabled={activeSubjectIdx === data.length - 1}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center bg-slate-950/60 backdrop-blur-md border border-slate-800/80 shadow-lg text-slate-450 hover:text-white transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed group ${
-                                        activeSubjectIdx < data.length - 1 ? getSubjectColorTheme(data[activeSubjectIdx + 1]?.name).borderHover + ' ' + getSubjectColorTheme(data[activeSubjectIdx + 1]?.name).textHover : ''
-                                    }`}
-                                    title={activeSubjectIdx < data.length - 1 ? `Go to ${data[activeSubjectIdx + 1]?.name}` : ''}
-                                >
-                                    <i className="ph-bold ph-caret-right text-base group-hover:translate-x-0.5 transition-transform"></i>
-                                </button>
-                            </div>
-
-                            {/* Active Card Container - 100% Horizontal bounds with No Side Overhangs */}
-                            <div className="w-full relative min-h-[400px]">
-                                {/* Slider viewport */}
-                                <div className="w-full overflow-visible">
-                                    <AnimatePresence mode="wait" initial={false}>
-                                        <motion.div
-                                            key={activeSubjectIdx}
-                                            custom={direction}
-                                            variants={slideVariants}
-                                            initial="initial"
-                                            animate="animate"
-                                            exit="exit"
-                                            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.35 }}
-                                            className="w-full"
-                                        >
-                                            {data[activeSubjectIdx] && (
-                                                <SubjectTable 
-                                                    subject={data[activeSubjectIdx]}
-                                                    sIdx={activeSubjectIdx}
-                                                    handleUpdate={handleUpdate}
-                                                    handleNestedUpdate={handleNestedUpdate}
-                                                    openLogModal={openLogModal}
-                                                    getChapterAnalysis={getChapterAnalysis}
-                                                    openProgressModal={openProgressModal}
-                                                    addChapter={handleAddChapter}
-                                                    removeChapter={handleRemoveChapter}
-                                                    requestConfirm={requestConfirm}
-                                                />
-                                            )}
-                                        </motion.div>
-                                    </AnimatePresence>
-                                </div>
-                            </div>
-                        </>
+                        <div className="w-full relative min-h-[400px]">
+                            {data[activeSubjectIdx] && (
+                                <SubjectTable 
+                                    subject={data[activeSubjectIdx]}
+                                    sIdx={activeSubjectIdx}
+                                    handleUpdate={handleUpdate}
+                                    handleNestedUpdate={handleNestedUpdate}
+                                    openLogModal={openLogModal}
+                                    getChapterAnalysis={getChapterAnalysis}
+                                    openProgressModal={openProgressModal}
+                                    addChapter={handleAddChapter}
+                                    removeChapter={handleRemoveChapter}
+                                    requestConfirm={requestConfirm}
+                                    onPrevSubject={handlePrevSubject}
+                                    onNextSubject={handleNextSubject}
+                                    activeSubjectIdx={activeSubjectIdx}
+                                    totalSubjects={data.length}
+                                />
+                            )}
+                        </div>
                     ) : (
                         <div className="text-center py-16 bg-slate-900/20 backdrop-blur-md rounded-2xl border border-slate-800/60 text-slate-500 animate-fade-in flex flex-col items-center justify-center gap-3">
                             <i className="ph-bold ph-books text-4xl text-slate-650"></i>
@@ -2911,6 +3016,14 @@ const App = () => {
                     )}
                 </div>
             </main>
+            
+            {/* Scrollable Outlined Footer */}
+            <footer className="w-full text-center py-12 select-none">
+                <span className="text-[14px] sm:text-[15px] font-semibold text-white/40" style={{ WebkitTextStroke: '0.5px rgba(255, 255, 255, 0.4)', fontFamily: "'Poppins', sans-serif" }}>
+                    Made with love by students for students.
+                </span>
+            </footer>
+        </div>
 
             <SearchOverlay 
                 overlaySearchOpen={overlaySearchOpen}
@@ -3165,6 +3278,14 @@ const App = () => {
                 onExport={handleExportData}
             />
 
+            <ThemeModal 
+                isOpen={themeModalOpen}
+                onClose={() => setThemeModalOpen(false)}
+                themeSettings={themeSettings}
+                onUpdateThemeSettings={(updated) => setThemeSettings(prev => ({ ...prev, ...updated }))}
+                showToast={showToast}
+            />
+
             <ProfileModal 
                 isOpen={profileModalOpen}
                 onClose={() => setProfileModalOpen(false)}
@@ -3172,7 +3293,7 @@ const App = () => {
                 onSave={handleSaveUsername}
             />
 
-            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && localStorage.getItem('devMode') === 'true' && (
+            {((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') || localStorage.getItem('devMode') === 'true') && (
                 <DevToolsOverlay 
                     syncId={syncId}
                     allAchievements={allAchievements}
@@ -3183,11 +3304,25 @@ const App = () => {
                     requestConfirm={requestConfirm}
                     email={email}
                     onSendTestBackupMail={handleSendTestBackupMail}
-                    onLogout={handleLogout}
-                    onNukeActivities={handleNukeActivities}
-                    onTriggerWhatsNew={() => setShowWhatsNew(true)}
+                    triggerPageLoading={triggerPageLoading}
                 />
             )}
+
+            {isLoadingPage && (
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-955/90 backdrop-blur-md transition-all duration-300">
+                    <div className="flex flex-col items-center select-none">
+                        <img 
+                            src="/loading.gif" 
+                            alt="Loading..." 
+                            className="w-36 h-36 object-contain mb-6 drop-shadow-[0_0_20px_rgba(249,115,22,0.35)]" 
+                        />
+                        <div className="relative w-64 h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800/40">
+                            <div className="loading-bar-inner"></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

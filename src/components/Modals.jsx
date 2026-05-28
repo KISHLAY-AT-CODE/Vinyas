@@ -75,6 +75,38 @@ const Modals = ({
             ]
         },
         {
+            version: 'v1.2.3',
+            date: 'May 28, 2026',
+            changes: [
+                '🐞 Bug Report Button: Added a quick-access bug report button right next to the Vinyas logo — tap it to report an issue, take a snapshot, or send feedback.',
+                '📚 Custom Chapters: You can now add your own chapters to any subject directly from the subject header.',
+                '✨ Calmer Progress Animations: Progress bar shine effects now only appear when you hover over a subject — no more constant flashing.',
+                '🔧 Scrollbar Fix: Removed a stray horizontal scrollbar that appeared on the syllabus page.',
+                '🎯 Menus Stay Visible: Pop-ups and dropdowns no longer get clipped — everything opens and displays fully.'
+            ]
+        },
+        {
+            version: 'v1.2.2',
+            date: 'May 27, 2026',
+            changes: [
+                '👤 Edit Your Profile: You can now set a custom username that syncs across all your devices.',
+                '🎨 New Logo Look: The Vinyas logo now uses a premium gradient font style.',
+                '🔍 Collapsible Search Bar: The search bar in the header now collapses into an icon on smaller screens.',
+                '💾 Backup Reminder: A helpful backup prompt now appears after dismissing the What\'s New popup.'
+            ]
+        },
+        {
+            version: 'v1.2.1',
+            date: 'May 26, 2026',
+            changes: [
+                '🔒 Secure Login: Your Sync ID is now used as a secure password for login.',
+                '📧 Smarter Inactivity Alerts: Inactivity countdowns now reset properly when you log back in.',
+                '🔄 Duplicate Chapter Handling: If two chapters share the same name, incoming study data is sent to a review queue instead of being lost.',
+                '🆕 What\'s New Popup: You\'ll now see a summary of new features whenever the app updates.',
+                '🚨 Extension Warning: A banner appears in the header if your Chrome extension is outdated.'
+            ]
+        },
+        {
             version: 'v1.2.0',
             date: 'May 25, 2026',
             changes: [
@@ -207,7 +239,21 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                                     </div>
                                     <label className="text-sm font-semibold text-slate-300 block mt-4">Progress Log:</label>
                                     <textarea autoFocus value={routineLogInput} onChange={e => setRoutineLogInput(e.target.value)} placeholder="E.g., Read NCERT pages 45-60, solved 20 Qs..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 h-28 outline-none focus:border-emerald-500 transition-colors resize-none"></textarea>
-                                    <button onClick={saveInorganicRoutineLog} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-colors mt-2">Save & Complete Routine</button>
+                                    <div className="sticky bottom-0 z-10 bg-slate-800 border-t border-slate-700/50 p-4 -mx-6 -mb-6 mt-4 flex gap-3">
+                                        <button 
+                                            type="button" 
+                                            onClick={closeRoutineModal} 
+                                            className="flex-1 py-3 bg-slate-700 hover:bg-slate-650 text-slate-300 font-bold rounded-xl transition-all text-xs cursor-pointer text-center"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={saveInorganicRoutineLog} 
+                                            className="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-lg transition-colors text-xs flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            Save & Complete Routine
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -230,11 +276,17 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                             
                             <textarea autoFocus value={routineLogInput} onChange={e => setRoutineLogInput(e.target.value)} placeholder="E.g., Scored 210/390. Need to improve speed in Maths. Screwed up electrostatics logic." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 h-24 outline-none focus:border-orange-500 transition-colors resize-none"></textarea>
                             
-                            <div className="flex gap-3 pt-2">
-                                <button onClick={() => saveTestLog(true)} className="px-4 py-3 bg-slate-700 hover:bg-slate-650 text-slate-200 font-bold rounded-xl shadow-sm transition-colors text-sm w-1/3 text-center whitespace-nowrap">
+                            <div className="flex gap-3 pt-4 border-t border-slate-700/50 sticky bottom-0 z-10 bg-slate-800 -mx-6 -mb-6 p-4">
+                                <button 
+                                    onClick={() => saveTestLog(true)} 
+                                    className="px-4 py-3 bg-slate-700 hover:bg-slate-650 text-slate-200 font-bold rounded-xl shadow-sm transition-colors text-xs w-1/3 text-center whitespace-nowrap"
+                                >
                                     No Test Today
                                 </button>
-                                <button onClick={() => saveTestLog(false)} className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl shadow-lg transition-colors">
+                                <button 
+                                    onClick={() => saveTestLog(false)} 
+                                    className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-xl shadow-lg transition-colors text-xs"
+                                >
                                     Log Test & Complete
                                 </button>
                             </div>
@@ -257,7 +309,7 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                             <p className="text-xs text-slate-400 mb-3">Add notes for AI analysis.</p>
                             <textarea value={activeLog.text} onChange={(e) => setActiveLog({...activeLog, text: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-indigo-500 h-32 resize-none" placeholder="E.g., Confident with theory, weak on PYQs..."></textarea>
                         </div>
-                        <div className="p-4 border-t border-slate-700 flex justify-end gap-3">
+                        <div className="p-4 border-t border-slate-700 flex justify-end gap-3 sticky bottom-0 z-10 bg-slate-800">
                             <button onClick={() => setLogModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-300">Cancel</button>
                             <button onClick={saveLog} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-lg shadow-md">Save Log</button>
                         </div>
@@ -439,11 +491,18 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                         </div>
 
                         {/* Footer buttons */}
-                        <div className="p-6 border-t border-slate-700/50 bg-slate-900/30 flex gap-3">
+                        <div className="p-6 border-t border-slate-700/50 bg-slate-800 sticky bottom-0 z-10 flex gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => setBugReportOpen(false)}
+                                className="flex-1 py-3 bg-slate-700 hover:bg-slate-650 text-slate-300 font-bold rounded-2xl transition-all text-xs cursor-pointer text-center"
+                            >
+                                Cancel
+                            </button>
                             <button 
                                 onClick={() => handleSubmitBug()}
                                 disabled={isSubmittingBug}
-                                className="w-full py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-2xl shadow-lg shadow-rose-950/20 transition-all text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+                                className="flex-[2] py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-2xl shadow-lg shadow-rose-950/20 transition-all text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
                                 title="Encrypt and upload diagnostics directly to diagnostics queue"
                             >
                                 <i className={`ph-bold ${isSubmittingBug ? 'ph-spinner animate-spin' : 'ph-paper-plane-tilt'} text-sm`}></i>

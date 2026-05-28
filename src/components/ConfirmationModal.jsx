@@ -23,7 +23,7 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
                         {message || 'Are you sure you want to perform this action?'}
                     </p>
                 </div>
-                <div className="p-4 bg-slate-950/30 border-t border-slate-800/60 flex justify-end gap-3">
+                <div className="p-4 bg-slate-900 border-t border-slate-800/60 flex justify-end gap-3 sticky bottom-0 z-10">
                     <button 
                         onClick={onCancel} 
                         className="px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-950/20 hover:bg-slate-850 border border-slate-800 rounded-xl transition-all"

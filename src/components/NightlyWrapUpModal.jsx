@@ -161,7 +161,7 @@ const NightlyWrapUpModal = ({ isOpen, onClose, routines, data, onLogDpp, onLogMo
                     )}
                 </div>
 
-                <div className="p-6 pt-0 flex gap-3">
+                <div className="p-6 pt-4 bg-slate-800 border-t border-slate-700/50 flex gap-3 sticky bottom-0 z-10">
                     {pendingRoutines.length > 1 && (
                         <button onClick={handleNext} className="w-14 h-14 flex items-center justify-center bg-slate-700/50 hover:bg-slate-700 text-white font-bold rounded-2xl transition-colors">
                             <i className="ph-bold ph-arrow-right text-xl"></i>

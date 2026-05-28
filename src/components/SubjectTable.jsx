@@ -75,7 +75,7 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
 
     if (isBlue) {
         return {
-            containerClass: `bg-slate-950/45 backdrop-blur-xl border-b border-blue-500/25 shadow-[0_4px_30px_rgba(59,130,246,0.12)] ${
+            containerClass: `dynamic-glass-subject-header border-b border-blue-500/25 shadow-[0_4px_30px_rgba(59,130,246,0.12)] ${
                 isStuck ? 'rounded-none border-t border-blue-500/40 shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'rounded-t-2xl border-x border-t border-blue-500/15'
             }`,
             titleColor: 'text-blue-400 font-extrabold tracking-wide drop-shadow-[0_0_15px_rgba(56,189,248,0.75)]',
@@ -86,7 +86,7 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
     }
     if (isGreen) {
         return {
-            containerClass: `bg-slate-950/45 backdrop-blur-xl border-b border-emerald-500/25 shadow-[0_4px_30px_rgba(16,185,129,0.12)] ${
+            containerClass: `dynamic-glass-subject-header border-b border-emerald-500/25 shadow-[0_4px_30px_rgba(16,185,129,0.12)] ${
                 isStuck ? 'rounded-none border-t border-emerald-500/40 shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'rounded-t-2xl border-x border-t border-emerald-500/15'
             }`,
             titleColor: 'text-emerald-400 font-extrabold tracking-wide drop-shadow-[0_0_15px_rgba(52,211,153,0.75)]',
@@ -97,7 +97,7 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
     }
     if (isPurple) {
         return {
-            containerClass: `bg-slate-950/45 backdrop-blur-xl border-b border-purple-500/25 shadow-[0_4px_30px_rgba(168,85,247,0.12)] ${
+            containerClass: `dynamic-glass-subject-header border-b border-purple-500/25 shadow-[0_4px_30px_rgba(168,85,247,0.12)] ${
                 isStuck ? 'rounded-none border-t border-purple-500/40 shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'rounded-t-2xl border-x border-t border-purple-500/15'
             }`,
             titleColor: 'text-purple-400 font-extrabold tracking-wide drop-shadow-[0_0_15px_rgba(192,132,252,0.75)]',
@@ -108,7 +108,7 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
     }
     if (isRed) {
         return {
-            containerClass: `bg-slate-950/45 backdrop-blur-xl border-b border-rose-500/25 shadow-[0_4px_30px_rgba(244,63,94,0.12)] ${
+            containerClass: `dynamic-glass-subject-header border-b border-rose-500/25 shadow-[0_4px_30px_rgba(244,63,94,0.12)] ${
                 isStuck ? 'rounded-none border-t border-rose-500/40 shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'rounded-t-2xl border-x border-t border-rose-500/15'
             }`,
             titleColor: 'text-rose-400 font-extrabold tracking-wide drop-shadow-[0_0_15px_rgba(251,113,133,0.75)]',
@@ -120,7 +120,7 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
 
     // Default fallback (beautiful glassy indigo)
     return {
-        containerClass: `bg-slate-950/45 backdrop-blur-xl border-b border-indigo-500/20 shadow-[0_4px_30px_rgba(99,102,241,0.08)] ${
+        containerClass: `dynamic-glass-subject-header border-b border-indigo-500/20 shadow-[0_4px_30px_rgba(99,102,241,0.08)] ${
             isStuck ? 'rounded-none border-t border-indigo-500/30 shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'rounded-t-2xl border-x border-t border-indigo-500/10'
         }`,
         titleColor: 'text-indigo-400 font-extrabold tracking-wide drop-shadow-[0_0_12px_rgba(129,140,248,0.6)]',
@@ -130,7 +130,22 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
     };
 };
 
-const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLogModal, getChapterAnalysis, openProgressModal, addChapter, removeChapter, requestConfirm }) => {
+const SubjectTable = ({ 
+    subject, 
+    sIdx, 
+    handleUpdate, 
+    handleNestedUpdate, 
+    openLogModal, 
+    getChapterAnalysis, 
+    openProgressModal, 
+    addChapter, 
+    removeChapter, 
+    requestConfirm,
+    onPrevSubject = () => {},
+    onNextSubject = () => {},
+    activeSubjectIdx = 0,
+    totalSubjects = 1
+}) => {
     const [showAddChapterModal, setShowAddChapterModal] = useState(false);
     const [newChapterName, setNewChapterName] = useState('');
     const headerRef = React.useRef(null);
@@ -153,10 +168,11 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
                         ticking = false;
                         return;
                     }
+                    const navbarHeight = typeof document !== 'undefined' ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 72) : 72;
                     const rect = headerRef.current.getBoundingClientRect();
                     const parentRect = headerRef.current.parentElement.getBoundingClientRect();
                     
-                    const isElementStuck = rect.top <= cachedNavbarHeight + 2 && parentRect.bottom > cachedNavbarHeight + 15;
+                    const isElementStuck = rect.top <= navbarHeight + 3 && parentRect.bottom > navbarHeight + 15;
                     setIsStuck(isElementStuck);
                     ticking = false;
                 });
@@ -167,7 +183,7 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
         // Cache initially
         updateNavbarHeight();
 
-        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
         window.addEventListener('resize', () => {
             updateNavbarHeight();
             handleScroll();
@@ -180,7 +196,7 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
         handleScroll();
 
         return () => {
-            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('scroll', handleScroll, { capture: true });
             clearInterval(intervalId);
         };
     }, []);
@@ -194,21 +210,49 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
     const glassTheme = getSubjectGlassTheme(subject.color, subject.name, isStuck);
 
     return (
-        <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-850/80 shadow-2xl flex flex-col relative transition-all duration-300 ${
+        <div className={`dynamic-glass-card shadow-2xl flex flex-col relative transition-all duration-300 ${
             isStuck ? 'rounded-none border-x-0' : 'rounded-2xl'
         }`}>
             <div 
                 ref={headerRef} 
-                className={`${glassTheme.containerClass} px-6 py-4 flex justify-between items-center z-20 sticky top-[var(--navbar-height)] transition-all duration-300 overflow-hidden group/header`}
+                className={`${glassTheme.containerClass} px-6 py-4 flex justify-between items-center z-20 sticky top-0 transition-all duration-300 overflow-hidden group/header`}
             >
                 {/* Modern Specular Highlight & Glow Spotlight */}
                 <div className={`absolute -left-12 -top-12 w-28 h-28 rounded-full blur-3xl pointer-events-none opacity-50 ${glassTheme.spotlightClass}`} />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover/header:animate-shine pointer-events-none" />
 
-                <h2 className={`text-xl font-black flex items-center gap-2.5 relative z-10 ${glassTheme.titleColor}`}>
-                    <i className={`ph-fill ${glassTheme.iconClass} text-2xl`}></i>
-                    <span>{subject.name} Tracker</span>
-                </h2>
+                <div className="flex items-center gap-3 select-none relative z-10">
+                    <button 
+                        onClick={onPrevSubject}
+                        disabled={activeSubjectIdx === 0}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-10 disabled:cursor-not-allowed group/prev shadow-md ${
+                            activeSubjectIdx > 0 
+                                ? glassTheme.badgeClass 
+                                : 'bg-slate-950/20 border-slate-900 text-slate-650'
+                        }`}
+                        title={activeSubjectIdx > 0 ? "Previous Subject" : ""}
+                    >
+                        <i className="ph-bold ph-caret-left text-xs group-hover/prev:-translate-x-0.5 transition-transform"></i>
+                    </button>
+
+                    <h2 className={`text-xl font-black flex items-center gap-2.5 relative z-10 transition-all duration-300 ${glassTheme.titleColor}`}>
+                        <i className={`ph-fill ${glassTheme.iconClass} text-2xl`}></i>
+                        <span>{subject.name}</span>
+                    </h2>
+
+                    <button 
+                        onClick={onNextSubject}
+                        disabled={activeSubjectIdx === totalSubjects - 1}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-10 disabled:cursor-not-allowed group/next shadow-md ${
+                            activeSubjectIdx < totalSubjects - 1 
+                                ? glassTheme.badgeClass 
+                                : 'bg-slate-950/20 border-slate-900 text-slate-650'
+                        }`}
+                        title={activeSubjectIdx < totalSubjects - 1 ? "Next Subject" : ""}
+                    >
+                        <i className="ph-bold ph-caret-right text-xs group-hover/next:translate-x-0.5 transition-transform"></i>
+                    </button>
+                </div>
                 
                 <div className="flex items-center gap-3 relative z-10">
                     {/* Compact Glass Custom Chapter Add Button on right dead corner */}
@@ -235,7 +279,7 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
                             <th className="px-2 py-3 font-bold text-center border-l border-slate-700/30">Status</th>
                             <th className="px-2 py-3 font-bold text-center border-l border-slate-700/30">Lectures</th>
                             <th className="px-4 py-3 font-bold text-center border-l border-slate-700/30 bg-slate-800/30">Resources Tracking</th>
-                            <th className="px-4 py-3 font-bold text-right border-l border-slate-700/30">Analysis</th>
+                            <th className="px-4 py-3 font-bold text-center border-l border-slate-700/30">Analysis</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
@@ -317,7 +361,7 @@ const SubjectTable = ({ subject, sIdx, handleUpdate, handleNestedUpdate, openLog
                                         </button>
                                     </td>
 
-                                    <td className="px-4 py-3 text-right font-bold border-l border-slate-700/20 transition-all duration-300 relative z-10">
+                                    <td className="px-4 py-3 text-center font-bold border-l border-slate-700/20 transition-all duration-300 relative z-10">
                                         {analysisScore > 0 ? (
                                             <span className={`px-2.5 py-1 rounded-lg transition-all duration-300 border relative z-10 ${
                                                 analysisScore >= 80 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.25)] group-hover:shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 

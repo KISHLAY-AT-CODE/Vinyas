@@ -203,7 +203,7 @@ const SuggestedGoalCard = ({ goal, onDiscard, onSave }) => {
     );
 };
 
-const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden }) => {
+const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden, onTabChange }) => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     
     // Filter out connection tests
@@ -251,6 +251,9 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
     };
 
     const handleTabClick = (tabId) => {
+        if (tabId !== activeTab && onTabChange) {
+            onTabChange();
+        }
         setActiveTab(tabId);
         localStorage.setItem('vinyas_active_sidebar_tab', tabId);
     };
@@ -571,15 +574,15 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                         )}
 
                         {activeTab === 'achievements' && (
-                            <div className="glass-card hover-achievements p-6 relative overflow-hidden group transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
+                            <div className="glass-card hover-achievements p-6 relative overflow-visible group transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
                                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
                                 
-                                <div className="w-full flex justify-between items-center pb-3 border-b border-slate-800/60 mb-4">
+                                <div className="w-full flex flex-wrap justify-between items-center gap-2 pb-3 border-b border-slate-800/60 mb-4">
                                     <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
                                         <i className="ph-fill ph-medal text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"></i>
                                         Achievements
                                     </h2>
-                                    <span className="text-[10px] uppercase font-black px-2.5 py-0.5 bg-amber-500/10 text-amber-450 border border-amber-500/20 rounded-full tracking-wider">
+                                    <span className="text-[10px] uppercase font-black px-2.5 py-0.5 bg-amber-500/10 text-amber-455 border border-amber-500/20 rounded-full tracking-wider whitespace-nowrap">
                                         Unlocked Gallery
                                     </span>
                                 </div>

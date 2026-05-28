@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 
 const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersion, onDismiss, onExport }) => {
     const [showBackupWarning, setShowBackupWarning] = useState(false);
+    const [activeSlide, setActiveSlide] = useState(0);
 
     if (!isOpen) return null;
+
+    const slides = [
+        { url: '/bg1.png', title: 'Theme Preview - Color-Infused Preset Design' },
+        { url: '/bg2.png', title: 'Custom Themes Panel - Drag alignment, Blur & Opacity' }
+    ];
 
     const isExtUpToDate = installedExtVersion === currentExtVersion;
 
@@ -33,11 +39,11 @@ const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersi
                             <div className="flex items-center gap-3">
                                 <span className="text-3xl">🎉</span>
                                 <div>
-                                    <h2 className="text-xl font-black bg-gradient-to-r from-orange-400 via-red-400 to-blue-400 bg-clip-text text-transparent">
-                                        What's New in v{changelog.version}
+                                    <h2 className="text-xl font-black bg-gradient-to-r from-orange-400 via-pink-500 to-indigo-400 bg-clip-text text-transparent">
+                                        Themes Update!
                                     </h2>
                                     <p className="text-xs text-slate-500 font-bold tracking-wider mt-0.5">
-                                        Released on {changelog.date}
+                                        Version {changelog.version} • Released on {changelog.date}
                                     </p>
                                 </div>
                             </div>
@@ -49,6 +55,50 @@ const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersi
 
                         {/* Scrollable Changelog Content */}
                         <div className="p-6 overflow-y-auto flex-1 space-y-6 relative z-10 custom-scrollbar">
+                            {/* Carousel Section */}
+                            <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/40 group shadow-inner mb-2">
+                                <div className="absolute inset-0 flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
+                                    {slides.map((slide, idx) => (
+                                        <div key={idx} className="min-w-full h-full relative">
+                                            <img src={slide.url} alt={slide.title} className="w-full h-full object-cover select-none pointer-events-none" />
+                                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent p-4 pt-12">
+                                                <p className="text-xs font-bold text-slate-100 tracking-wide">{slide.title}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Left/Right Buttons */}
+                                <button 
+                                    onClick={() => setActiveSlide(prev => (prev === 0 ? slides.length - 1 : prev - 1))}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-800/60 flex items-center justify-center text-slate-200 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                                    title="Previous Slide"
+                                    type="button"
+                                >
+                                    <i className="ph-bold ph-caret-left text-sm"></i>
+                                </button>
+                                <button 
+                                    onClick={() => setActiveSlide(prev => (prev === slides.length - 1 ? 0 : prev + 1))}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-800/60 flex items-center justify-center text-slate-200 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                                    title="Next Slide"
+                                    type="button"
+                                >
+                                    <i className="ph-bold ph-caret-right text-sm"></i>
+                                </button>
+                                
+                                {/* Dot Indicators */}
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                                    {slides.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setActiveSlide(idx)}
+                                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === idx ? 'bg-orange-500 w-3' : 'bg-slate-650 hover:bg-slate-550'}`}
+                                            title={`Go to slide ${idx + 1}`}
+                                            type="button"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                             {/* Core Working Changes */}
                             {changelog.coreChanges && changelog.coreChanges.length > 0 && (
                                 <div className="space-y-3">
@@ -132,7 +182,7 @@ const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersi
                         </div>
 
                         {/* Footer Section */}
-                        <div className="p-4 bg-slate-950/30 border-t border-slate-800/60 flex gap-3 relative z-10">
+                        <div className="p-4 bg-slate-900 border-t border-slate-800/60 flex gap-3 sticky bottom-0 z-10">
                             <button
                                 onClick={handleGotItClick}
                                 className="w-full py-3 bg-gradient-to-r from-orange-600 via-red-500 to-blue-600 hover:from-orange-500 hover:via-red-400 hover:to-blue-500 text-white text-xs font-black rounded-xl shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -170,7 +220,7 @@ const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersi
                         </div>
 
                         {/* Warning Footer */}
-                        <div className="p-4 bg-slate-950/30 border-t border-slate-800/60 flex gap-3 relative z-10">
+                        <div className="p-4 bg-slate-900 border-t border-slate-800/60 flex gap-3 sticky bottom-0 z-10">
                             <button
                                 onClick={onDismiss}
                                 className="flex-1 py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl transition-all text-xs cursor-pointer text-center"

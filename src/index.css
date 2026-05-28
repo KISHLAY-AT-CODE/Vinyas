@@ -1,5 +1,19 @@
 :root {
   --navbar-height: 72px;
+  --primary-accent: #f97316;
+  --primary-accent-rgb: 249, 115, 22;
+  --primary-accent-glow: rgba(249, 115, 22, 0.18);
+  --primary-accent-hover: #ea580c;
+  --secondary-accent: #ec4899;
+  --secondary-accent-rgb: 236, 72, 153;
+  
+  /* Redesigned Premium Customizer Variables */
+  --glass-opacity: 0.25;
+  --glass-blur: 100px;
+  --header-backdrop: rgba(15, 23, 42, 0.65);
+  --card-backdrop: rgba(10, 15, 30, 0.4);
+  --hover-border-glow: #f97316;
+  --body-bg-color: #0f172a;
 }
 
 @tailwind base;
@@ -8,7 +22,7 @@
 
 @layer base {
   body { 
-    background-color: #0f172a; 
+    background-color: var(--body-bg-color, #0f172a) !important; 
     font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
     scroll-behavior: smooth; 
   }
@@ -20,15 +34,34 @@
     backdrop-filter: blur(10px); 
     border: 1px solid rgba(255, 255, 255, 0.1); 
   }
+
+  /* Dynamic Theme Utilities */
+  .theme-text { color: var(--primary-accent) !important; }
+  .theme-bg { background-color: var(--primary-accent) !important; }
+  .theme-border { border-color: var(--primary-accent) !important; }
+  .theme-border-glow { border-color: rgba(var(--primary-accent-rgb), 0.4) !important; }
+  .theme-glow { box-shadow: 0 0 15px var(--primary-accent-glow) !important; }
+  .theme-gradient-bg { background: linear-gradient(to right, var(--primary-accent), var(--secondary-accent)) !important; }
+  .theme-gradient-text {
+    background: linear-gradient(to right, var(--primary-accent), var(--secondary-accent)) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+  }
   
   .glass-card {
-    background: rgba(10, 15, 30, 0.08) !important;
-    backdrop-filter: blur(28px) !important;
-    -webkit-backdrop-filter: blur(28px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+    background: var(--card-backdrop) !important;
+    backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+    border: 1px solid rgba(var(--hover-border-glow-rgb, 255, 255, 255), 0.15) !important;
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, calc(var(--glass-opacity, 0.25) * 0.55)), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
     border-radius: 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  
+  .glass-card:hover {
+    border-color: rgba(var(--hover-border-glow-rgb, 249, 115, 22), 0.45) !important;
+    box-shadow: 0 12px 40px 0 rgba(var(--hover-border-glow-rgb, 249, 115, 22), 0.15) !important;
   }
 
   /* Sidebar hover micro-animations */
@@ -112,11 +145,6 @@
     box-shadow: 0 0 30px rgba(245, 158, 11, 0.12) !important;
   }
   
-  .hover-console:hover {
-    background: rgba(30, 41, 59, 0.6) !important;
-    border-color: rgba(14, 165, 233, 0.3) !important;
-    box-shadow: 0 0 30px rgba(14, 165, 233, 0.12) !important;
-  }
   
   .table-input { 
     width: 100%; 
@@ -651,4 +679,50 @@ tr:hover .float-particle-4 {
 tr:hover .float-particle-5 {
   animation: crystalFloat2 3.1s infinite ease-out;
   animation-delay: 2.0s;
+}
+
+/* Premium Dynamic Glassmorphic Customizer Engine */
+.dynamic-glass-card {
+  background: var(--card-backdrop) !important;
+  backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  border: 1px solid rgba(var(--hover-border-glow-rgb, 255, 255, 255), 0.15) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.dynamic-glass-card:hover {
+  border-color: rgba(var(--hover-border-glow-rgb, 249, 115, 22), 0.45) !important;
+}
+
+.dynamic-glass-header {
+  background: var(--header-backdrop) !important;
+  backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  border-bottom: 1px solid rgba(var(--hover-border-glow-rgb, 255, 255, 255), 0.15) !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+.dynamic-glass-subject-header {
+  background: color-mix(in srgb, var(--card-backdrop) 20%, transparent) !important;
+  backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
+  border-bottom: 1px solid rgba(var(--hover-border-glow-rgb, 255, 255, 255), 0.12) !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+/* Beautiful Orange Page Loading Animation Progress Bar */
+@keyframes loading-progress {
+  0% { width: 0%; left: 0; }
+  50% { width: 100%; left: 0; }
+  100% { width: 0%; left: 100%; }
+}
+
+.loading-bar-inner {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  border-radius: 9999px;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.7);
+  animation: loading-progress 1.8s infinite ease-in-out;
 }

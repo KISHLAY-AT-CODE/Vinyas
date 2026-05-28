@@ -107,7 +107,7 @@ const BackupSettingsModal = ({ isOpen, onClose, email, setEmail, autoBackupEnabl
                             </button>
                         )}
                         
-                        <div className="flex gap-3 mt-1.5">
+                        <div className="flex gap-3 mt-1.5 sticky bottom-0 z-10 bg-slate-800 -mx-6 -mb-6 px-6 pb-6 pt-3 border-t border-slate-750/50">
                             <button 
                                 onClick={onClose} 
                                 className="flex-1 py-3 bg-slate-700 hover:bg-slate-650 text-slate-300 font-bold rounded-xl transition-all text-xs cursor-pointer text-center"

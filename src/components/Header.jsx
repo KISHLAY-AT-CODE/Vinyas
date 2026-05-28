@@ -141,6 +141,8 @@ const getLogSummary = (log) => {
 };
 
 const Header = ({ 
+    themeSettings,
+    customBgImage,
     userName, 
     syncId, 
     targetDate, 
@@ -149,6 +151,7 @@ const Header = ({
     cohort, 
     openCohortSetup, 
     onOpenProfile,
+    onOpenTheme,
     onExportData, 
     onImportData, 
     onLogout, 
@@ -555,6 +558,36 @@ const Header = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [setIsSearchFocused]);
 
+    React.useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key && event.key.toLowerCase() === 's') {
+                if (event.ctrlKey || event.altKey || event.metaKey) {
+                    return;
+                }
+                const activeEl = document.activeElement;
+                if (
+                    activeEl && (
+                        activeEl.tagName === 'INPUT' || 
+                        activeEl.tagName === 'TEXTAREA' || 
+                        activeEl.isContentEditable
+                    )
+                ) {
+                    return;
+                }
+                if (searchInputRef.current) {
+                    event.preventDefault();
+                    setIsSearchFocused(true);
+                    searchInputRef.current.focus();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [setIsSearchFocused]);
+
     const handleFileImport = (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -575,7 +608,10 @@ const Header = ({
     };
 
     return (
-        <header ref={headerRef} className={`bg-gradient-to-b from-slate-950/90 via-slate-900/90 to-slate-950/90 backdrop-blur-md border-b border-slate-800/80 text-white px-4 shadow-2xl mb-6 sticky top-0 z-40 transition-all duration-300 ${isHeaderCollapsed ? 'py-2.5' : 'py-5'}`}>
+        <header 
+            ref={headerRef} 
+            className={`dynamic-glass-header text-white px-4 shadow-2xl mb-0 sticky top-0 z-40 transition-all duration-300 ${isHeaderCollapsed ? 'py-2.5' : 'py-5'}`}
+        >
             {/* Ambient background glow container */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-24 -left-24 w-96 h-96 bg-orange-500/10 rounded-full blur-[100px]"></div>
@@ -837,6 +873,17 @@ const Header = ({
                                 >
                                     <i className="ph-bold ph-user-circle text-sm text-orange-500"></i>
                                     <span>Profile Settings</span>
+                                </button>
+
+                                <button 
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onOpenTheme();
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-slate-900 flex items-center gap-2.5 transition-all cursor-pointer"
+                                >
+                                    <i className="ph-bold ph-paint-brush-broad text-sm text-emerald-500"></i>
+                                    <span>Customize Theme</span>
                                 </button>
 
                                 <button 

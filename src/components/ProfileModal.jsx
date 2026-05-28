@@ -72,7 +72,7 @@ const ProfileModal = ({ isOpen, onClose, currentUsername, onSave }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 bg-slate-950/30 border-t border-slate-850 flex gap-3 relative z-10">
+                <div className="p-4 bg-slate-900 border-t border-slate-850 flex gap-3 sticky bottom-0 z-20">
                     <button 
                         onClick={onClose} 
                         className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl transition-all text-xs cursor-pointer text-center"

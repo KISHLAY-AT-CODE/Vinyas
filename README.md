@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.3-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.2.4-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -16,7 +16,7 @@
 
 ---
 
-![Vinyas Dashboard](public/frontpage.png)
+![Vinyas Dashboard](public/bg1.png)
 
 ## 🌟 Overview
 
@@ -337,7 +337,14 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
-### v1.2.3 (May 28, 2026) - Latest Update
+### v1.2.4 (May 28, 2026) - Latest Update
+- 🎬 **Custom Loading Screen**: A beautiful branded loading animation with the Vinyas logo and an animated orange progress bar now appears while the app loads your data.
+- ✨ **Pinned Action Buttons**: Save and Cancel buttons in all settings panels are now pinned at the bottom, so they are always accessible without scrolling.
+- 🖼️ **Sharp & Custom Backdrops**: Uploaded background images now load crisp and clean by default, without any automatic blur or zoom.
+- 🎨 **Drag to Position**: You can now click and drag your custom background image directly inside the settings preview to position it exactly how you want.
+- ⚙️ **Smooth Fade & Blur**: Use the new opacity and blur sliders in the settings panel to customize the background style to your liking.
+
+### v1.2.3 (May 28, 2026)
 - 🐞 **Bug Report Button**: Added a quick-access bug report button right next to the Vinyas logo — tap it to report an issue, take a snapshot, or send feedback.
 - 📚 **Custom Chapters**: You can now add your own chapters to any subject directly from the subject header.
 - ✨ **Calmer Progress Animations**: Progress bar shine effects now only appear when you hover over a subject — no more constant flashing.

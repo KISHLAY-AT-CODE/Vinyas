@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     } 
     
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName } = req.body;
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings } = req.body;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
@@ -145,6 +145,9 @@ export default async function handler(req, res) {
       }
       if (userName !== undefined) {
         updateDoc.$set.userName = userName;
+      }
+      if (themeSettings !== undefined) {
+        updateDoc.$set.themeSettings = themeSettings;
       }
 
       if (userDoc && userDoc.logoutTimestamp) {
