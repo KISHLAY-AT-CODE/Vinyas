@@ -240,8 +240,10 @@ export default async function handler(req, res) {
           normalizeUrl(act.details.url) === normCheckUrl
         );
 
-        // Fail-safe: if the URL exists in logs but is a Module practice layout, check if it actually exists in the syllabus!
-        if (exists && checkUrl.includes('chapterTitle=')) {
+        // For books/module practice pages, check if the chapter exercises are already configured in the syllabus.
+        // If they are already configured, we force exists = true to bypass prompts.
+        // If not configured, we force exists = false to allow syncing.
+        if (checkUrl.includes('chapterTitle=')) {
           const match = checkUrl.match(/chapterTitle=([^&]+)/);
           if (match) {
             let raw = match[1].replace(/\+/g, ' ');
@@ -283,10 +285,7 @@ export default async function handler(req, res) {
               isConfigured = !!(inProgress || inAdditions);
             }
             
-            // If the URL exists in logs but is NOT configured in the syllabus, force "exists" to false to allow sync!
-            if (!isConfigured) {
-              exists = false;
-            }
+            exists = isConfigured;
           }
         }
 

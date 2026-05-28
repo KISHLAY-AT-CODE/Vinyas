@@ -87,6 +87,37 @@ const ModuleQuestionTrackerModal = ({
         }
     }, [isOpen, questionStates]);
 
+    // Realtime LocalStorage updates and console logging
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const globalKey = 'vinyas_interactive_module_progress';
+        let storedGlobal = {};
+        try {
+            storedGlobal = JSON.parse(localStorage.getItem(globalKey) || '{}');
+        } catch (e) {}
+
+        const currentChapterKeys = new Set();
+        if (exercisesConfig) {
+            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                for (let q = 1; q <= qCount; q++) {
+                    currentChapterKeys.add(getQuestionKey(exName, q));
+                }
+            });
+        }
+
+        const newGlobal = { ...storedGlobal };
+        currentChapterKeys.forEach(k => {
+            if (localProgress[k]) {
+                newGlobal[k] = localProgress[k];
+            } else {
+                delete newGlobal[k];
+            }
+        });
+
+        localStorage.setItem(globalKey, JSON.stringify(newGlobal));
+    }, [localProgress, isOpen, exercisesConfig, normalizedSubName, chapterName, isChapter1]);
+
     // Toast Timer helper
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -162,15 +193,29 @@ const ModuleQuestionTrackerModal = ({
         setLocalProgress(updatedProgress);
     };
 
-    const handleSaveAndClose = () => {
+    const handleSaveAndClose = async () => {
         // Lock in progress and accuracy to Vinyas syllabus state
-        onSaveProgress({
+        const result = await onSaveProgress({
             comp: stats.calculatedComp,
             acc: stats.calculatedAcc,
             questionStates: localProgress
         });
-        showToast("Progress and accuracy locked in successfully!", "success");
-        onClose();
+
+        if (result && result.success) {
+            if (result.isUsingBackup) {
+                showToast("⚠️ Mismatch! Restored and saved chapter question states from LocalStorage backup.", "warning");
+                if (result.restoredQuestionStates) {
+                    setLocalProgress(result.restoredQuestionStates);
+                }
+            } else {
+                showToast("✅ Progress verified and successfully saved to MongoDB database!", "success");
+            }
+            setTimeout(() => {
+                onClose();
+            }, 2500);
+        } else {
+            showToast("❌ Failed to save progress to database. Please check your connection.", "error");
+        }
     };
 
     if (!isOpen) return null;
@@ -185,10 +230,16 @@ const ModuleQuestionTrackerModal = ({
                         <div className={`p-4 rounded-2xl border backdrop-blur-md shadow-lg flex items-center justify-between gap-3 ${
                             toast.type === 'success' 
                                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                : toast.type === 'warning'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                                 : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                         }`}>
                             <div className="flex items-center gap-2.5">
-                                <i className={`ph-fill ${toast.type === 'success' ? 'ph-check-circle' : 'ph-warning-circle'} text-xl`}></i>
+                                <i className={`ph-fill ${
+                                    toast.type === 'success' ? 'ph-check-circle' : 
+                                    toast.type === 'warning' ? 'ph-warning-circle' : 
+                                    'ph-warning-circle'
+                                } text-xl`}></i>
                                 <span className="text-sm font-bold">{toast.message}</span>
                             </div>
                             <button onClick={() => setToast(null)} className="text-slate-400 hover:text-white transition-colors">

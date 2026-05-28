@@ -1,18 +1,19 @@
-export const VINYAS_APP_VERSION = '1.2.4';
-export const VINYAS_EXTENSION_VERSION = '1.2.1';
+export const VINYAS_APP_VERSION = '1.2.5';
+export const VINYAS_EXTENSION_VERSION = '1.2.2';
 
 export const WHATS_NEW_CHANGELOG = {
-  version: '1.2.4',
+  version: '1.2.5',
   date: 'May 28, 2026',
   coreChanges: [],
   clientChanges: [
-    '🎬 Custom Loading Screen: A beautiful branded loading animation with the Vinyas logo and an animated orange progress bar now appears while the app loads your data.',
-    '✨ Pinned Action Buttons: Save and Cancel buttons in all settings panels are now pinned at the bottom, so they are always accessible without scrolling.',
-    '🖼️ Sharp & Custom Backdrops: Uploaded background images now load crisp and clean by default, without any automatic blur or zoom.',
-    '🎨 Drag to Position: You can now click and drag your custom background image directly inside the settings preview to position it exactly how you want.',
-    '⚙️ Smooth Fade & Blur: Use the new opacity and blur sliders in the settings panel to customize the background style to your liking.'
+    '⚡ Syllabus Scroll Optimization: Scroll event listeners have been optimized to avoid expensive layout recalculations, providing a buttery-smooth scrolling experience.',
+    '💾 Real-Time LocalStorage Sync: Toggling questions in the interactive module tracker now updates your local storage in real-time, preventing loss of marked question states.',
+    '🛡️ Mismatch Auto-Recovery: Locking in progress now compares states to automatically detect and restore any mismatches from LocalStorage backup before saving, alerting you via yellow warnings if recovery occurred.',
+    '📊 Dynamic Extension Info: Extension setup page now displays active Chrome Extension and Android APK versions and file sizes directly from the server dynamically.',
+    '📜 Scrollable Setup Slides: Fully scrollable Extension setup layout on all screen sizes to prevent tutorial content from clipping.',
+    '🔗 Smarter Extension Prompts: Outdated or unconfigured extensions will no longer pop up empty overlays, and already synced chapters are automatically bypassed.'
   ],
   actionRequired: [
-    'Vinyas Extension (v1.2.1) is fully compatible. No extension updates are required for this release.'
+    'Update to Vinyas Extension (v1.2.2) to enable real-time local storage sync, smart bypass filters, and prompt-free navigation.'
   ]
 };

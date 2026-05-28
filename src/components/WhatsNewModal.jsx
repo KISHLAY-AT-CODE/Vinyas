@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersion, onDismiss, onExport }) => {
+const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersion, onDismiss, onExport, email }) => {
     const [showBackupWarning, setShowBackupWarning] = useState(false);
     const [activeSlide, setActiveSlide] = useState(0);
 

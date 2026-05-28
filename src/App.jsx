@@ -368,9 +368,6 @@ const App = () => {
         }, 2000); // 2 seconds for testing in dev overlay
     }, []);
 
-    const lastTransitionTime = useRef(0);
-    const touchStartY = useRef(0);
-
     const handleNextSubject = useCallback(() => {
         if (activeSubjectIdx < data.length - 1) {
             setDirection(1);
@@ -386,95 +383,6 @@ const App = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }, [activeSubjectIdx]);
-
-    // Auto-switching boundary scroll detection (Desktop scroll & Mobile swipe)
-    useEffect(() => {
-        let ticking = false;
-
-        const handleScrollBoundary = (deltaY) => {
-            // Prevent fast multiple transitions with a 900ms cooldown lockout
-            if (Date.now() - lastTransitionTime.current < 900) return;
-
-            const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 15;
-            const isAtTop = window.scrollY <= 15;
-
-            // deltaY > 20 indicates scrolling down at the bottom
-            if (isAtBottom && deltaY > 20) {
-                if (activeSubjectIdx < data.length - 1) {
-                    lastTransitionTime.current = Date.now();
-                    setDirection(1);
-                    setActiveSubjectIdx(prev => prev + 1);
-                    window.scrollTo({ top: 0, behavior: 'auto' });
-                }
-            } 
-            // deltaY < -20 indicates scrolling up at the top
-            else if (isAtTop && deltaY < -20) {
-                if (activeSubjectIdx > 0) {
-                    lastTransitionTime.current = Date.now();
-                    setDirection(-1);
-                    setActiveSubjectIdx(prev => prev - 1);
-                    setTimeout(() => {
-                        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
-                    }, 50);
-                }
-            }
-        };
-
-        const handleWheel = (e) => {
-            // Ignore scroll events originating from inside fixed overlays (DevTools, modals, etc.)
-            if (e.target && e.target.closest && e.target.closest('.fixed')) return;
-
-            const deltaY = e.deltaY;
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    handleScrollBoundary(deltaY);
-                    ticking = false;
-                });
-                ticking = true;
-            }
-        };
-
-        const handleTouchStart = (e) => {
-            touchStartY.current = e.touches[0].clientY;
-        };
-
-        const handleTouchEnd = (e) => {
-            if (Date.now() - lastTransitionTime.current < 900) return;
-            if (!touchStartY.current) return;
-
-            const deltaY = touchStartY.current - e.changedTouches[0].clientY; // positive = swipe up (scroll down)
-            const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 20;
-            const isAtTop = window.scrollY <= 20;
-
-            if (isAtBottom && deltaY > 60) {
-                if (activeSubjectIdx < data.length - 1) {
-                    lastTransitionTime.current = Date.now();
-                    setDirection(1);
-                    setActiveSubjectIdx(prev => prev + 1);
-                    window.scrollTo({ top: 0, behavior: 'auto' });
-                }
-            } else if (isAtTop && deltaY < -60) {
-                if (activeSubjectIdx > 0) {
-                    lastTransitionTime.current = Date.now();
-                    setDirection(-1);
-                    setActiveSubjectIdx(prev => prev - 1);
-                    setTimeout(() => {
-                        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
-                    }, 50);
-                }
-            }
-        };
-
-        window.addEventListener('wheel', handleWheel, { passive: true });
-        window.addEventListener('touchstart', handleTouchStart, { passive: true });
-        window.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-        return () => {
-            window.removeEventListener('wheel', handleWheel);
-            window.removeEventListener('touchstart', handleTouchStart);
-            window.removeEventListener('touchend', handleTouchEnd);
-        };
-    }, [activeSubjectIdx, data.length]);
 
     const [routines, setRoutines] = useState([]);
     const [targetDate, setTargetDate] = useState(getDefaultTargetDate());
@@ -551,7 +459,7 @@ const App = () => {
     const [themeSettings, setThemeSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('vinyasThemeSettings');
-            return saved ? JSON.parse(saved) : {
+            return saved ? { performanceMode: false, ...JSON.parse(saved) } : {
                 preset: 'default',
                 accentColor: '#f97316',
                 secondaryColor: '#ef4444',
@@ -565,7 +473,8 @@ const App = () => {
                 bgBlur: 0,
                 bgScale: 100,
                 bgPositionX: 50,
-                bgPositionY: 0
+                bgPositionY: 0,
+                performanceMode: false
             };
         } catch (e) {
             return {
@@ -579,7 +488,8 @@ const App = () => {
                 bgStyle: 'gradient',
                 svgMeshCoords: null,
                 bgOpacity: 0.25,
-                bgBlur: 100
+                bgBlur: 100,
+                performanceMode: false
             };
         }
     });
@@ -677,6 +587,12 @@ const App = () => {
         root.style.setProperty('--secondary-accent', secondary);
         root.style.setProperty('--glass-opacity', themeSettings.bgOpacity !== undefined ? themeSettings.bgOpacity : 0.25);
         root.style.setProperty('--glass-blur', `${themeSettings.bgBlur !== undefined ? themeSettings.bgBlur : 100}px`);
+
+        if (themeSettings.performanceMode) {
+            root.classList.add('performance-mode');
+        } else {
+            root.classList.remove('performance-mode');
+        }
 
         const bodyBg = themeSettings.bodyBg || presetDefaults.bodyBg;
         const headerBackdrop = themeSettings.headerBackdrop || presetDefaults.headerBackdrop;
@@ -920,6 +836,11 @@ const App = () => {
 
                     if (serverData.lastSeenAppVersion !== VINYAS_APP_VERSION) {
                         setShowWhatsNew(true);
+                        const sessionKey = `whats_new_notified_${VINYAS_APP_VERSION}`;
+                        if (!sessionStorage.getItem(sessionKey)) {
+                            sessionStorage.setItem(sessionKey, 'true');
+                            triggerWhatsNewUpdateNotification(serverData.email);
+                        }
                     }
                 }
             } catch (error) {
@@ -1130,6 +1051,19 @@ const App = () => {
             userName: stateRef.current.userName
         };
         await saveCompleteSyllabus(payload);
+
+        // Prompt user to add a backup email if it is not configured yet
+        if (!email || !email.trim()) {
+            setTimeout(() => {
+                requestConfirm(
+                    "Configure Backup Email",
+                    "You have not configured a backup email yet. We highly recommend adding one to enable automatic weekly backups and inactivity deletion protection. Would you like to set it up now?",
+                    () => {
+                        setBackupSettingsOpen(true);
+                    }
+                );
+            }, 600);
+        }
     };
 
     // --- Background Activity Polling ---
@@ -1526,44 +1460,95 @@ const App = () => {
         }
     };
 
-    const handleSendTestBackupMail = async (targetEmail, isTest = true) => {
+    const triggerWhatsNewUpdateNotification = useCallback(async (targetEmail) => {
+        // 1. Browser Notification
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            const showNotification = () => {
+                try {
+                    new Notification("Check out Vinyas new features!", {
+                        body: `Vinyas has been updated to v${VINYAS_APP_VERSION}! Tap here to see the new changes.`,
+                        icon: "/favicon.ico"
+                    });
+                } catch (e) {
+                    console.error("Browser notification failed:", e);
+                }
+            };
+
+            if (Notification.permission === "granted") {
+                showNotification();
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        showNotification();
+                    }
+                });
+            }
+        }
+
+        // 2. Email Update (if email is set)
+        if (targetEmail && targetEmail.trim() && syncId) {
+            try {
+                await fetch('/api/test-backup-mail', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        syncId,
+                        email: targetEmail.trim(),
+                        action: 'whats_new'
+                    })
+                });
+                logEvent('AUTO_WHATS_NEW_EMAIL_SUCCESS', { message: `Automatically dispatched What's New email to ${targetEmail}` }, 'success');
+            } catch (err) {
+                console.error("Auto What's New email failed:", err);
+            }
+        }
+    }, [syncId]);
+
+    const handleSendTestBackupMail = async (targetEmail, actionOrIsTest = true) => {
         if (!targetEmail || !targetEmail.trim()) {
             showToast("Backup email address is required.", "error");
             return;
         }
 
+        const isStringAction = typeof actionOrIsTest === 'string';
+        const action = isStringAction ? actionOrIsTest : 'backup';
+        const isTest = isStringAction ? true : actionOrIsTest;
+
         try {
-            logEvent('BACKUP_TEST_MAIL', { message: 'Generating and encrypting test backup file...', email: targetEmail, isTest });
+            logEvent('BACKUP_TEST_MAIL', { message: `Simulating email action: ${action}`, email: targetEmail, action });
             
-            const exportObj = {
-                syncId,
-                userName,
-                cohort,
-                targetDate,
-                data,
-                routines,
-                testLogs,
-                resolvedActivityIds
-            };
-            
-            const jsonString = JSON.stringify(exportObj);
-            
-            const plainBackupKey = localStorage.getItem('vinyasBackupKey') || (syncId && !syncId.startsWith('vny_sess_') ? syncId : '');
-            let encryptionKey = plainBackupKey;
-            if (plainBackupKey) {
-                encryptionKey = await hashSyncId(plainBackupKey);
-            } else {
-                encryptionKey = syncId;
+            let backupWrapper = null;
+            if (action === 'backup') {
+                const exportObj = {
+                    syncId,
+                    userName,
+                    cohort,
+                    targetDate,
+                    data,
+                    routines,
+                    testLogs,
+                    resolvedActivityIds
+                };
+                
+                const jsonString = JSON.stringify(exportObj);
+                
+                const plainBackupKey = localStorage.getItem('vinyasBackupKey') || (syncId && !syncId.startsWith('vny_sess_') ? syncId : '');
+                let encryptionKey = plainBackupKey;
+                if (plainBackupKey) {
+                    encryptionKey = await hashSyncId(plainBackupKey);
+                } else {
+                    encryptionKey = syncId;
+                }
+                
+                const encryptedBundle = await aesEncrypt(encryptionKey, jsonString);
+                
+                backupWrapper = {
+                    vinyasBackup: true,
+                    encrypted: true,
+                    encryptionVersion: "AES-GCM",
+                    payload: encryptedBundle
+                };
             }
-            
-            const encryptedBundle = await aesEncrypt(encryptionKey, jsonString);
-            
-            const backupWrapper = {
-                vinyasBackup: true,
-                encrypted: true,
-                encryptionVersion: "AES-GCM",
-                payload: encryptedBundle
-            };
 
             const response = await fetch('/api/test-backup-mail', {
                 method: 'POST',
@@ -1572,19 +1557,21 @@ const App = () => {
                     syncId,
                     email: targetEmail.trim(),
                     backupWrapper,
-                    isTest
+                    isTest,
+                    action
                 })
             });
 
             if (response.ok) {
-                showToast(isTest ? "Test backup email dispatched successfully!" : "Simulated weekend backup email dispatched successfully!", "success");
-                logEvent('BACKUP_TEST_MAIL_SUCCESS', { message: `Successfully dispatched encrypted backup mail (isTest=${isTest}) via SMTP` }, 'success');
+                const resData = await response.json();
+                showToast(resData.message || "Simulated email dispatched successfully!", "success");
+                logEvent('BACKUP_TEST_MAIL_SUCCESS', { message: resData.message }, 'success');
             } else {
                 const errData = await response.json();
-                throw new Error(errData.error || "Failed to dispatch backup email.");
+                throw new Error(errData.error || "Failed to dispatch email.");
             }
         } catch (err) {
-            console.error("Test backup mail error:", err);
+            console.error("Backup simulation error:", err);
             showToast(err.message, "error");
             logEvent('BACKUP_TEST_MAIL_ERROR', { error: err.message }, 'error');
         }
@@ -2873,9 +2860,17 @@ const App = () => {
                             backgroundSize: themeSettings.bgScale && themeSettings.bgScale !== 100 ? `${themeSettings.bgScale}%` : 'cover',
                             backgroundPosition: `${themeSettings.bgPositionX !== undefined ? themeSettings.bgPositionX : 50}% ${themeSettings.bgPositionY !== undefined ? themeSettings.bgPositionY : 0}%`,
                             backgroundRepeat: 'no-repeat',
-                            filter: themeSettings.bgBlur ? `blur(${themeSettings.bgBlur * 0.15}px)` : 'none', 
+                            filter: themeSettings.performanceMode ? 'none' : (themeSettings.bgBlur ? `blur(${themeSettings.bgBlur * 0.15}px)` : 'none'), 
                             opacity: themeSettings.bgOpacity !== undefined ? themeSettings.bgOpacity : 0.25,
                             ...(themeSettings.bgStyle === 'pixelated-image' ? { imageRendering: 'pixelated' } : {})
+                        }}
+                    />
+                ) : themeSettings.performanceMode ? (
+                    // Flat, high-performance gradient for Performance Mode (no filters/blurs)
+                    <div 
+                        className="absolute inset-0 bg-[#070a13]"
+                        style={{
+                            background: `radial-gradient(circle at 10% 10%, ${(themeSettings.accentColor || '#f97316')}15, transparent 60%), radial-gradient(circle at 90% 90%, ${(themeSettings.secondaryColor || '#ec4899')}10, transparent 70%)`
                         }}
                     />
                 ) : themeSettings.bgStyle === 'svg-mesh' && themeSettings.svgMeshCoords ? (
@@ -2917,6 +2912,7 @@ const App = () => {
                 themeSettings={themeSettings}
                 customBgImage={activeCustomImg}
                 onOpenTheme={() => setThemeModalOpen(true)}
+                onUpdateThemeSettings={(updated) => setThemeSettings(prev => ({ ...prev, ...updated }))}
                 userName={userName} 
                 syncId={syncId} 
                 cohort={cohort}
@@ -2983,6 +2979,7 @@ const App = () => {
                     isCardHidden={isCardHidden}
                     handleToggleCardHidden={handleToggleCardHidden}
                     onTabChange={null}
+                    performanceMode={themeSettings.performanceMode}
                 />
 
                 <div className={`flex flex-col relative transition-all duration-300 ${isCardHidden ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
@@ -3004,6 +3001,7 @@ const App = () => {
                                     onNextSubject={handleNextSubject}
                                     activeSubjectIdx={activeSubjectIdx}
                                     totalSubjects={data.length}
+                                    performanceMode={themeSettings.performanceMode}
                                 />
                             )}
                         </div>
@@ -3019,8 +3017,8 @@ const App = () => {
             
             {/* Scrollable Outlined Footer */}
             <footer className="w-full text-center py-12 select-none">
-                <span className="text-[14px] sm:text-[15px] font-semibold text-white/40" style={{ WebkitTextStroke: '0.5px rgba(255, 255, 255, 0.4)', fontFamily: "'Poppins', sans-serif" }}>
-                    Made with love by students for students.
+                <span className="text-[14px] sm:text-[15px] font-semibold text-white/75" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    Made with ❤️by students for students.
                 </span>
             </footer>
         </div>
@@ -3075,12 +3073,156 @@ const App = () => {
                 questionStates={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].moduleQuestionStates || {}) : {}}
                 customExerciseConfig={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].customExerciseConfig || null) : null}
                 exerciseDisplayNames={activeModuleTracker && data && data[activeModuleTracker.sIdx] && data[activeModuleTracker.sIdx].chapters && data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx] ? (data[activeModuleTracker.sIdx].chapters[activeModuleTracker.cIdx].exerciseDisplayNames || null) : null}
-                onSaveProgress={({ comp, acc, questionStates }) => {
-                    if (!activeModuleTracker) return;
-                    const { sIdx, cIdx } = activeModuleTracker;
-                    handleNestedUpdate(sIdx, cIdx, 'module', 'comp', comp);
-                    handleNestedUpdate(sIdx, cIdx, 'module', 'acc', acc);
-                    handleUpdate(sIdx, cIdx, 'moduleQuestionStates', questionStates);
+                onSaveProgress={async ({ comp, acc, questionStates }) => {
+                    if (!activeModuleTracker) return { success: false, error: 'No active tracker context' };
+                    const { sIdx, cIdx, subjectName, chapterName } = activeModuleTracker;
+
+                    // 1. Get stored global progress from localStorage
+                    let storedGlobal = {};
+                    try {
+                        storedGlobal = JSON.parse(localStorage.getItem('vinyas_interactive_module_progress') || '{}');
+                    } catch (e) {}
+
+                    // 2. Normalize subject name to check keys
+                    const normalizeSub = (name) => {
+                        const s = (name || '').toLowerCase().trim();
+                        if (s.includes('math')) return 'Maths';
+                        if (s.includes('phys')) return 'Physics';
+                        if (s.includes('chem')) return 'Chem';
+                        return name || '';
+                    };
+                    const normalizedSubName = normalizeSub(subjectName);
+                    const isChapter1 = (() => {
+                        if (cIdx === 0) return true;
+                        const c = (chapterName || '').toLowerCase();
+                        if (normalizedSubName === 'Maths' && c.includes('sets')) return true;
+                        if (normalizedSubName === 'Physics' && c.includes('units')) return true;
+                        if (normalizedSubName === 'Chem' && c.includes('mole')) return true;
+                        return false;
+                    })();
+
+                    const getQuestionKey = (exName, qNum) => {
+                        if (isChapter1) {
+                            return `${normalizedSubName}-${exName}-${qNum}`;
+                        } else {
+                            return `${normalizedSubName}-${chapterName}-${exName}-${qNum}`;
+                        }
+                    };
+
+                    const chapter = data[sIdx]?.chapters[cIdx];
+                    const exercisesConfig = chapter?.customExerciseConfig || {};
+
+                    // 3. Collect keys for this chapter
+                    const chapterKeys = [];
+                    Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                        for (let q = 1; q <= qCount; q++) {
+                            chapterKeys.push(getQuestionKey(exName, q));
+                        }
+                    });
+
+                    // 4. Compare localProgress (questionStates) vs localStorage (storedGlobal)
+                    let matches = true;
+                    for (const key of chapterKeys) {
+                        if ((questionStates[key] || null) !== (storedGlobal[key] || null)) {
+                            matches = false;
+                            break;
+                        }
+                    }
+
+                    let finalQuestionStates = { ...questionStates };
+                    let finalComp = comp;
+                    let finalAcc = acc;
+                    let isUsingBackup = false;
+
+                    if (!matches) {
+                        // Rebuild using localStorage data (modified for MongoDB submit)
+                        isUsingBackup = true;
+                        const resolvedProgress = {};
+                        let completed = 0;
+                        let difficult = 0;
+                        let later = 0;
+                        let total = 0;
+
+                        Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                            total += qCount;
+                            for (let q = 1; q <= qCount; q++) {
+                                const key = getQuestionKey(exName, q);
+                                if (storedGlobal[key]) {
+                                    resolvedProgress[key] = storedGlobal[key];
+                                    if (storedGlobal[key] === 'completed') completed++;
+                                    else if (storedGlobal[key] === 'difficult') difficult++;
+                                    else if (storedGlobal[key] === 'later') later++;
+                                }
+                            }
+                        });
+
+                        finalQuestionStates = resolvedProgress;
+                        finalComp = total > 0 ? Math.round((completed / total) * 100) : 0;
+                        const totalTracked = completed + difficult + later;
+                        finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
+                    }
+
+                    // 5. Update local React state data
+                    const updatedData = data.map((sub, subIdx) => {
+                        if (subIdx !== sIdx) return sub;
+                        return {
+                            ...sub,
+                            chapters: sub.chapters.map((ch, chIdx) => {
+                                if (chIdx !== cIdx) return ch;
+                                return {
+                                    ...ch,
+                                    moduleQuestionStates: finalQuestionStates,
+                                    module: {
+                                        ...ch.module,
+                                        comp: finalComp,
+                                        acc: finalAcc
+                                    }
+                                };
+                            })
+                        };
+                    });
+
+                    // Update React state instantly
+                    setData(updatedData);
+
+                    // 6. Send payload directly to MongoDB immediately to guarantee save success
+                    const payload = {
+                        ...stateRef.current,
+                        data: updatedData
+                    };
+
+                    try {
+                        const response = await fetch('/api/data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to save to database');
+                        }
+
+                        const resData = await response.json();
+                        handleSaveResponse(resData);
+
+                        if (isUsingBackup) {
+                            logEvent('DB_SAVE_WARNING', { 
+                                message: 'Mismatch detected! Restored and saved chapter question states from local storage backup.',
+                                chapter: chapterName
+                            }, 'warning');
+                            return { success: true, isUsingBackup: true, comp: finalComp, acc: finalAcc, restoredQuestionStates: finalQuestionStates };
+                        } else {
+                            logEvent('DB_SAVE_SUCCESS', { 
+                                message: 'Successfully saved and synced module questions to MongoDB.',
+                                chapter: chapterName
+                            }, 'success');
+                            return { success: true, isUsingBackup: false, comp: finalComp, acc: finalAcc };
+                        }
+                    } catch (err) {
+                        console.error('Error saving module progress directly:', err);
+                        logEvent('DB_SAVE_ERROR', { error: err.message }, 'error');
+                        return { success: false, error: err.message };
+                    }
                 }}
             />
 

@@ -841,6 +841,30 @@ const ThemeModal = ({ isOpen, onClose, themeSettings, onUpdateThemeSettings, sho
                         </div>
                     )}
 
+                    {/* 5. Performance & GPU Optimization */}
+                    <div className="space-y-3 p-4 bg-slate-950/40 border border-slate-850 rounded-2xl">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block border-b border-slate-900 pb-1">
+                            Performance & GPU Optimization
+                        </label>
+                        <div className="flex items-start gap-3 mt-2">
+                            <label className="flex items-center gap-3 cursor-pointer group text-xs text-slate-300 select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={themeSettings.performanceMode || false}
+                                    onChange={(e) => onUpdateThemeSettings({ performanceMode: e.target.checked })}
+                                    className="w-4.5 h-4.5 rounded bg-slate-950 border-slate-850 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="font-extrabold group-hover:text-white transition-colors flex items-center gap-1.5">
+                                    <i className="ph-bold ph-cpu text-orange-400 text-sm"></i>
+                                    Integrated Graphics / Performance Mode
+                                </span>
+                            </label>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-medium pl-7">
+                            Disables heavy backdrop-blur filters, complex background glows, and hover particles to optimize rendering for integrated GPUs and low-end hardware.
+                        </p>
+                    </div>
+
                 </div>
             </div>
         </div>

@@ -1,11 +1,12 @@
 # <p align="center"><img src="icon.svg" width="48" height="48" valign="middle" /> Vinyas</p>
 
 <p align="center">
-  <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong>
+  <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong><br>
+  <em>Experimental App Vibe coded in Antigravity.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.4-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.2.5-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -130,6 +131,7 @@ Vinyas/
 │   ├── telemetry.js               # Diagnostics telemetry endpoint
 │   ├── logout.js                  # Session logout activity logger
 │   ├── test-inactivity.js         # Developer inactivity simulation
+│   ├── extension-metadata.js      # Fetch Chrome extension & APK metadata
 │   ├── db.js                      # MongoDB connection pooling
 │   ├── timezone.js                # IST timezone utility
 │   └── shared/                    # Shared server utilities
@@ -337,7 +339,15 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
-### v1.2.4 (May 28, 2026) - Latest Update
+### v1.2.5 (May 28, 2026) - Latest Update
+- ⚡ **Syllabus Scroll Optimization**: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.
+- 💾 **Real-Time LocalStorage Sync**: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.
+- 🛡️ **Save Mismatch Auto-Recovery**: Compares questions progress on save and automatically restores correct status from LocalStorage in case of DB sync mismatch.
+- 📊 **Dynamic Setup Information**: Extension setup page fetches and displays Chrome Extension and Android APK versions and file sizes dynamically from the server.
+- 📜 **Scrollable Setup Layout**: Fixed layout constraints on the extension page to allow vertical scrolling on all viewports.
+- 🔗 **Smarter Extension Integration**: Chrome Extension automatically bypasses already synced chapters and suppresses prompts when unconfigured.
+
+### v1.2.4 (May 28, 2026)
 - 🎬 **Custom Loading Screen**: A beautiful branded loading animation with the Vinyas logo and an animated orange progress bar now appears while the app loads your data.
 - ✨ **Pinned Action Buttons**: Save and Cancel buttons in all settings panels are now pinned at the bottom, so they are always accessible without scrolling.
 - 🖼️ **Sharp & Custom Backdrops**: Uploaded background images now load crisp and clean by default, without any automatic blur or zoom.

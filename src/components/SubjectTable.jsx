@@ -144,7 +144,8 @@ const SubjectTable = ({
     onPrevSubject = () => {},
     onNextSubject = () => {},
     activeSubjectIdx = 0,
-    totalSubjects = 1
+    totalSubjects = 1,
+    performanceMode = false
 }) => {
     const [showAddChapterModal, setShowAddChapterModal] = useState(false);
     const [newChapterName, setNewChapterName] = useState('');
@@ -168,7 +169,7 @@ const SubjectTable = ({
                         ticking = false;
                         return;
                     }
-                    const navbarHeight = typeof document !== 'undefined' ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 72) : 72;
+                    const navbarHeight = cachedNavbarHeight;
                     const rect = headerRef.current.getBoundingClientRect();
                     const parentRect = headerRef.current.parentElement.getBoundingClientRect();
                     
@@ -291,14 +292,16 @@ const SubjectTable = ({
                                 <tr key={cIdx} id={`chapter-${sIdx}-${cIdx}`} className={`transition-all duration-300 group relative ${theme.rowClass}`}>
                                     <td className="px-4 py-3 font-semibold text-slate-300 flex items-center justify-between" title={chapter.name}>
                                         {/* Dynamic Rising Fill Animation with Sparkles and Crystals */}
-                                        <div className="row-fill-container">
-                                            <div className="row-fill-wave" />
-                                            <i className={`ph-fill ph-diamond absolute text-[10px] pointer-events-none float-particle-1 ${theme.text} opacity-60 left-[10%]`} />
-                                            <i className={`ph-fill ph-sparkle absolute text-[9px] pointer-events-none float-particle-2 ${theme.text} opacity-60 left-[30%]`} />
-                                            <i className={`ph-fill ph-diamond absolute text-[8px] pointer-events-none float-particle-3 ${theme.text} opacity-60 left-[50%]`} />
-                                            <i className={`ph-fill ph-sparkles absolute text-[11px] pointer-events-none float-particle-4 ${theme.text} opacity-60 left-[70%]`} />
-                                            <i className={`ph-fill ph-diamond absolute text-[9px] pointer-events-none float-particle-5 ${theme.text} opacity-60 left-[85%]`} />
-                                        </div>
+                                        {!performanceMode && (
+                                            <div className="row-fill-container">
+                                                <div className="row-fill-wave" />
+                                                <i className={`ph-fill ph-diamond absolute text-[10px] pointer-events-none float-particle-1 ${theme.text} opacity-60 left-[10%]`} />
+                                                <i className={`ph-fill ph-sparkle absolute text-[9px] pointer-events-none float-particle-2 ${theme.text} opacity-60 left-[30%]`} />
+                                                <i className={`ph-fill ph-diamond absolute text-[8px] pointer-events-none float-particle-3 ${theme.text} opacity-60 left-[50%]`} />
+                                                <i className={`ph-fill ph-sparkles absolute text-[11px] pointer-events-none float-particle-4 ${theme.text} opacity-60 left-[70%]`} />
+                                                <i className={`ph-fill ph-diamond absolute text-[9px] pointer-events-none float-particle-5 ${theme.text} opacity-60 left-[85%]`} />
+                                            </div>
+                                        )}
 
                                         <div className="flex items-center min-w-0 flex-1 mr-2 relative z-10">
                                             <span className={`truncate max-w-[120px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-[320px] lg:max-w-[420px] xl:max-w-[550px] transition-all duration-300 relative group-hover:${theme.text}`}>

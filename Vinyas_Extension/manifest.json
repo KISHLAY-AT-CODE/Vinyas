@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vinyas Tracker",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Tracks PW activity and syncs it to Vinyas Dashboard",
   "permissions": ["storage"],
   "host_permissions": [
@@ -13,14 +13,14 @@
     "https://*.vercel.app/*"
   ],
   "icons": {
-    "16": "icon.svg",
-    "32": "icon.svg",
-    "48": "icon.svg",
-    "128": "icon.svg"
+    "16": "favicon.ico",
+    "32": "favicon.ico",
+    "48": "favicon.ico",
+    "128": "favicon.ico"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.svg"
+    "default_icon": "favicon.ico"
   },
   "content_scripts": [
     {
@@ -50,7 +50,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icon.svg"],
+      "resources": ["favicon.ico"],
       "matches": ["*://*.pw.live/*", "*://pw.live/*", "*://*.physicswallah.live/*", "*://physicswallah.live/*"]
     }
   ]

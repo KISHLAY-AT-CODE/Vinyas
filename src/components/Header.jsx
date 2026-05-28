@@ -171,7 +171,8 @@ const Header = ({
     isPollingActivities = false,
     pollActivities,
     requestConfirm,
-    onOpenBugReport
+    onOpenBugReport,
+    onUpdateThemeSettings
 }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
@@ -635,7 +636,7 @@ const Header = ({
                                 Vinyas Tracker Extension Action Required
                             </h4>
                             <p className="text-[11px] font-semibold text-slate-300 mt-0.5 leading-relaxed">
-                                Missing or outdated extension detected (required: v1.2.1). Please download and load the updated extension in your browser.
+                                Missing or outdated extension detected (required: v1.2.2). Please download and load the updated extension in your browser.
                             </p>
                         </div>
                     </div>
@@ -646,7 +647,7 @@ const Header = ({
                         title="Download Extension ZIP file"
                     >
                         <i className="ph-bold ph-download-simple text-sm"></i>
-                        <span>Download Extension v1.2.1</span>
+                        <span>Download Extension v1.2.2</span>
                     </a>
                 </div>
             )}
@@ -1063,6 +1064,27 @@ const Header = ({
                             </button>
                         </div>
                     </div>
+
+                    {/* Performance Optimization Mode Toggle Switch */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const newMode = !themeSettings.performanceMode;
+                            onUpdateThemeSettings({ performanceMode: newMode });
+                            showToast(newMode ? "Integrated Graphics / Performance Mode Enabled!" : "Normal Mode Enabled!", "info");
+                        }}
+                        className={`h-10 px-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-md shrink-0 ${
+                            themeSettings.performanceMode
+                                ? 'bg-orange-500/25 border-orange-500/50 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.25)] hover:bg-orange-500/30'
+                                : 'bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 text-slate-400 hover:text-slate-350 hover:border-slate-700/80'
+                        }`}
+                        title={themeSettings.performanceMode ? "Disable Performance Mode (Return to Normal Graphics)" : "Enable Performance Mode (Bypass blurs & optimize for Integrated Graphics)"}
+                    >
+                        <i className={`ph-bold text-sm ${themeSettings.performanceMode ? 'ph-cpu animate-pulse' : 'ph-gauge'}`}></i>
+                        <span className={isHeaderCollapsed ? "hidden sm:inline" : "inline"}>
+                            {themeSettings.performanceMode ? "Optimized" : "Normal"}
+                        </span>
+                    </button>
 
                     {/* Hidden file input for import */}
                     <input 

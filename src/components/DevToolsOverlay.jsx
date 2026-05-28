@@ -37,14 +37,13 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
 
     // Email simulation states
     const [testEmail, setTestEmail] = useState(email || '');
-    const [sendingWeekendSim, setSendingWeekendSim] = useState(false);
-    const [sendingTestSim, setSendingTestSim] = useState(false);
+    const [sendingAction, setSendingAction] = useState('');
 
     useEffect(() => {
         if (email) setTestEmail(email);
     }, [email]);
 
-    const handleSendEmailSim = async (isTest) => {
+    const handleSendEmailSim = async (action) => {
         if (!syncId) {
             showStatus('error', 'Sync ID must be active to send backup!');
             return;
@@ -55,21 +54,47 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
         }
 
         try {
-            if (isTest) {
-                setSendingTestSim(true);
-            } else {
-                setSendingWeekendSim(true);
+            setSendingAction(action);
+            
+            // Trigger browser notification immediately for whats_new action
+            if (action === 'whats_new') {
+                if (typeof window !== 'undefined' && 'Notification' in window) {
+                    const showNotification = () => {
+                        try {
+                            new Notification("Check out Vinyas new features!", {
+                                body: "Developer Simulation: What's New release updates are available.",
+                                icon: "/favicon.ico"
+                            });
+                        } catch (e) {
+                            console.error("Browser notification failed:", e);
+                        }
+                    };
+
+                    if (Notification.permission === "granted") {
+                        showNotification();
+                    } else if (Notification.permission !== "denied") {
+                        Notification.requestPermission().then(permission => {
+                            if (permission === "granted") {
+                                showNotification();
+                            }
+                        });
+                    }
+                }
             }
-            await onSendTestBackupMail(testEmail.trim(), isTest);
-            showStatus('success', isTest ? 'Test verification email dispatched!' : 'Weekend layout email dispatched!');
+
+            await onSendTestBackupMail(testEmail.trim(), action);
+            
+            let successMsg = 'Simulated email dispatched!';
+            if (action === true) successMsg = 'Test verification email dispatched!';
+            else if (action === false) successMsg = 'Weekend layout email dispatched!';
+            else if (action === 'deletion_warning') successMsg = 'Simulated 5-day deletion alert email dispatched!';
+            else if (action === 'whats_new') successMsg = "Simulated What's New release notes email dispatched!";
+
+            showStatus('success', successMsg);
         } catch (err) {
-            showStatus('error', err.message || 'Failed to send backup mail');
+            showStatus('error', err.message || 'Failed to send simulation email');
         } finally {
-            if (isTest) {
-                setSendingTestSim(false);
-            } else {
-                setSendingWeekendSim(false);
-            }
+            setSendingAction('');
         }
     };
     
@@ -456,23 +481,39 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         onClick={() => handleSendEmailSim(true)}
-                                        disabled={sendingTestSim || sendingWeekendSim}
+                                        disabled={!!sendingAction}
                                         className="py-2.5 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                                     >
-                                        <i className={`ph-bold ${sendingTestSim ? 'ph-spinner-gap animate-spin text-indigo-400' : 'ph-paper-plane-tilt'}`}></i>
+                                        <i className={`ph-bold ${sendingAction === true ? 'ph-spinner-gap animate-spin text-indigo-400' : 'ph-paper-plane-tilt'}`}></i>
                                         <span>Test Connection</span>
                                     </button>
                                     <button
                                         onClick={() => handleSendEmailSim(false)}
-                                        disabled={sendingTestSim || sendingWeekendSim}
+                                        disabled={!!sendingAction}
                                         className="py-2.5 bg-gradient-to-r from-indigo-650 to-purple-650 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-[11px] rounded-xl shadow-lg transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                                     >
-                                        <i className={`ph-bold ${sendingWeekendSim ? 'ph-spinner-gap animate-spin text-white' : 'ph-calendar-star'}`}></i>
+                                        <i className={`ph-bold ${sendingAction === false ? 'ph-spinner-gap animate-spin text-white' : 'ph-calendar-star'}`}></i>
                                         <span>Simulate Weekend</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleSendEmailSim('deletion_warning')}
+                                        disabled={!!sendingAction}
+                                        className="py-2.5 bg-rose-950/45 hover:bg-rose-900/60 border border-rose-900/40 text-rose-350 hover:text-white font-bold text-[11.5px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <i className={`ph-bold ${sendingAction === 'deletion_warning' ? 'ph-spinner-gap animate-spin text-rose-450' : 'ph-warning-octagon'}`}></i>
+                                        <span>Simulate Deletion</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleSendEmailSim('whats_new')}
+                                        disabled={!!sendingAction}
+                                        className="py-2.5 bg-blue-950/45 hover:bg-blue-900/60 border border-blue-900/40 text-blue-350 hover:text-white font-bold text-[11.5px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <i className={`ph-bold ${sendingAction === 'whats_new' ? 'ph-spinner-gap animate-spin text-blue-450' : 'ph-sparkles'}`}></i>
+                                        <span>Simulate Update</span>
                                     </button>
                                 </div>
                                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                                    Sends actual encrypted backups using your SMTP integration. "Simulate Weekend" renders the exact layout sent automatically on Saturday/Sunday.
+                                    Sends actual encrypted/simulated emails using your SMTP integration. "Simulate Deletion" sends the 5-day warning, and "Simulate Update" fires the version release changelog email and triggers a desktop browser notification.
                                 </p>
                             </div>
 

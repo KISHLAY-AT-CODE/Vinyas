@@ -203,7 +203,7 @@ const SuggestedGoalCard = ({ goal, onDiscard, onSave }) => {
     );
 };
 
-const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden, onTabChange }) => {
+const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden, onTabChange, performanceMode = false }) => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     
     // Filter out connection tests
@@ -285,15 +285,15 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                                         : `bg-transparent text-slate-455 border border-transparent ${config.hoverStyles || ''}`
                                     }
                                 `}
-                                whileDrag={{ scale: 1.1, zIndex: 50 }}
+                                whileDrag={performanceMode ? {} : { scale: 1.1, zIndex: 50 }}
                                 onClick={() => handleTabClick(id)}
                             >
                                 {/* Active Indicator Line */}
                                 {isActive && (
                                     <motion.div 
-                                        layoutId="activeIndicator"
+                                        layoutId={performanceMode ? undefined : "activeIndicator"}
                                         className={`absolute left-0 w-1 h-6 rounded-r-full ${config.indicatorBg}`}
-                                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                        transition={performanceMode ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
                                     />
                                 )}
                                 
@@ -325,10 +325,10 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                     {!isCardHidden && (
                         <motion.div
                             key={activeTab}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}
+                            initial={performanceMode ? {} : { opacity: 0, x: -20 }}
+                            animate={performanceMode ? {} : { opacity: 1, x: 0 }}
+                            exit={performanceMode ? {} : { opacity: 0, x: -20 }}
+                            transition={performanceMode ? { duration: 0 } : { duration: 0.2 }}
                             className="w-[calc(100vw-80px)] sm:w-[320px] pointer-events-auto z-10 relative"
                         >
                             <div className="relative w-full">

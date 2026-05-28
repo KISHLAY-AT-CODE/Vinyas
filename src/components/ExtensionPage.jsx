@@ -1,9 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ExtensionPage = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState('install'); // 'features' | 'install' | 'prompts'
     const [currentSlide, setCurrentSlide] = useState(0);
     const [workSlide, setWorkSlide] = useState(0);
+    const [metadata, setMetadata] = useState({
+        extension: { version: '1.2.2', formattedSize: '95.8 KB' },
+        apk: { version: '1.2.5', formattedSize: '2.97 MB' }
+    });
+
+    useEffect(() => {
+        let isMounted = true;
+        fetch('/api/extension-metadata')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch');
+                return res.json();
+            })
+            .then(data => {
+                if (isMounted && data && data.extension && data.apk) {
+                    setMetadata(data);
+                }
+            })
+            .catch(err => console.error('Error fetching extension metadata:', err));
+        return () => { isMounted = false; };
+    }, []);
+
 
     const screenshots = [
         {
@@ -93,7 +114,7 @@ const ExtensionPage = ({ onBack }) => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-200 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden animate-fade-in font-sans">
+        <div className="h-screen bg-slate-950 text-slate-200 py-12 px-4 sm:px-6 lg:px-8 relative overflow-y-auto overflow-x-hidden animate-fade-in font-sans">
             {/* Ambient decorative background glows */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-500/10 rounded-full blur-[150px] pointer-events-none"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full blur-[150px] pointer-events-none"></div>
@@ -169,7 +190,7 @@ const ExtensionPage = ({ onBack }) => {
                                 <div className="bg-slate-950/65 border border-slate-800/50 rounded-2xl p-4 space-y-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <div className="flex justify-between">
                                         <span>Version</span>
-                                        <span className="text-slate-350">1.0.0</span>
+                                        <span className="text-slate-350">{metadata.extension.version}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Format</span>
@@ -177,7 +198,7 @@ const ExtensionPage = ({ onBack }) => {
                                     </div>
                                     <div className="flex justify-between">
                                         <span>File Size</span>
-                                        <span className="text-slate-350">14.3 KB</span>
+                                        <span className="text-slate-350">{metadata.extension.formattedSize}</span>
                                     </div>
                                 </div>
                                 
@@ -213,7 +234,7 @@ const ExtensionPage = ({ onBack }) => {
                                 <div className="bg-slate-950/65 border border-slate-800/50 rounded-2xl p-4 space-y-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <div className="flex justify-between">
                                         <span>Version</span>
-                                        <span className="text-slate-350">1.0.0</span>
+                                        <span className="text-slate-350">{metadata.apk.version}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Format</span>
@@ -221,7 +242,7 @@ const ExtensionPage = ({ onBack }) => {
                                     </div>
                                     <div className="flex justify-between">
                                         <span>File Size</span>
-                                        <span className="text-slate-350">2.97 MB</span>
+                                        <span className="text-slate-350">{metadata.apk.formattedSize}</span>
                                     </div>
                                 </div>
                                 

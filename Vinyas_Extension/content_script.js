@@ -248,7 +248,7 @@ function checkDppScore() {
                     }
                 });
             } else {
-                showConfirmOverlay(activityData, false);
+                console.log("[Vinyas Tracker] DPP detected but Sync ID or API URL not set. Skipping overlay.");
             }
             
             dppLogged = true;
@@ -289,7 +289,7 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
     const typeLabel = activityData.quizType === 'DPP' ? 'DPP' : activityData.quizType === 'MODULE' ? 'MODULE' : 'QUIZ';
     const typeBg = activityData.quizType === 'DPP' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)';
     const typeColor = activityData.quizType === 'DPP' ? '#60a5fa' : '#fbbf24';
-    const logoUrl = chrome.runtime.getURL('icon.svg');
+    const logoUrl = chrome.runtime.getURL('favicon.ico');
 
     const titleLabel = alreadyExists ? 'Duplicate Detected' : 'Submission Detected';
     const sendBtnLabel = alreadyExists ? '🔄 Update Again' : '🔥 Send to Vinyas';
@@ -511,7 +511,7 @@ function showBooksConfirmOverlay(booksData) {
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'closed' });
 
-    const logoUrl = chrome.runtime.getURL('icon.svg');
+    const logoUrl = chrome.runtime.getURL('favicon.ico');
 
     let exercisesHtml = '';
     Object.entries(booksData.exercises).forEach(([exKey, qCount]) => {
@@ -710,7 +710,7 @@ function checkPwBooksQuestions() {
                     }
                 });
             } else {
-                showBooksConfirmOverlay(booksData);
+                console.log("[Vinyas Tracker] Books Practice detected but Sync ID or API URL not set. Skipping overlay.");
             }
             
             lastLoggedBooksUrl = url;
