@@ -16,7 +16,7 @@
 
 ---
 
-![Vinyas Dashboard Banner](assets/vinyas_banner.png)
+![Vinyas Dashboard](public/frontpage.png)
 
 ## 🌟 Overview
 
@@ -44,7 +44,6 @@ Generates a comprehensive exam syllabus instantly from **server-hosted templates
 
 ### 🤖 Intelligent AI Gateway
 Features a **load-balanced API routing** system cycling through up to **20 Google Gemini API keys** with multi-level failover tiers to **Cerebras (GPT-OSS-120B)** and **Groq (Llama-3.3-70B)** in case of rate limits. Includes per-user rate limiting (15 req/min) and Sync ID authentication.
-
 
 ### 🐞 Diagnostics & Bug Reporter
 Exposes a secure diagnostics panel and bug reporting tool. In case of issues, students can upload a description along with a screenshot (under 2MB). The system automatically packages OS specs, Sync IDs, and recent local logs into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay without ever storing the image or raw details on Vercel's server disk or inside MongoDB.
@@ -120,65 +119,89 @@ graph TD
 
 ```text
 Vinyas/
-├── api/                        # Serverless Vercel API endpoints
-│   ├── data.js                 # Core CRUD for user profiles & syllabus
-│   ├── activity.js             # Chrome Extension telemetry buffer
-│   ├── gemini.js               # AI gateway with multi-key load balancing
-│   ├── templates.js            # Exam syllabus template server
-│   ├── achievements_config.js  # Server-side achievement evaluation engine
-│   ├── cron-backup.js          # Vercel Cron: weekly backups & inactivity checks
-│   ├── test-backup-mail.js     # Manual backup email trigger
-│   ├── telemetry.js            # Diagnostics console telemetry endpoint
-│   ├── logout.js               # Session logout activity logger
-│   ├── test-inactivity.js      # Developer inactivity simulation suite
-│   ├── db.js                   # MongoDB connection pooling
-│   └── timezone.js             # IST timezone utility
-├── src/                        # React frontend application
-│   ├── components/             # 23 modular UI components
-│   │   ├── Header.jsx                  # Navigation, countdown, settings
-│   │   ├── GamifiedDashboard.jsx       # XP, streaks, goals, activity feed
-│   │   ├── SubjectTable.jsx            # Interactive syllabus progress matrix
-│   │   ├── ProgressModal.jsx           # Detailed chapter progress modal
+├── api/                           # Serverless Vercel API endpoints
+│   ├── data.js                    # Core CRUD for user profiles & syllabus
+│   ├── activity.js                # Chrome Extension telemetry buffer
+│   ├── gemini.js                  # AI gateway with multi-key load balancing
+│   ├── templates.js               # Exam syllabus template server
+│   ├── achievements_config.js     # Achievement evaluation engine
+│   ├── cron-backup.js             # Vercel Cron: weekly backups & inactivity checks
+│   ├── test-backup-mail.js        # Manual backup email trigger
+│   ├── telemetry.js               # Diagnostics telemetry endpoint
+│   ├── logout.js                  # Session logout activity logger
+│   ├── test-inactivity.js         # Developer inactivity simulation
+│   ├── db.js                      # MongoDB connection pooling
+│   ├── timezone.js                # IST timezone utility
+│   └── shared/                    # Shared server utilities
+│       ├── auth.js                # Sync ID authentication helpers
+│       ├── email.js               # SMTP email dispatch utilities
+│       └── syllabus.js            # Syllabus data processing helpers
+├── src/                           # React frontend application
+│   ├── components/                # 24 modular UI components
+│   │   ├── Header.jsx             # Navigation, brand, diagnostics dropdown
+│   │   ├── GamifiedDashboard.jsx  # XP, streaks, goals, activity feed
+│   │   ├── SubjectTable.jsx       # Interactive syllabus progress matrix
+│   │   ├── ProgressModal.jsx      # Detailed chapter progress modal
 │   │   ├── ModuleQuestionTrackerModal.jsx  # Per-question exercise tracker
-│   │   ├── PomodoroTimer.jsx           # Focus timer with break cycles
-│   │   ├── SpacedRepetition.jsx        # Flashcard system
-│   │   ├── StreakCalendar.jsx          # GitHub-style streak heatmap
-│   │   ├── AchievementToast.jsx        # Full-screen celebration animations
-│   │   ├── Header.jsx                  # Brand + diagnostic bug-button dropdown
-│   │   ├── ExtensionPage.jsx           # Extension download & tutorial hub
-│   │   ├── CohortSetupModal.jsx        # Syllabus template builder wizard
-│   │   ├── MorningPlannerModal.jsx     # Daily study plan creator
-│   │   ├── NightlyWrapUpModal.jsx      # End-of-day logging workflow
-│   │   ├── BackupSettingsModal.jsx     # Email backup configuration
+│   │   ├── PomodoroTimer.jsx      # Focus timer with break cycles
+│   │   ├── SpacedRepetition.jsx   # Flashcard revision system
+│   │   ├── StreakCalendar.jsx     # GitHub-style streak heatmap
+│   │   ├── AchievementToast.jsx   # Full-screen celebration animations
+│   │   ├── WhatsNewModal.jsx      # Version update changelog popup
+│   │   ├── ProfileModal.jsx       # User profile editor
+│   │   ├── ExtensionPage.jsx      # Extension download & tutorial hub
+│   │   ├── CohortSetupModal.jsx   # Syllabus template builder wizard
+│   │   ├── MorningPlannerModal.jsx    # Daily study plan creator
+│   │   ├── NightlyWrapUpModal.jsx     # End-of-day logging workflow
+│   │   ├── BackupSettingsModal.jsx    # Email backup configuration
 │   │   ├── ResolveSubmissionsModal.jsx # Unmatched submission resolver
-│   │   ├── StudyBuddyWidget.jsx        # AI study companion
-│   │   ├── SearchOverlay.jsx           # Global chapter search
-│   │   ├── DevToolsOverlay.jsx         # Developer testing sandbox
-│   │   └── ...                         # Modals, context, fire slider
-│   ├── services/               # Client-side service layer
-│   │   ├── crypto.js           # AES-256-GCM encryption (Web Crypto API)
-│   │   ├── gemini.js           # AI client with attempt header parsing
-│   │   ├── logger.js           # In-memory event logging bus
-│   │   └── notifications.js    # Browser notification integration
+│   │   ├── ConfirmationModal.jsx  # Reusable confirmation dialog
+│   │   ├── Modals.jsx             # Log, status & chapter edit modals
+│   │   ├── StudyBuddyWidget.jsx   # AI study companion
+│   │   ├── SearchOverlay.jsx      # Global chapter search
+│   │   ├── FireSlider.jsx         # Animated fire intensity slider
+│   │   ├── ToastContext.jsx       # Toast notification provider
+│   │   └── DevToolsOverlay.jsx    # Developer testing sandbox
+│   ├── services/                  # Client-side service layer
+│   │   ├── crypto.js              # AES-256-GCM encryption (Web Crypto API)
+│   │   ├── gemini.js              # AI client with attempt header parsing
+│   │   ├── logger.js              # In-memory event logging bus
+│   │   └── notifications.js       # Browser notification integration
 │   ├── hooks/
-│   │   └── useAchievements.js  # Achievement state management hook
+│   │   └── useAchievements.js     # Achievement state management hook
+│   ├── shared/                    # Shared frontend utilities
+│   │   ├── normalize.js           # Data normalization helpers
+│   │   └── time.js                # Time formatting utilities
 │   ├── data/
-│   │   ├── constants.jsx       # Initial syllabus, logo, chapter schema
-│   │   └── ai_instructions.js  # AI system prompt definitions
-│   ├── App.jsx                 # Root SPA lifecycle & state orchestrator
-│   ├── index.css               # Global design system & animations
-│   └── main.jsx                # DOM mounting with ToastContext provider
-├── Vinyas_Extension/           # Manifest V3 Chrome Extension source
-│   ├── manifest.json           # Extension manifest & permissions
-│   ├── background.js           # Service worker for lifecycle management
-│   ├── content_script.js       # PW page interceptor & data extraction
-│   ├── dashboard_connector.js  # Auto-pair DOM query bridge
-│   ├── popup.html / popup.js   # Extension popup UI & pairing controls
-│   └── icon.svg                # Extension icon
-├── templates/                  # Exam syllabus JSON templates (BITSAT, JEE, etc.)
-├── Vinyas.apk                  # Compiled Android companion app
-├── vercel.json                 # Vercel config: routes, crons, function bundling
-└── package.json                # Dependencies & scripts
+│   │   ├── constants.jsx          # Initial syllabus, logo, chapter schema
+│   │   ├── ai_instructions.js     # AI system prompt definitions
+│   │   └── version.js             # App & extension version constants
+│   ├── App.jsx                    # Root SPA lifecycle & state orchestrator
+│   ├── index.css                  # Global design system & animations
+│   └── main.jsx                   # DOM mounting with ToastContext provider
+├── Vinyas_Extension/              # Manifest V3 Chrome Extension source
+│   ├── manifest.json              # Extension manifest & permissions
+│   ├── background.js              # Service worker for lifecycle management
+│   ├── content_script.js          # PW page interceptor & data extraction
+│   ├── dashboard_connector.js     # Auto-pair DOM query bridge
+│   ├── popup.html                 # Extension popup UI
+│   ├── popup.js                   # Extension popup logic & pairing controls
+│   └── icon.svg                   # Extension icon
+├── public/                        # Static assets served by Vite
+│   ├── frontpage.png              # Dashboard screenshot for README
+│   ├── Vinyas.apk                 # Android companion app
+│   ├── Vinyas_Extension.zip       # Packaged extension download bundle
+│   ├── favicon.ico                # Browser favicon
+│   ├── icon.png / icon.svg        # App icons
+│   ├── guide_*.png                # Extension setup tutorial images
+│   ├── work_*.png                 # How-it-works illustrations
+│   └── manifest.json              # PWA web manifest
+├── templates/                     # Exam syllabus JSON templates
+│   ├── bitsat.json                # BITSAT syllabus
+│   ├── jee_mains.json             # JEE Mains syllabus
+│   └── neet.json                  # NEET syllabus
+├── vercel.json                    # Vercel config: routes, crons, functions
+└── package.json                   # Dependencies & scripts
 ```
 
 ---
@@ -322,39 +345,35 @@ Ensure all environment variables are configured in your Vercel project settings.
 - 🎯 **Menus Stay Visible**: Pop-ups and dropdowns no longer get clipped — everything opens and displays fully.
 
 ### v1.2.2 (May 27, 2026)
-- 👤 **Account Profile Editing**: Integrated username editing with instant local/cloud synchronization.
-- 🔒 **Multi-Session Profile Sync**: Strengthened `api/data` to accept and sync profile updates across multiple linked sessions.
-- 🎨 **Space Grotesk Logo**: Upgraded brand logo typography to Space Grotesk with a 5-color logo-themed gradient.
-- 🔍 **Collapsible Search Bar**: Optimized header layout with a collapsible search bar that shrinks to an icon on mobile.
-- 💾 **Backup Overlay on Dismiss**: Added a backup recommendation overlay on dismissal of What's New to prompt users to secure their state.
-- 🛠️ **DevTools "What's New" Simulator**: Added a sandbox shortcut to simulate What's New popups inside DevToolsOverlay.
+- 👤 **Edit Your Profile**: You can now set a custom username that syncs across all your devices.
+- 🎨 **New Logo Look**: The Vinyas logo now uses a premium gradient font style.
+- 🔍 **Collapsible Search Bar**: The search bar in the header now collapses into an icon on smaller screens.
+- 💾 **Backup Reminder**: A helpful backup prompt now appears after dismissing the What's New popup.
 
 ### v1.2.1 (May 26, 2026)
-- 🔒 **Secured Sync ID Login**: Configured credentials load system utilizing Sync ID as secure password verification.
-- 📧 **Inactivity Warning Fixes**: Cancel active profile warning countdowns on user logins, resetting inactivity limits.
-- 🔄 **Duplicate Chapter Resolver**: Reroute study telemetry to unresolved queues if duplicate chapter names are matched.
-- 🆕 **What's New Popup**: Automatically alerts users of version updates on loading the dashboard.
-- 🚨 **Pinned Extension Warning**: Pinned a persistent warning banner in the app header if outdated browser extensions are active.
+- 🔒 **Secure Login**: Your Sync ID is now used as a secure password for login.
+- 📧 **Smarter Inactivity Alerts**: Inactivity countdowns now reset properly when you log back in.
+- 🔄 **Duplicate Chapter Handling**: If two chapters share the same name, incoming study data is sent to a review queue instead of being lost.
+- 🆕 **What's New Popup**: You'll now see a summary of new features whenever the app updates.
+- 🚨 **Extension Warning**: A banner appears in the header if your Chrome extension is outdated.
 
 ### v1.2.0 (May 25, 2026)
-- 🔄 **Link-Based Sync Re-Check**: Implemented duplicate overlay asking for confirmation to bypass deduplication or cancel when parsing study results.
-- 🎨 **Empty States**: Created "Nothing to see here" empty state illustration for interactive module question tracker prior to first synced practice.
-- 🔗 **Direct PW Shortcuts**: Added "Open PW" shortcut button in progress logs allowing direct navigation to PhysicsWallah specific DPPs or Modules.
-- 🎯 **Consolidated Suggested Goals**: Lecture & DPP recommendations are merged into a single card with multi-select checklists and stable goal identifiers.
-- 📝 **Manual Module Tracking**: Added native manual module tracking (completion/accuracy sliders) within wrap-ups, syncing directly to database.
-- 🐞 **Developer Telemetry**: Added premium Contact Developer & secure AES-encrypted diagnostics Bug Reporter console.
-- 📸 **Screenshot Attachments**: Support for base64 screenshot attachments (under 2MB) in bug reports, forwarded securely to developer mail via server-side SMTP relay.
-- 🔒 **Privacy & Storage Purge**: Complete `localStorage` and extension `chrome.storage.local` atomic cleanup on session logout or account deletion.
-- ⏱️ **IST Inactivity Lifecycle**: Added 5-day inactivity warning alerts and 6-day automatic account deletion/purges calculated precisely in the Asia/Kolkata (IST) calendar day timezone.
+- 🔄 **Duplicate Check on Sync**: A confirmation popup now asks whether to overwrite or skip when duplicate study results are detected.
+- 🎨 **Empty State Illustrations**: Friendly "Nothing here yet" graphics for new sections before first use.
+- 🔗 **Open in PW**: Quick-access buttons in your progress logs to jump directly to the DPP or Module on PhysicsWallah.
+- 🎯 **Combined Study Goals**: Lecture and DPP goals are now merged into a single card with checkboxes.
+- 📝 **Manual Module Tracking**: Track module completion and accuracy manually during nightly wrap-ups.
+- 🐞 **Bug Reporter**: Report issues with a description and screenshot — everything is sent securely to the developer.
+- ⏱️ **Inactivity Warnings**: Get notified after 5 days of inactivity; accounts are auto-deleted after 6 days to keep things tidy.
 
 ### v1.1.0 (May 10, 2026)
-- 🔐 **Secure Cryptographic Sync IDs**: Configured high-entropy device synchronization identifiers (`vny_sec_`).
-- 📧 **Automated Database Backups**: Added configuration options for automated weekly backups with developer diagnostic email testing tools.
-- ⏱️ **Pomodoro Session Logger**: Integrated client-side Pomodoro focus minutes logs with scaling XP rewards.
+- 🔐 **Secure Sync IDs**: Your device now gets a unique, secure identifier for syncing.
+- 📧 **Weekly Backups**: Set up automatic encrypted email backups of your study data.
+- ⏱️ **Pomodoro Timer**: Focus timer with break cycles and XP rewards for study sessions.
 
 ### v1.0.0 (April 20, 2026)
-- 🚀 **Initial Beta Release**: Core gamified syllabus organizing matrix dashboard.
-- 🔄 **Auto-Sync Telemetry**: MV3 companion Chrome extension for automatic student practice data intercept.
+- 🚀 **Initial Release**: The core syllabus tracker dashboard with gamification.
+- 🔄 **Chrome Extension**: Companion browser extension to automatically track your study activity.
 
 ---
 
