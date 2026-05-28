@@ -48,27 +48,29 @@ const StreakCalendar = ({ activities, streakInfo }) => {
     const dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
     return (
-        <div className="bg-slate-800 rounded-2xl shadow-lg border border-slate-700 p-6 relative overflow-hidden group">
+        <div className="glass-card hover-streak p-6 relative overflow-hidden group transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
+            {/* Accent lighting divider top header */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
             {/* Visual background icon */}
-            <div className="absolute right-2 top-2 opacity-10 pointer-events-none drop-shadow-2xl">
-                <i className="ph-fill ph-calendar text-[80px] text-emerald-400"></i>
+            <div className="absolute right-2 top-2 opacity-10 pointer-events-none drop-shadow-2xl transition-transform duration-500 group-hover:scale-110">
+                <i className="ph-fill ph-calendar text-[80px] text-emerald-450"></i>
             </div>
 
             <div className="relative z-10 flex flex-col">
                 {/* Header */}
-                <div className="w-full flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                        <i className="ph-fill ph-fire text-orange-500"></i>
+                <div className="w-full flex justify-between items-center pb-3 border-b border-slate-800/60 mb-4">
+                    <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <i className="ph-fill ph-calendar text-emerald-450 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]"></i>
                         Streak & Activity
                     </h2>
-                    <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">
-                        Multiplier: {multiplier.toFixed(1)}x
+                    <span className="text-[10px] uppercase font-black px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full tracking-wider">
+                        Streak Grid
                     </span>
                 </div>
 
                 {/* Multipliers & Stats Row */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
-                    <div className="bg-slate-900 border border-slate-700/60 p-3 rounded-xl flex items-center gap-3">
+                    <div className="bg-slate-955/40 border border-slate-800/80 p-3 rounded-xl flex items-center gap-3 transition-colors group-hover:bg-slate-900/35">
                         <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-lg border border-orange-500/20">
                             🔥
                         </div>
@@ -78,7 +80,7 @@ const StreakCalendar = ({ activities, streakInfo }) => {
                         </div>
                     </div>
 
-                    <div className="bg-slate-900 border border-slate-700/60 p-3 rounded-xl flex items-center gap-3">
+                    <div className="bg-slate-955/40 border border-slate-800/80 p-3 rounded-xl flex items-center gap-3 transition-colors group-hover:bg-slate-900/35">
                         <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center text-lg border border-yellow-500/20">
                             👑
                         </div>
@@ -90,7 +92,7 @@ const StreakCalendar = ({ activities, streakInfo }) => {
                 </div>
 
                 {/* 28-day Activity Grid */}
-                <div className="bg-slate-900 border border-slate-700/60 rounded-xl p-4 flex flex-col items-center">
+                <div className="bg-slate-955/50 border border-slate-805/80 rounded-xl p-4 flex flex-col items-center transition-colors group-hover:bg-slate-950/60">
                     <div className="flex gap-3 items-center">
                         {/* Day names column */}
                         <div className="flex flex-col gap-1.5 justify-between text-[9px] font-bold text-slate-500 select-none">

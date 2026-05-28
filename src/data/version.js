@@ -1,19 +1,16 @@
-export const VINYAS_APP_VERSION = '1.2.2';
+export const VINYAS_APP_VERSION = '1.2.3';
 export const VINYAS_EXTENSION_VERSION = '1.2.1';
 
 export const WHATS_NEW_CHANGELOG = {
-  version: '1.2.2',
-  date: 'May 27, 2026',
-  coreChanges: [
-    '👤 Integrated Account Profile editing and instant local/cloud synchronization of custom usernames.',
-    '🔒 Strengthened api/data endpoint to dynamically accept and sync profile updates across multiple linked sessions.'
-  ],
+  version: '1.2.3',
+  date: 'May 28, 2026',
+  coreChanges: [],
   clientChanges: [
-    '🎨 Upgraded brand logo typography to Space Grotesk with a stunning 5-color logo-themed gradient.',
-    '🔍 Optimized horizontal header layout with a collapsable search bar (collapses to icon on mobile) and responsive username text truncation.',
-    '📅 Portaled Target Date picker modal to body to prevent overflow clipping in sticky header container.',
-    '💾 Added a backup warning recommendation overlay on dismiss of What\'s New to secure user state via secure GCM-AES JSON files.',
-    '🛠️ Added a developer sandbox shortcut button to simulate the "What\'s New" popups inside DevToolsOverlay.'
+    '🐞 Added a bug report button right next to the Vinyas logo — tap it anytime to report an issue, take a snapshot, or send feedback to the developer.',
+    '📚 You can now add your own custom chapters to any subject directly from the subject header.',
+    '✨ Progress bar animations now only play when you hover over a subject — no more constant flashing while you study.',
+    '🔧 Fixed a scrolling bug where an extra horizontal scrollbar appeared on the syllabus page.',
+    '🎯 Menus and pop-ups no longer get cut off — everything now opens and displays fully.'
   ],
   actionRequired: [
     'Vinyas Extension (v1.2.1) is fully compatible. No extension updates are required for this release.'

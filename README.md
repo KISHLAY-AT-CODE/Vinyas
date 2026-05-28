@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.1-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.2.3-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -22,7 +22,7 @@
 
 **Vinyas** is a state-of-the-art educational tracker designed for students mastering custom exam targets. Vinyas bridges the gap between passive learning and active tracking by automatically logging video lecture hours, Daily Practice Problem (DPP) scores, and textbook progress from external learning platforms (such as PhysicsWallah) via a custom-built Chrome Extension.
 
-Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, daily planner workflows, a retro diagnostics terminal console, and automated encrypted email backups, Vinyas empowers students to optimize their prep with visual analytics, streaks, achievements, and intelligent AI assistance.
+Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, daily planner workflows, an integrated diagnostics bug reporter, and automated encrypted email backups, Vinyas empowers students to optimize their prep with visual analytics, streaks, achievements, and intelligent AI assistance.
 
 > **Live Demo**: [vinyas-one.vercel.app](https://vinyas-one.vercel.app)
 
@@ -45,8 +45,6 @@ Generates a comprehensive exam syllabus instantly from **server-hosted templates
 ### 🤖 Intelligent AI Gateway
 Features a **load-balanced API routing** system cycling through up to **20 Google Gemini API keys** with multi-level failover tiers to **Cerebras (GPT-OSS-120B)** and **Groq (Llama-3.3-70B)** in case of rate limits. Includes per-user rate limiting (15 req/min) and Sync ID authentication.
 
-### 📟 Diagnostics Console
-An interactive retro-terminal panel accessible at `/console`, displaying live sync streams, Chrome Extension intercept feeds, database write logs, and security-redacted payload dumps. Features real-time event logging with severity levels.
 
 ### 🐞 Diagnostics & Bug Reporter
 Exposes a secure diagnostics panel and bug reporting tool. In case of issues, students can upload a description along with a screenshot (under 2MB). The system automatically packages OS specs, Sync IDs, and recent local logs into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay without ever storing the image or raw details on Vercel's server disk or inside MongoDB.
@@ -146,7 +144,7 @@ Vinyas/
 │   │   ├── SpacedRepetition.jsx        # Flashcard system
 │   │   ├── StreakCalendar.jsx          # GitHub-style streak heatmap
 │   │   ├── AchievementToast.jsx        # Full-screen celebration animations
-│   │   ├── ActivityConsole.jsx         # Retro terminal diagnostics
+│   │   ├── Header.jsx                  # Brand + diagnostic bug-button dropdown
 │   │   ├── ExtensionPage.jsx           # Extension download & tutorial hub
 │   │   ├── CohortSetupModal.jsx        # Syllabus template builder wizard
 │   │   ├── MorningPlannerModal.jsx     # Daily study plan creator
@@ -316,7 +314,22 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
-### v1.2.1 (May 26, 2026) - Latest Update
+### v1.2.3 (May 28, 2026) - Latest Update
+- 🐞 **Bug Report Button**: Added a quick-access bug report button right next to the Vinyas logo — tap it to report an issue, take a snapshot, or send feedback.
+- 📚 **Custom Chapters**: You can now add your own chapters to any subject directly from the subject header.
+- ✨ **Calmer Progress Animations**: Progress bar shine effects now only appear when you hover over a subject — no more constant flashing.
+- 🔧 **Scrollbar Fix**: Removed a stray horizontal scrollbar that appeared on the syllabus page.
+- 🎯 **Menus Stay Visible**: Pop-ups and dropdowns no longer get clipped — everything opens and displays fully.
+
+### v1.2.2 (May 27, 2026)
+- 👤 **Account Profile Editing**: Integrated username editing with instant local/cloud synchronization.
+- 🔒 **Multi-Session Profile Sync**: Strengthened `api/data` to accept and sync profile updates across multiple linked sessions.
+- 🎨 **Space Grotesk Logo**: Upgraded brand logo typography to Space Grotesk with a 5-color logo-themed gradient.
+- 🔍 **Collapsible Search Bar**: Optimized header layout with a collapsible search bar that shrinks to an icon on mobile.
+- 💾 **Backup Overlay on Dismiss**: Added a backup recommendation overlay on dismissal of What's New to prompt users to secure their state.
+- 🛠️ **DevTools "What's New" Simulator**: Added a sandbox shortcut to simulate What's New popups inside DevToolsOverlay.
+
+### v1.2.1 (May 26, 2026)
 - 🔒 **Secured Sync ID Login**: Configured credentials load system utilizing Sync ID as secure password verification.
 - 📧 **Inactivity Warning Fixes**: Cancel active profile warning countdowns on user logins, resetting inactivity limits.
 - 🔄 **Duplicate Chapter Resolver**: Reroute study telemetry to unresolved queues if duplicate chapter names are matched.

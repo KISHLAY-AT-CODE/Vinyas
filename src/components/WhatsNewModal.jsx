@@ -66,12 +66,12 @@ const WhatsNewModal = ({ isOpen, changelog, currentExtVersion, installedExtVersi
                                 </div>
                             )}
 
-                            {/* Client Side Changes */}
+                            {/* What's Changed */}
                             {changelog.clientChanges && changelog.clientChanges.length > 0 && (
-                                <div className="space-y-3 border-t border-slate-850 pt-5">
+                                <div className="space-y-3">
                                     <h3 className="text-sm font-extrabold text-slate-200 flex items-center gap-2">
-                                        <i className="ph-bold ph-monitor text-blue-500 text-lg"></i>
-                                        <span>Client Side Changes</span>
+                                        <i className="ph-bold ph-sparkle text-blue-500 text-lg"></i>
+                                        <span>What's Changed</span>
                                     </h3>
                                     <ul className="space-y-2.5 pl-7">
                                         {changelog.clientChanges.map((change, index) => (

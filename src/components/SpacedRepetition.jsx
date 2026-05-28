@@ -133,32 +133,35 @@ const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => 
     };
 
     return (
-        <div className="bg-slate-800 rounded-2xl shadow-lg border border-slate-700 p-6 relative overflow-hidden group">
-            <div className="absolute right-2 top-2 opacity-10 pointer-events-none drop-shadow-2xl">
+        <div className="glass-card hover-spaced p-6 relative overflow-hidden group transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
+            {/* Accent lighting divider top header */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/20 to-transparent"></div>
+            {/* Visual background icon */}
+            <div className="absolute right-2 top-2 opacity-10 pointer-events-none drop-shadow-2xl transition-transform duration-500 group-hover:scale-110">
                 <i className="ph-fill ph-brain text-[80px] text-purple-400"></i>
             </div>
 
             <div className="relative z-10 flex flex-col">
                 {/* Header */}
-                <div className="w-full flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                        <i className="ph-fill ph-brain text-purple-400"></i>
-                        Revision scheduler
+                <div className="w-full flex justify-between items-center pb-3 border-b border-slate-800/60 mb-4">
+                    <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <i className="ph-fill ph-brain text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]"></i>
+                        Revision Scheduler
                     </h2>
-                    <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                    <span className="text-[10px] uppercase font-black px-2.5 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full tracking-wider">
                         Spaced Repetition
                     </span>
                 </div>
 
                 {/* Queue Summary */}
-                <div className="flex gap-4 items-center justify-between mb-4 bg-slate-900/50 rounded-xl p-3 border border-slate-700/50">
+                <div className="flex gap-4 items-center justify-between mb-4 bg-slate-950/45 rounded-xl p-3 border border-slate-800/80 transition-colors group-hover:bg-slate-950/60">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">DUE REVIEWS</span>
                         <span className={`text-2xl font-black ${dueCount > 0 ? 'text-purple-400' : 'text-slate-400'}`}>
                             {dueCount}
                         </span>
                     </div>
-                    <div className="w-px h-8 bg-slate-700"></div>
+                    <div className="w-px h-8 bg-slate-850"></div>
                     <div className="flex flex-col items-end">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SCHEDULED</span>
                         <span className="text-2xl font-black text-slate-300">
@@ -169,7 +172,7 @@ const SpacedRepetition = ({ data, syncId, onUpdateChapter, requestConfirm }) => 
 
                 {/* Active Card */}
                 {activeItem ? (
-                    <div className="bg-slate-900 border border-slate-700/70 rounded-xl p-4 flex flex-col min-h-[160px] justify-between transition-all">
+                    <div className="bg-slate-955/50 border border-slate-805/85 rounded-xl p-4 flex flex-col min-h-[160px] justify-between transition-all hover:bg-slate-900/40">
                         <div>
                             <div className="flex justify-between items-start mb-2">
                                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full text-white ${activeItem.subjectColor}`}>

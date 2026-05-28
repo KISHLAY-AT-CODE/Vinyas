@@ -8,6 +8,7 @@ import { initialSyllabus, YogiLogo, generateEmptyChapter } from './data/constant
 import Header from './components/Header';
 import GamifiedDashboard from './components/GamifiedDashboard';
 import SubjectTable, { getEffectiveStatusInfo } from './components/SubjectTable';
+import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from './components/ConfirmationModal';
 import Modals from './components/Modals';
 import SearchOverlay from './components/SearchOverlay';
@@ -18,7 +19,6 @@ import NightlyWrapUpModal from './components/NightlyWrapUpModal';
 import AchievementToast from './components/AchievementToast';
 import { useAchievements } from './hooks/useAchievements';
 import CohortSetupModal from './components/CohortSetupModal';
-import ActivityConsole from './components/ActivityConsole';
 import ExtensionPage from './components/ExtensionPage';
 import BackupSettingsModal from './components/BackupSettingsModal';
 import ResolveSubmissionsModal from './components/ResolveSubmissionsModal';
@@ -38,6 +38,47 @@ const getDefaultTargetDate = () => {
     const date = new Date();
     date.setDate(date.getDate() + 100);
     return date.toISOString().split('T')[0];
+};
+
+// Framer Motion slide variants for the carousel
+const slideVariants = {
+    initial: (direction) => ({
+        x: direction > 0 ? 55 : -55,
+        opacity: 0
+    }),
+    animate: {
+        x: 0,
+        opacity: 1
+    },
+    exit: (direction) => ({
+        x: direction > 0 ? -55 : 55,
+        opacity: 0
+    })
+};
+
+// Helper: resolve subject identities to glowing caret colors
+const getSubjectColorTheme = (subjectName) => {
+    const nameLower = (subjectName || '').toLowerCase();
+    if (nameLower.includes('physic')) return {
+        borderHover: 'hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.35)]',
+        textHover: 'hover:text-blue-400'
+    };
+    if (nameLower.includes('chem')) return {
+        borderHover: 'hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.35)]',
+        textHover: 'hover:text-emerald-400'
+    };
+    if (nameLower.includes('math') || nameLower.includes('calculus') || nameLower.includes('algeb')) return {
+        borderHover: 'hover:border-rose-500/50 hover:shadow-[0_0_15px_rgba(244,63,94,0.35)]',
+        textHover: 'hover:text-rose-400'
+    };
+    if (nameLower.includes('biolog') || nameLower.includes('botan') || nameLower.includes('zool')) return {
+        borderHover: 'hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.35)]',
+        textHover: 'hover:text-purple-400'
+    };
+    return {
+        borderHover: 'hover:border-indigo-500/50 hover:shadow-[0_0_15px_rgba(99,102,241,0.35)]',
+        textHover: 'hover:text-indigo-400'
+    };
 };
 
 // Utility: fuzzy-match a search string against all chapter names in the syllabus
@@ -338,12 +379,132 @@ const App = () => {
 
     // Core States
     const [data, setData] = useState(initialSyllabus);
+    const [activeSubjectIdx, setActiveSubjectIdx] = useState(0);
+    const [direction, setDirection] = useState(0);
+    const lastTransitionTime = useRef(0);
+    const touchStartY = useRef(0);
+
+    const handleNextSubject = useCallback(() => {
+        if (activeSubjectIdx < data.length - 1) {
+            setDirection(1);
+            setActiveSubjectIdx(prev => prev + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [activeSubjectIdx, data.length]);
+
+    const handlePrevSubject = useCallback(() => {
+        if (activeSubjectIdx > 0) {
+            setDirection(-1);
+            setActiveSubjectIdx(prev => prev - 1);
+            // Defer scrolling to bottom so previous card height finishes mounting in DOM
+            setTimeout(() => {
+                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+            }, 80);
+        }
+    }, [activeSubjectIdx]);
+
+    // Auto-switching boundary scroll detection (Desktop scroll & Mobile swipe)
+    useEffect(() => {
+        let ticking = false;
+
+        const handleScrollBoundary = (deltaY) => {
+            // Prevent fast multiple transitions with a 900ms cooldown lockout
+            if (Date.now() - lastTransitionTime.current < 900) return;
+
+            const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 15;
+            const isAtTop = window.scrollY <= 15;
+
+            // deltaY > 20 indicates scrolling down at the bottom
+            if (isAtBottom && deltaY > 20) {
+                if (activeSubjectIdx < data.length - 1) {
+                    lastTransitionTime.current = Date.now();
+                    setDirection(1);
+                    setActiveSubjectIdx(prev => prev + 1);
+                    window.scrollTo({ top: 0, behavior: 'auto' });
+                }
+            } 
+            // deltaY < -20 indicates scrolling up at the top
+            else if (isAtTop && deltaY < -20) {
+                if (activeSubjectIdx > 0) {
+                    lastTransitionTime.current = Date.now();
+                    setDirection(-1);
+                    setActiveSubjectIdx(prev => prev - 1);
+                    setTimeout(() => {
+                        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+                    }, 50);
+                }
+            }
+        };
+
+        const handleWheel = (e) => {
+            const deltaY = e.deltaY;
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    handleScrollBoundary(deltaY);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+
+        const handleTouchStart = (e) => {
+            touchStartY.current = e.touches[0].clientY;
+        };
+
+        const handleTouchEnd = (e) => {
+            if (Date.now() - lastTransitionTime.current < 900) return;
+            if (!touchStartY.current) return;
+
+            const deltaY = touchStartY.current - e.changedTouches[0].clientY; // positive = swipe up (scroll down)
+            const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 20;
+            const isAtTop = window.scrollY <= 20;
+
+            if (isAtBottom && deltaY > 60) {
+                if (activeSubjectIdx < data.length - 1) {
+                    lastTransitionTime.current = Date.now();
+                    setDirection(1);
+                    setActiveSubjectIdx(prev => prev + 1);
+                    window.scrollTo({ top: 0, behavior: 'auto' });
+                }
+            } else if (isAtTop && deltaY < -60) {
+                if (activeSubjectIdx > 0) {
+                    lastTransitionTime.current = Date.now();
+                    setDirection(-1);
+                    setActiveSubjectIdx(prev => prev - 1);
+                    setTimeout(() => {
+                        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+                    }, 50);
+                }
+            }
+        };
+
+        window.addEventListener('wheel', handleWheel, { passive: true });
+        window.addEventListener('touchstart', handleTouchStart, { passive: true });
+        window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        return () => {
+            window.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [activeSubjectIdx, data.length]);
+
     const [routines, setRoutines] = useState([]);
     const [targetDate, setTargetDate] = useState(getDefaultTargetDate());
     const [testLogs, setTestLogs] = useState([]);
     const [email, setEmail] = useState('');
     const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
     const [backupSettingsOpen, setBackupSettingsOpen] = useState(false);
+
+    // Dashboard card visibility state (lifted)
+    const [isCardHidden, setIsCardHidden] = useState(() => {
+        return localStorage.getItem('vinyas_dashboard_card_hidden') === 'true';
+    });
+
+    const handleToggleCardHidden = (hiddenValue) => {
+        setIsCardHidden(hiddenValue);
+        localStorage.setItem('vinyas_dashboard_card_hidden', String(hiddenValue));
+    };
 
     // Versioning & Extension states
     const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -2584,9 +2745,12 @@ const App = () => {
                 setIsSearchFocused={setIsSearchFocused}
                 searchResults={searchResults}
                 handleInlineSearchSelect={handleInlineSearchSelect}
+                activities={activities}
+                requestConfirm={requestConfirm}
+                onOpenBugReport={() => setBugReportOpen(true)}
             />
 
-            <main className="max-w-7xl mx-auto px-4 grid grid-cols-1 xl:grid-cols-4 gap-8">
+            <main className={`w-full max-w-none mx-auto grid grid-cols-1 xl:grid-cols-4 gap-8 transition-all duration-300 ${isCardHidden ? 'pl-4 xl:pl-28 pr-4 xl:pr-8' : 'pl-4 xl:pl-8 pr-4 xl:pr-8'}`}>
                 <GamifiedDashboard 
                     currentLevel={currentLevel} 
                     focusPoints={focusPoints} 
@@ -2609,7 +2773,6 @@ const App = () => {
                     handleSaveGoal={handleSaveGoal}
                     handleDiscardGoal={handleDiscardGoal}
                     handleRemoveRoutine={handleRemoveRoutine}
-                    openActivityConsole={() => navigate('/console')}
                     syncId={syncId}
                     onLogFocusTime={handleLogFocusTime}
                     onUpdateChapter={handleUpdateChapter}
@@ -2617,24 +2780,135 @@ const App = () => {
                     onTriggerTestAchievement={triggerTestAchievement}
                     onTriggerSpecificAchievement={triggerSpecificAchievement}
                     requestConfirm={requestConfirm}
+                    isCardHidden={isCardHidden}
+                    handleToggleCardHidden={handleToggleCardHidden}
                 />
 
-                <div className="xl:col-span-3 space-y-8">
-                    {data.map((subject, sIdx) => (
-                        <SubjectTable 
-                            key={sIdx}
-                            subject={subject}
-                            sIdx={sIdx}
-                            handleUpdate={handleUpdate}
-                            handleNestedUpdate={handleNestedUpdate}
-                            openLogModal={openLogModal}
-                            getChapterAnalysis={getChapterAnalysis}
-                            openProgressModal={openProgressModal}
-                            addChapter={handleAddChapter}
-                            removeChapter={handleRemoveChapter}
-                            requestConfirm={requestConfirm}
-                        />
-                    ))}
+                <div className={`flex flex-col relative transition-all duration-300 ${isCardHidden ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
+                    {data.length > 0 ? (
+                        <>
+                            {/* Sleek Glassy Subject Pagination Nav */}
+                            <div className="flex justify-center items-center gap-4 mb-6 select-none animate-fade-in relative z-10 px-4">
+                                {/* Left Caret Button - Integrated inside the Nav Bar */}
+                                <button 
+                                    onClick={handlePrevSubject}
+                                    disabled={activeSubjectIdx === 0}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center bg-slate-950/60 backdrop-blur-md border border-slate-800/80 shadow-lg text-slate-450 hover:text-white transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed group ${
+                                        activeSubjectIdx > 0 ? getSubjectColorTheme(data[activeSubjectIdx - 1]?.name).borderHover + ' ' + getSubjectColorTheme(data[activeSubjectIdx - 1]?.name).textHover : ''
+                                    }`}
+                                    title={activeSubjectIdx > 0 ? `Go to ${data[activeSubjectIdx - 1]?.name}` : ''}
+                                >
+                                    <i className="ph-bold ph-caret-left text-base group-hover:-translate-x-0.5 transition-transform"></i>
+                                </button>
+
+                                {/* Tabs Capsule Container */}
+                                <div className="flex items-center gap-3 bg-slate-950/40 p-1.5 rounded-full border border-slate-800/60 shadow-inner">
+                                    {data.map((sub, sIdx) => {
+                                        const isActive = sIdx === activeSubjectIdx;
+                                        
+                                        // Dynamic color highlight mapped to subject identity
+                                        const nameLower = (sub.name || '').toLowerCase();
+                                        let theme = {
+                                            active: 'bg-indigo-500/25 border-indigo-500/40 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.25)] ring-1 ring-indigo-500/30',
+                                            hover: 'hover:border-indigo-500/30 hover:text-indigo-300'
+                                        };
+                                        if (nameLower.includes('physic')) {
+                                            theme = {
+                                                active: 'bg-blue-500/25 border-blue-500/40 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.25)] ring-1 ring-blue-500/30',
+                                                hover: 'hover:border-blue-500/30 hover:text-blue-300'
+                                            };
+                                        } else if (nameLower.includes('chem')) {
+                                            theme = {
+                                                active: 'bg-emerald-500/25 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30',
+                                                hover: 'hover:border-emerald-500/30 hover:text-emerald-300'
+                                            };
+                                        } else if (nameLower.includes('math') || nameLower.includes('calculus') || nameLower.includes('algeb')) {
+                                            theme = {
+                                                active: 'bg-rose-500/25 border-rose-500/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/30',
+                                                hover: 'hover:border-rose-500/30 hover:text-rose-300'
+                                            };
+                                        } else if (nameLower.includes('biolog') || nameLower.includes('botan') || nameLower.includes('zool')) {
+                                            theme = {
+                                                active: 'bg-purple-500/25 border-purple-500/40 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)] ring-1 ring-purple-500/30',
+                                                hover: 'hover:border-purple-500/30 hover:text-purple-300'
+                                            };
+                                        }
+
+                                        return (
+                                            <button
+                                                key={sIdx}
+                                                onClick={() => {
+                                                    if (sIdx !== activeSubjectIdx) {
+                                                        setDirection(sIdx > activeSubjectIdx ? 1 : -1);
+                                                        setActiveSubjectIdx(sIdx);
+                                                    }
+                                                }}
+                                                className={`px-5 py-2 rounded-full text-xs font-black border transition-all duration-300 cursor-pointer ${
+                                                    isActive 
+                                                        ? `${theme.active} scale-105` 
+                                                        : `bg-slate-900/40 border-slate-800/85 text-slate-450 hover:bg-slate-850/40 ${theme.hover}`
+                                                }`}
+                                            >
+                                                {sub.name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Right Caret Button - Integrated inside the Nav Bar */}
+                                <button 
+                                    onClick={handleNextSubject}
+                                    disabled={activeSubjectIdx === data.length - 1}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center bg-slate-950/60 backdrop-blur-md border border-slate-800/80 shadow-lg text-slate-450 hover:text-white transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed group ${
+                                        activeSubjectIdx < data.length - 1 ? getSubjectColorTheme(data[activeSubjectIdx + 1]?.name).borderHover + ' ' + getSubjectColorTheme(data[activeSubjectIdx + 1]?.name).textHover : ''
+                                    }`}
+                                    title={activeSubjectIdx < data.length - 1 ? `Go to ${data[activeSubjectIdx + 1]?.name}` : ''}
+                                >
+                                    <i className="ph-bold ph-caret-right text-base group-hover:translate-x-0.5 transition-transform"></i>
+                                </button>
+                            </div>
+
+                            {/* Active Card Container - 100% Horizontal bounds with No Side Overhangs */}
+                            <div className="w-full relative min-h-[400px]">
+                                {/* Slider viewport */}
+                                <div className="w-full overflow-visible">
+                                    <AnimatePresence mode="wait" initial={false}>
+                                        <motion.div
+                                            key={activeSubjectIdx}
+                                            custom={direction}
+                                            variants={slideVariants}
+                                            initial="initial"
+                                            animate="animate"
+                                            exit="exit"
+                                            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.35 }}
+                                            className="w-full"
+                                        >
+                                            {data[activeSubjectIdx] && (
+                                                <SubjectTable 
+                                                    subject={data[activeSubjectIdx]}
+                                                    sIdx={activeSubjectIdx}
+                                                    handleUpdate={handleUpdate}
+                                                    handleNestedUpdate={handleNestedUpdate}
+                                                    openLogModal={openLogModal}
+                                                    getChapterAnalysis={getChapterAnalysis}
+                                                    openProgressModal={openProgressModal}
+                                                    addChapter={handleAddChapter}
+                                                    removeChapter={handleRemoveChapter}
+                                                    requestConfirm={requestConfirm}
+                                                />
+                                            )}
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center py-16 bg-slate-900/20 backdrop-blur-md rounded-2xl border border-slate-800/60 text-slate-500 animate-fade-in flex flex-col items-center justify-center gap-3">
+                            <i className="ph-bold ph-books text-4xl text-slate-650"></i>
+                            <p className="font-bold text-sm text-slate-400">No subjects loaded in syllabus yet.</p>
+                            <p className="text-xs text-slate-500">Configure your syllabus card setup above to initialize subjects.</p>
+                        </div>
+                    )}
                 </div>
             </main>
 
@@ -2843,21 +3117,6 @@ const App = () => {
                         </button>
                     </div>
                 </>
-            ) : currentPath === '/console' ? (
-                <ActivityConsole 
-                    isOpen={true}
-                    onClose={() => {
-                        setBugReportOpen(false);
-                        navigate('/');
-                    }}
-                    syncId={syncId}
-                    activities={activities}
-                    isPolling={isPollingActivities}
-                    pollActivities={pollActivities}
-                    lastFetchTime={lastActivitiesFetchTime}
-                    requestConfirm={requestConfirm}
-                    onOpenBugReport={() => setBugReportOpen(true)}
-                />
             ) : currentPath === '/extension' ? (
                 <ExtensionPage 
                     onBack={() => navigate('/')}
