@@ -648,7 +648,7 @@ const ThemeModal = ({ isOpen, onClose, themeSettings, onUpdateThemeSettings, sho
                                 >
                                     {/* Dynamic Preview Background layer */}
                                     <div 
-                                        className="absolute inset-0 w-full h-full pointer-events-none"
+                                        className="absolute inset-0 w-full h-full pointer-events-none bg-image-ambient"
                                         style={{
                                             backgroundImage: `url(${themeSettings.uploadedImgLocal ? (localStorage.getItem('vinyasCustomLocalBg') || '') : themeSettings.uploadedImgUrl})`,
                                             backgroundSize: themeSettings.bgScale && themeSettings.bgScale !== 100 ? `${themeSettings.bgScale}%` : 'cover',

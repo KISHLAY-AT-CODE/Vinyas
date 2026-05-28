@@ -753,7 +753,7 @@ tr:hover .float-particle-5 {
 }
 
 /* Disable complex shadow rendering and CSS filter post-processing */
-.performance-mode *,
+.performance-mode *:not(.bg-image-ambient),
 .performance-mode ::before,
 .performance-mode ::after {
   box-shadow: none !important;

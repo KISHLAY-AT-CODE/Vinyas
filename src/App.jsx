@@ -2853,14 +2853,14 @@ const App = () => {
             <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none w-full h-full">
                 {(themeSettings.bgStyle === 'crisp-image' || themeSettings.bgStyle === 'pixelated-image') && activeCustomImg ? (
                     <div 
-                        className="absolute inset-0 w-full h-full animate-fade-in bg-[#070a13]"
+                        className="absolute inset-0 w-full h-full animate-fade-in bg-[#070a13] bg-image-ambient"
                         style={{ 
                             backgroundImage: `url(${activeCustomImg})`,
                             backgroundAttachment: 'fixed',
                             backgroundSize: themeSettings.bgScale && themeSettings.bgScale !== 100 ? `${themeSettings.bgScale}%` : 'cover',
                             backgroundPosition: `${themeSettings.bgPositionX !== undefined ? themeSettings.bgPositionX : 50}% ${themeSettings.bgPositionY !== undefined ? themeSettings.bgPositionY : 0}%`,
                             backgroundRepeat: 'no-repeat',
-                            filter: themeSettings.performanceMode ? 'none' : (themeSettings.bgBlur ? `blur(${themeSettings.bgBlur * 0.15}px)` : 'none'), 
+                            filter: themeSettings.bgBlur ? `blur(${themeSettings.bgBlur * 0.15}px)` : 'none', 
                             opacity: themeSettings.bgOpacity !== undefined ? themeSettings.bgOpacity : 0.25,
                             ...(themeSettings.bgStyle === 'pixelated-image' ? { imageRendering: 'pixelated' } : {})
                         }}
