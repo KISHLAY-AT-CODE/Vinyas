@@ -91,3 +91,5 @@ __pycache__/
 # Developer Tools
 src/components/DevToolsOverlay.jsx
 zip_extension.py
+summary.txt
+version_changelog.txt

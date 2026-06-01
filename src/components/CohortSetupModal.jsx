@@ -14,6 +14,7 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
     const [cohortInput, setCohortInput] = useState(currentCohort || '');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isTemplateSelect, setIsTemplateSelect] = useState(false);
+    const [isCreatingCustom, setIsCreatingCustom] = useState(false);
     
     // Step 2 State (Custom Syllabus Builder)
     const [customSyllabus, setCustomSyllabus] = useState([]);
@@ -58,14 +59,24 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
         setNewSubjectName('');
         setNewChapterName('');
         setIsTemplateSelect(false);
+        setIsCreatingCustom(false);
     };
 
     const handleNextStep = () => {
-        if (!cohortInput) return;
+        if (!cohortInput || !cohortInput.trim()) return;
 
-        const templateName = cohortInput;
+        const templateName = cohortInput.trim();
         setCustomSyllabus([]); // clear previous syllabus fields
-        if (templates[templateName]) {
+        
+        if (isCreatingCustom) {
+            setCustomSyllabus([
+                { name: 'Physics', chapters: [] },
+                { name: 'Chemistry', chapters: [] },
+                { name: 'Mathematics', chapters: [] }
+            ]);
+            setIsTemplateSelect(true);
+            showToast('Created custom blank templates. Add your chapters!', 'info');
+        } else if (templates[templateName]) {
             const loadedSyllabus = templates[templateName].map(sub => ({
                 name: sub.name,
                 chapters: sub.chapters.map(ch => ({
@@ -176,21 +187,27 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
         }));
     };
 
-    const handleFinishSetup = () => {
+    const handleFinishSetup = async () => {
         if (customSyllabus.length === 0) {
             showToast('Please add at least one subject.', 'warning');
             return;
         }
 
+        const trimmedCohort = cohortInput.trim();
+
+        if (isCreatingCustom) {
+            showToast(`Custom cohort "${trimmedCohort}" created successfully!`, 'success');
+        }
+
         // Initialize the cohort exam name and subjects list
         const subjectNames = customSyllabus.map(s => s.name);
-        onInitializeCohort(cohortInput.trim(), subjectNames, isTemplateSelect);
+        onInitializeCohort(trimmedCohort, subjectNames, isTemplateSelect);
 
         // Append the exact customized templates & chapters
         onAppendSyllabus(customSyllabus, isTemplateSelect);
 
         logEvent('COHORT_SETUP_COMPLETE', { 
-            cohort: cohortInput.trim(), 
+            cohort: trimmedCohort, 
             subjects: subjectNames,
             chaptersCount: customSyllabus.reduce((acc, s) => acc + s.chapters.length, 0)
         }, 'success');
@@ -232,15 +249,45 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                                         <i className="ph-bold ph-spinner-gap text-3xl animate-spin text-indigo-500"></i>
                                         <p className="text-xs font-semibold uppercase tracking-wider">Loading preloaded syllabus templates...</p>
                                     </div>
-                                ) : templateNames.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-500 border border-dashed border-slate-700 rounded-2xl">
-                                        <i className="ph-bold ph-warning-circle text-2xl mb-2 block"></i>
-                                        <p className="text-xs font-semibold">No templates found on server</p>
-                                    </div>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {/* Create Custom Template Option */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCohortInput('');
+                                                setIsCreatingCustom(true);
+                                                setIsTemplateSelect(false);
+                                            }}
+                                            className={`p-5 rounded-2xl border text-left transition-all duration-300 relative group flex flex-col justify-between h-32 cursor-pointer border-dashed ${
+                                                isCreatingCustom
+                                                    ? 'bg-indigo-950/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500/30'
+                                                    : 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/60 hover:border-slate-500'
+                                            }`}
+                                        >
+                                            {isCreatingCustom && (
+                                                <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs border border-indigo-400/50 shadow shadow-indigo-950/50 animate-pop-in">
+                                                    <i className="ph-bold ph-check text-[10px]"></i>
+                                                </div>
+                                            )}
+                                            
+                                            <div>
+                                                <h3 className={`font-black text-base flex items-center gap-1.5 transition-colors ${isCreatingCustom ? 'text-indigo-400' : 'text-slate-350 group-hover:text-white'}`}>
+                                                    <i className="ph-bold ph-plus-circle text-lg text-indigo-500"></i>
+                                                    Create Custom Template
+                                                </h3>
+                                                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1.5">
+                                                    Define your own subjects & chapters
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="text-xs font-bold text-slate-500 pt-2.5 mt-2 border-t border-slate-800/40">
+                                                Directly stored in database
+                                            </div>
+                                        </button>
+
                                         {templateNames.map((name, idx) => {
-                                            const isSelected = cohortInput === name;
+                                            const isSelected = cohortInput === name && !isCreatingCustom;
                                             const subjectCount = templates[name]?.length || 0;
                                             const chapterCount = templates[name]?.reduce((acc, sub) => acc + (sub.chapters?.length || 0), 0) || 0;
                                             
@@ -251,6 +298,7 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                                                     onClick={() => {
                                                         setCohortInput(name);
                                                         setIsTemplateSelect(true);
+                                                        setIsCreatingCustom(false);
                                                     }}
                                                     className={`p-5 rounded-2xl border text-left transition-all duration-300 relative group flex flex-col justify-between h-32 cursor-pointer ${
                                                         isSelected
@@ -291,9 +339,28 @@ const CohortSetupModal = ({ isOpen, onClose, currentCohort, onInitializeCohort, 
                                 )}
                             </div>
 
+                            {isCreatingCustom && (
+                                <div className="mt-4 p-4 bg-slate-900/45 border border-slate-700/50 rounded-2xl animate-pop-in">
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                        Custom Cohort / Exam Name
+                                    </label>
+                                    <input 
+                                        type="text"
+                                        value={cohortInput}
+                                        onChange={(e) => setCohortInput(e.target.value)}
+                                        placeholder="e.g. BITSAT Prep, NEET Crash Course..."
+                                        className="w-full bg-slate-900 border border-slate-750 focus:border-indigo-500/80 rounded-xl px-4 py-2.5 text-sm text-slate-250 outline-none transition-all duration-300 font-semibold"
+                                        onKeyDown={(e) => e.key === 'Enter' && cohortInput.trim() && handleNextStep()}
+                                    />
+                                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">
+                                        This template will be saved dynamically to the server's templates database.
+                                    </p>
+                                </div>
+                            )}
+
                             <button 
                                 onClick={handleNextStep}
-                                disabled={!cohortInput}
+                                disabled={!cohortInput || !cohortInput.trim()}
                                 className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-950/20 hover:shadow-indigo-950/40 hover:scale-[1.01] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <span>Continue to Curate Syllabus</span>

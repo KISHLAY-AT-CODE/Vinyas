@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Vinyas Tracker",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "description": "Tracks PW activity and syncs it to Vinyas Dashboard",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
   "host_permissions": [
     "*://*.pw.live/*",
     "*://pw.live/*",
@@ -13,14 +16,14 @@
     "https://*.vercel.app/*"
   ],
   "icons": {
-    "16": "favicon.ico",
-    "32": "favicon.ico",
-    "48": "favicon.ico",
-    "128": "favicon.ico"
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "favicon.ico"
+    "default_icon": "icon.png"
   },
   "content_scripts": [
     {
@@ -30,7 +33,9 @@
         "*://*.physicswallah.live/*",
         "*://physicswallah.live/*"
       ],
-      "js": ["content_script.js"],
+      "js": [
+        "content_script.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     },
@@ -40,7 +45,9 @@
         "http://127.0.0.1/*",
         "https://*.vercel.app/*"
       ],
-      "js": ["dashboard_connector.js"],
+      "js": [
+        "dashboard_connector.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
@@ -50,8 +57,15 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["favicon.ico"],
-      "matches": ["*://*.pw.live/*", "*://pw.live/*", "*://*.physicswallah.live/*", "*://physicswallah.live/*"]
+      "resources": [
+        "favicon.ico"
+      ],
+      "matches": [
+        "*://*.pw.live/*",
+        "*://pw.live/*",
+        "*://*.physicswallah.live/*",
+        "*://physicswallah.live/*"
+      ]
     }
   ]
 }

@@ -49,6 +49,45 @@ function isValidApiUrl(urlStr) {
     }
 }
 
+let pendingClickLog = null;
+let knownNewTabs = new Set();
+let recentlyCreatedTabs = [];
+
+function cleanRecentTabs() {
+    const now = Date.now();
+    recentlyCreatedTabs = recentlyCreatedTabs.filter(t => now - t.time < 3000);
+}
+
+function sendActivityToApi(logData) {
+    const { syncId, apiUrl, type, details, timestamp } = logData;
+    
+    console.log(`[Vinyas Tracker Background] Sending ${type} to ${apiUrl}/api/activity (Final)`);
+
+    fetch(`${apiUrl}/api/activity`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            syncId,
+            type,
+            details,
+            timestamp: timestamp || getISTISOString()
+        })
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const errText = await response.text().catch(() => '');
+            console.error("[Vinyas Tracker Background] Failed to log activity to API. Status:", response.status, "Error:", errText);
+        } else {
+            console.log("[Vinyas Tracker Background] Successfully logged activity.");
+        }
+    })
+    .catch(err => {
+        console.error("[Vinyas Tracker Background] Network error logging activity:", err);
+    });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "checkUrl") {
         const { syncId, apiUrl, url } = message.data;
@@ -84,6 +123,88 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // Handle asynchronously
     }
 
+    if (message.action === "checkAssignmentUrl") {
+        const { syncId, apiUrl, url } = message.data;
+
+        if (!syncId || !apiUrl) {
+            console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for checkAssignmentUrl");
+            sendResponse({ exists: false, error: "Missing Sync ID or API URL" });
+            return true;
+        }
+
+        if (!isValidApiUrl(apiUrl)) {
+            console.error("[Vinyas Tracker Background] Blocked invalid or unsafe API URL for checkAssignmentUrl:", apiUrl);
+            sendResponse({ exists: false, error: "Invalid or unsafe API URL" });
+            return true;
+        }
+
+        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkAssignmentUrl=${encodeURIComponent(url)}`)
+        .then(async response => {
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(errText || `HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            sendResponse({ exists: !!data.exists });
+        })
+        .catch(err => {
+            console.error("[Vinyas Tracker Background] Error checking assignment URL existence:", err);
+            sendResponse({ exists: false, error: err.message });
+        });
+
+        return true; // Handle asynchronously
+    }
+
+    if (message.action === "addAssignment") {
+        const { syncId, apiUrl, chapterName, assignmentName, url } = message.data;
+
+        if (!syncId || !apiUrl) {
+            console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for addAssignment");
+            sendResponse({ success: false, error: "Missing Sync ID or API URL" });
+            return true;
+        }
+
+        if (!isValidApiUrl(apiUrl)) {
+            console.error("[Vinyas Tracker Background] Blocked invalid or unsafe API URL for addAssignment:", apiUrl);
+            sendResponse({ success: false, error: "Invalid or unsafe API URL" });
+            return true;
+        }
+
+        fetch(`${apiUrl}/api/activity`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                syncId,
+                type: 'ADD_ASSIGNMENT',
+                details: {
+                    chapterName,
+                    assignmentName,
+                    url
+                }
+            })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(errText || `HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            sendResponse({ success: true, unresolved: !!data.unresolved });
+        })
+        .catch(err => {
+            console.error("[Vinyas Tracker Background] Error adding assignment:", err);
+            sendResponse({ success: false, error: err.message });
+        });
+
+        return true; // Handle asynchronously
+    }
+
     if (message.action === "logActivity") {
         const { syncId, apiUrl, type, details } = message.data;
 
@@ -100,37 +221,115 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
         }
 
-        console.log(`[Vinyas Tracker Background] Sending ${type} to ${apiUrl}/api/activity`);
+        const logData = {
+            syncId,
+            apiUrl,
+            type,
+            details: { ...details },
+            timestamp: getISTISOString()
+        };
 
-        fetch(`${apiUrl}/api/activity`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                syncId,
-                type,
-                details,
-                timestamp: getISTISOString()
-            })
-        })
-        .then(async response => {
-            if (!response.ok) {
-                const errText = await response.text().catch(() => '');
-                console.error("[Vinyas Tracker Background] Failed to log activity to API. Status:", response.status, "Error:", errText);
-                sendResponse({ success: false, status: response.status, error: errText });
-            } else {
-                console.log("[Vinyas Tracker Background] Successfully logged activity.");
-                sendResponse({ success: true });
+        // If it's already marked as isOpenInNewTab, send immediately
+        if (details && details.isOpenInNewTab) {
+            sendActivityToApi(logData);
+            sendResponse({ success: true });
+            return true;
+        }
+
+        // For click logs, try to match with recently created tabs or buffer
+        if (type === 'PDF_CLICK') {
+            cleanRecentTabs();
+            
+            // Check if a new tab was created recently (within the last 1.5 seconds)
+            const matchedTab = recentlyCreatedTabs.find(t => Date.now() - t.time < 1500);
+            
+            if (matchedTab) {
+                console.log("[Vinyas Tracker Background] Found recently created tab in history:", matchedTab);
+                
+                logData.details.isOpenInNewTab = true;
+                logData.tabId = matchedTab.tabId;
+                
+                // If the tab already has a resolved URL, use it and send immediately
+                if (matchedTab.url && matchedTab.url.startsWith('http') && !matchedTab.url.includes('chrome://') && !matchedTab.url.includes('about:blank')) {
+                    logData.details.url = matchedTab.url;
+                    sendActivityToApi(logData);
+                    sendResponse({ success: true, correlatedRecent: true });
+                    return true;
+                } else {
+                    // Otherwise, buffer and wait for this specific tab's URL to resolve
+                    if (pendingClickLog && pendingClickLog.timeoutId) {
+                        clearTimeout(pendingClickLog.timeoutId);
+                        sendActivityToApi(pendingClickLog);
+                    }
+                    
+                    pendingClickLog = {
+                        ...logData,
+                        time: Date.now(),
+                        timeoutId: setTimeout(() => {
+                            if (pendingClickLog && pendingClickLog.time === logData.time) {
+                                sendActivityToApi(pendingClickLog);
+                                pendingClickLog = null;
+                            }
+                        }, 3000)
+                    };
+                    
+                    sendResponse({ success: true, bufferedForUrl: true });
+                    return true;
+                }
             }
-        })
-        .catch(err => {
-            console.error("[Vinyas Tracker Background] Network error logging activity:", err);
-            sendResponse({ success: false, error: err.message });
-        });
 
-        // Return true to indicate we will handle it asynchronously
-        return true; 
+            // Otherwise, buffer for 400ms to see if one is created shortly after
+            if (pendingClickLog && pendingClickLog.timeoutId) {
+                clearTimeout(pendingClickLog.timeoutId);
+                sendActivityToApi(pendingClickLog); // Send previous pending click log first
+            }
+
+            pendingClickLog = {
+                ...logData,
+                time: Date.now(),
+                tabId: null, // associated tab ID
+                timeoutId: setTimeout(() => {
+                    if (pendingClickLog && pendingClickLog.time === logData.time) {
+                        sendActivityToApi(pendingClickLog);
+                        pendingClickLog = null;
+                    }
+                }, 400) // Default same-tab delay
+            };
+
+            sendResponse({ success: true, buffered: true });
+            return true;
+        }
+
+        // Otherwise, send directly (e.g. video progress, DPP scores)
+        sendActivityToApi(logData);
+        if (type === 'INTERACTIVE_QUESTION_UPDATE') {
+            broadcastQuestionUpdateToDashboard(details);
+        }
+        sendResponse({ success: true });
+        return true;
+    }
+
+    function broadcastQuestionUpdateToDashboard(details) {
+        try {
+            chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                    const url = tab.url || '';
+                    if (url.includes('localhost:') || url.includes('127.0.0.1') || url.includes('.vercel.app')) {
+                        console.log("[Vinyas Tracker Background] Broadcasting syncQuestionUpdate to dashboard tab:", tab.id, url);
+                        chrome.tabs.sendMessage(tab.id, {
+                            action: "syncQuestionUpdate",
+                            data: details
+                        }, () => {
+                            if (chrome.runtime.lastError) {
+                                // Silent ignore if the message handler is not yet registered in this tab
+                            }
+                        });
+                    }
+                });
+            });
+        } catch (e) {
+            console.error("[Vinyas Tracker Background] Error in broadcasting question update:", e);
+        }
     }
 
     if (message.action === "autoSyncDashboardConfig") {
@@ -161,4 +360,125 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return true;
     }
+
+    if (message.action === "fetchSyllabus") {
+        const { syncId, apiUrl } = message.data;
+        if (!syncId || !apiUrl) {
+            sendResponse({ success: false, error: "Missing Sync ID or API URL" });
+            return true;
+        }
+        if (!isValidApiUrl(apiUrl)) {
+            sendResponse({ success: false, error: "Invalid API URL" });
+            return true;
+        }
+
+        fetch(`${apiUrl}/api/data?syncId=${encodeURIComponent(syncId)}`)
+        .then(async response => {
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(errText || `HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            sendResponse({ success: true, data });
+        })
+        .catch(err => {
+            console.error("[Vinyas Tracker Background] Error fetching syllabus:", err);
+            sendResponse({ success: false, error: err.message });
+        });
+        return true;
+    }
 });
+
+// Listen for new tab creation or updates to catch programmatic redirection
+function handleNewTabEvent(tabId, url) {
+    if (!pendingClickLog) return;
+    
+    // If we've associated this tabId or if we don't have a tabId associated yet
+    if (pendingClickLog.tabId !== null && pendingClickLog.tabId !== tabId) return;
+
+    // Check if the URL is resolved and valid
+    if (url && url.startsWith('http') && !url.includes('chrome://') && !url.includes('about:blank')) {
+        // Prevent duplicate tab triggers
+        if (knownNewTabs.has(tabId + '-' + url)) return;
+        knownNewTabs.add(tabId + '-' + url);
+
+        console.log("[Vinyas Tracker Background] Resolving tab URL for new tab activity:", url);
+
+        if (pendingClickLog.timeoutId) {
+            clearTimeout(pendingClickLog.timeoutId);
+        }
+
+        // Update the log URL and dispatch
+        pendingClickLog.details.isOpenInNewTab = true;
+        pendingClickLog.details.url = url;
+        
+        sendActivityToApi(pendingClickLog);
+        pendingClickLog = null;
+    }
+}
+
+chrome.tabs.onCreated.addListener((tab) => {
+    try {
+        console.log("[Vinyas Tracker Background] Tab created event:", tab.id, tab.url);
+        
+        cleanRecentTabs();
+        recentlyCreatedTabs.push({
+            tabId: tab.id,
+            url: tab.url || '',
+            time: Date.now()
+        });
+
+        // Check if we can correlate with a currently pending click log
+        if (pendingClickLog) {
+            console.log("[Vinyas Tracker Background] Correlating new tab with active pending click.");
+            pendingClickLog.details.isOpenInNewTab = true;
+            pendingClickLog.tabId = tab.id;
+            
+            if (pendingClickLog.timeoutId) {
+                clearTimeout(pendingClickLog.timeoutId);
+            }
+            
+            const logRef = pendingClickLog;
+            pendingClickLog.timeoutId = setTimeout(() => {
+                if (pendingClickLog && pendingClickLog.time === logRef.time) {
+                    console.log("[Vinyas Tracker Background] Fallback timeout fired: sending tab log as is without resolved URL.");
+                    sendActivityToApi(pendingClickLog);
+                    pendingClickLog = null;
+                }
+            }, 3000);
+
+            if (tab.url) {
+                handleNewTabEvent(tab.id, tab.url);
+            }
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker Background] Error onCreated tab:", e);
+    }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    try {
+        if (changeInfo.url) {
+            cleanRecentTabs();
+            const index = recentlyCreatedTabs.findIndex(t => t.tabId === tabId);
+            if (index !== -1) {
+                recentlyCreatedTabs[index].url = changeInfo.url;
+            }
+        }
+
+        if (pendingClickLog && pendingClickLog.tabId === tabId && changeInfo.url) {
+            handleNewTabEvent(tabId, changeInfo.url);
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker Background] Error onUpdated tab:", e);
+    }
+});
+
+// Periodic cleanup of tab cache
+setInterval(() => {
+    if (knownNewTabs.size > 100) {
+        knownNewTabs.clear();
+    }
+}, 60000);

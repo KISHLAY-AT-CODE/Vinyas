@@ -172,12 +172,22 @@ const Header = ({
     pollActivities,
     requestConfirm,
     onOpenBugReport,
-    onUpdateThemeSettings
+    onUpdateThemeSettings,
+    isSidebarVisible,
+    onToggleSidebar
 }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [showSyncId, setShowSyncId] = React.useState(false);
+    
+    // Spotlight Keyboard search selection state
+    const [selectedSearchIdx, setSelectedSearchIdx] = React.useState(0);
+
+    // Reset selection when search result list updates
+    React.useEffect(() => {
+        setSelectedSearchIdx(0);
+    }, [searchResults]);
     
     // Bug Diagnostic states and refs
     const bugMenuRef = React.useRef(null);
@@ -580,6 +590,22 @@ const Header = ({
                     setIsSearchFocused(true);
                     searchInputRef.current.focus();
                 }
+            } else if (event.key && event.key.toLowerCase() === 'r') {
+                if (event.ctrlKey || event.altKey || event.metaKey) {
+                    return;
+                }
+                const activeEl = document.activeElement;
+                if (
+                    activeEl && (
+                        activeEl.tagName === 'INPUT' || 
+                        activeEl.tagName === 'TEXTAREA' || 
+                        activeEl.isContentEditable
+                    )
+                ) {
+                    return;
+                }
+                event.preventDefault();
+                pollActivities && pollActivities();
             }
         };
 
@@ -587,7 +613,7 @@ const Header = ({
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [setIsSearchFocused]);
+    }, [setIsSearchFocused, pollActivities]);
 
     const handleFileImport = (event) => {
         const file = event.target.files?.[0];
@@ -636,7 +662,7 @@ const Header = ({
                                 Vinyas Tracker Extension Action Required
                             </h4>
                             <p className="text-[11px] font-semibold text-slate-300 mt-0.5 leading-relaxed">
-                                Missing or outdated extension detected (required: v1.2.2). Please download and load the updated extension in your browser.
+                                Missing or outdated extension detected (required: v{VINYAS_EXTENSION_VERSION}). Please download and load the updated extension in your browser.
                             </p>
                         </div>
                     </div>
@@ -647,7 +673,7 @@ const Header = ({
                         title="Download Extension ZIP file"
                     >
                         <i className="ph-bold ph-download-simple text-sm"></i>
-                        <span>Download Extension v1.2.2</span>
+                        <span>Download Extension v{VINYAS_EXTENSION_VERSION}</span>
                     </a>
                 </div>
             )}
@@ -655,9 +681,13 @@ const Header = ({
             <div className="w-full flex items-center justify-between gap-4 sm:gap-6 relative z-10">
                 {/* LEFT SIDE: Brand Logo, name & version (no box) */}
                 <div className={`flex items-center transition-all duration-300 shrink-0 ${isHeaderCollapsed ? 'gap-3' : 'gap-5'}`}>
-                    <div className="relative group shrink-0">
+                    <div 
+                        className="relative group shrink-0 select-none cursor-pointer"
+                        onClick={onToggleSidebar}
+                        title={isSidebarVisible ? "Hide Sidebar Dock" : "Show Sidebar Dock"}
+                    >
                         <div className="absolute inset-0 bg-gradient-to-tr from-orange-500 to-red-500 rounded-full blur-md opacity-35 group-hover:opacity-60 transition-opacity duration-300"></div>
-                        <YogiLogo className={`relative z-10 transition-all duration-300 group-hover:scale-[1.03] cursor-pointer ${isHeaderCollapsed ? 'w-10 h-10' : 'w-14 h-14'}`} />
+                        <YogiLogo className={`relative z-10 transition-all duration-300 group-hover:rotate-12 group-hover:scale-[1.06] active:scale-95 ${isHeaderCollapsed ? 'w-10 h-10' : 'w-14 h-14'}`} />
                     </div>
 
                     <div className="flex items-center min-w-0">
@@ -808,8 +838,8 @@ const Header = ({
                 {/* Greetings stack and settings icon in glassy look */}
                 <div className={`bg-slate-900/40 backdrop-blur-md border rounded-2xl flex items-center shadow-[0_0_20px_rgba(249,115,22,0.12)] hover:shadow-[0_0_25px_rgba(249,115,22,0.18)] transition-all duration-300 shrink-0 ${
                     isHeaderCollapsed 
-                        ? 'max-w-0 opacity-0 pointer-events-none px-0 py-0 gap-0 border-transparent overflow-hidden' 
-                        : 'max-w-[400px] opacity-100 border-white/20 px-5 py-2.5 gap-5'
+                        ? 'max-w-0 opacity-0 pointer-events-none px-0 py-0 gap-0 border-transparent overflow-hidden h-0' 
+                        : 'max-w-[400px] opacity-100 border-white/20 px-4 h-14 gap-4'
                 }`}>
                     <div className="flex items-center gap-1.5 text-base sm:text-lg tracking-wide whitespace-nowrap min-w-0">
                         <span className="font-semibold text-slate-400 shrink-0">Greetings</span>
@@ -820,6 +850,16 @@ const Header = ({
 
                     {/* Separation Line */}
                     <div className="w-px h-6 bg-slate-600/60"></div>
+
+                    {/* Refresh Button */}
+                    <button 
+                        onClick={() => pollActivities && pollActivities()}
+                        disabled={isPollingActivities}
+                        className="w-10 h-10 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/80 hover:border-orange-500/35 rounded-xl flex items-center justify-center text-slate-300 hover:text-orange-400 shadow transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                        title="Refresh, press R"
+                    >
+                        <i className={`ph-bold ph-arrows-clockwise text-lg ${isPollingActivities ? 'animate-spin text-orange-400' : ''}`}></i>
+                    </button>
 
                     {/* Settings Dropdown right beside greetings */}
                     <div className="relative" ref={dropdownRef}>
@@ -992,7 +1032,13 @@ const Header = ({
                                 setTimeout(() => searchInputRef.current?.focus(), 50);
                             }
                         }}
-                        className={`flex items-center bg-slate-900/60 border ${isSearchFocused ? 'border-orange-500/60 shadow-[0_0_12px_rgba(249,115,22,0.15)] px-4 py-3' : 'border-slate-800 p-3 md:px-4 md:py-3'} rounded-xl cursor-pointer transition-all duration-300 justify-center`}
+                        className={`flex items-center bg-slate-900/60 border ${
+                            isSearchFocused 
+                                ? 'border-orange-500/60 shadow-[0_0_12px_rgba(249,115,22,0.15)]' 
+                                : 'border-slate-800'
+                        } px-4 rounded-xl cursor-pointer transition-all duration-300 justify-center ${
+                            isHeaderCollapsed ? 'h-12' : 'h-14'
+                        }`}
                     >
                         <i className={`ph-bold ph-magnifying-glass text-base ${isSearchFocused ? 'text-orange-400' : 'text-slate-400'} shrink-0`}></i>
                         <input 
@@ -1002,6 +1048,25 @@ const Header = ({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
+                            onKeyDown={(e) => {
+                                if (searchResults.length === 0) return;
+                                if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    setSelectedSearchIdx(prev => (prev + 1) % searchResults.length);
+                                } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    setSelectedSearchIdx(prev => (prev - 1 + searchResults.length) % searchResults.length);
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const selected = searchResults[selectedSearchIdx];
+                                    if (selected) {
+                                        handleInlineSearchSelect(selected.sIdx, selected.cIdx);
+                                        setIsSearchFocused(false);
+                                    }
+                                } else if (e.key === 'Escape') {
+                                    setIsSearchFocused(false);
+                                }
+                            }}
                             className={`bg-transparent text-slate-200 outline-none placeholder-slate-500 text-sm font-semibold transition-all duration-300 ${isSearchFocused ? 'w-full ml-2.5 opacity-100' : 'w-0 md:w-full md:ml-2.5 overflow-hidden opacity-0 md:opacity-100'}`}
                         />
                         {isSearchFocused && searchQuery && (
@@ -1018,19 +1083,25 @@ const Header = ({
                     </div>
                     {isSearchFocused && searchResults.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden modal-animate max-h-60 overflow-y-auto">
-                            {searchResults.map((res, i) => (
-                                <div 
-                                    key={i} 
-                                    onMouseDown={() => {
-                                        handleInlineSearchSelect(res.sIdx, res.cIdx);
-                                        setIsSearchFocused(false);
-                                    }} 
-                                    className="px-3.5 py-2.5 hover:bg-slate-800 cursor-pointer flex items-center justify-between border-b border-slate-800 last:border-0 transition-colors"
-                                >
-                                    <span className="font-semibold text-xs text-slate-300">{res.name}</span>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded font-black text-white ${res.color}`}>{res.subject}</span>
-                                </div>
-                            ))}
+                            {searchResults.map((res, i) => {
+                                const isSelected = i === selectedSearchIdx;
+                                return (
+                                    <div 
+                                        key={i} 
+                                        onMouseDown={() => {
+                                            handleInlineSearchSelect(res.sIdx, res.cIdx);
+                                            setIsSearchFocused(false);
+                                        }} 
+                                        onMouseEnter={() => setSelectedSearchIdx(i)}
+                                        className={`px-3.5 py-2.5 cursor-pointer flex items-center justify-between border-b border-slate-800 last:border-0 transition-colors ${
+                                            isSelected ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/40 text-slate-300'
+                                        }`}
+                                    >
+                                        <span className="font-semibold text-xs">{res.name}</span>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded font-black text-white ${res.color}`}>{res.subject}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -1038,8 +1109,10 @@ const Header = ({
                 {/* RIGHT SIDE: Countdown and Hidden Input */}
                 <div className="flex items-center gap-3 shrink-0">
                     {/* Countdown Widget */}
-                    <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-800/80 rounded-2xl flex items-center shadow-xl relative overflow-hidden group hover:border-slate-700/80 transition-all duration-300 ${isHeaderCollapsed ? 'px-4 py-2 gap-3' : 'px-8 py-3.5 gap-6'}`}>
-                        <div className="flex flex-col items-end justify-center">
+                    <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-800/80 rounded-2xl flex items-center shadow-xl relative overflow-hidden group hover:border-slate-700/80 transition-all duration-300 ${
+                        isHeaderCollapsed ? 'px-4 gap-3 h-12' : 'px-6 gap-4 h-14'
+                    }`}>
+                        <div className="flex flex-col items-end justify-center shrink-0">
                             <span className={`font-black bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent leading-none transition-all duration-300 ${isHeaderCollapsed ? 'text-2xl' : 'text-3xl'}`}>{daysLeft}</span>
                             <span className={`text-[9px] uppercase font-bold text-slate-500 tracking-wider transition-all duration-300 overflow-hidden ${
                                 isHeaderCollapsed ? 'max-h-0 opacity-0 mt-0' : 'max-h-4 opacity-100 mt-0.5'
@@ -1073,7 +1146,9 @@ const Header = ({
                             onUpdateThemeSettings({ performanceMode: newMode });
                             showToast(newMode ? "Integrated Graphics / Performance Mode Enabled!" : "Normal Mode Enabled!", "info");
                         }}
-                        className={`h-10 px-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-md shrink-0 ${
+                        className={`px-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-md shrink-0 ${
+                            isHeaderCollapsed ? 'h-12' : 'h-14'
+                        } ${
                             themeSettings.performanceMode
                                 ? 'bg-orange-500/25 border-orange-500/50 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.25)] hover:bg-orange-500/30'
                                 : 'bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 text-slate-400 hover:text-slate-350 hover:border-slate-700/80'
@@ -1098,7 +1173,9 @@ const Header = ({
                     {/* Collapse/Expand Toggle Button: Always visible at the absolute rightmost edge */}
                     <button 
                         onClick={toggleHeaderCollapse}
-                        className="w-8 h-8 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 text-slate-400 hover:text-orange-400 flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer shrink-0"
+                        className={`rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 text-slate-400 hover:text-orange-400 flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer shrink-0 ${
+                            isHeaderCollapsed ? 'w-12 h-12' : 'w-14 h-14'
+                        }`}
                         title={isHeaderCollapsed ? "Expand Header" : "Collapse Header"}
                     >
                         <i className={`ph-bold ${isHeaderCollapsed ? 'ph-caret-down' : 'ph-caret-up'} text-base`}></i>

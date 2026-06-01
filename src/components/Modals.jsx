@@ -75,6 +75,29 @@ const Modals = ({
             ]
         },
         {
+            version: 'v1.2.5',
+            date: 'May 28, 2026',
+            changes: [
+                '⚡ Syllabus Scroll Optimization: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.',
+                '💾 Real-Time LocalStorage Sync: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.',
+                '🛡️ Save Mismatch Auto-Recovery: Compares questions progress on save and automatically restores correct status from LocalStorage in case of DB sync mismatch.',
+                '📊 Dynamic Setup Information: Extension setup page fetches and displays Chrome Extension and Android APK versions and file sizes dynamically from the server.',
+                '📜 Scrollable Setup Layout: Fixed layout constraints on the extension page to allow vertical scrolling on all viewports.',
+                '🔗 Smarter Extension Integration: Chrome Extension automatically bypasses already synced chapters and suppresses prompts when unconfigured.'
+            ]
+        },
+        {
+            version: 'v1.2.4',
+            date: 'May 28, 2026',
+            changes: [
+                '🎬 Custom Loading Screen: A beautiful branded loading animation with the Vinyas logo and an animated orange progress bar now appears while the app loads your data.',
+                '✨ Pinned Action Buttons: Save and Cancel buttons in all settings panels are now pinned at the bottom, so they are always accessible without scrolling.',
+                '🖼️ Sharp & Custom Backdrops: Uploaded background images now load crisp and clean by default, without any automatic blur or zoom.',
+                '🎨 Drag to Position: You can now click and drag your custom background image directly inside the settings preview to position it exactly how you want.',
+                '⚙️ Smooth Fade & Blur: Use the new opacity and blur sliders in the settings panel to customize the background style to your liking.'
+            ]
+        },
+        {
             version: 'v1.2.3',
             date: 'May 28, 2026',
             changes: [

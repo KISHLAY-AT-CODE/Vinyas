@@ -87,37 +87,6 @@ const ModuleQuestionTrackerModal = ({
         }
     }, [isOpen, questionStates]);
 
-    // Realtime LocalStorage updates and console logging
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const globalKey = 'vinyas_interactive_module_progress';
-        let storedGlobal = {};
-        try {
-            storedGlobal = JSON.parse(localStorage.getItem(globalKey) || '{}');
-        } catch (e) {}
-
-        const currentChapterKeys = new Set();
-        if (exercisesConfig) {
-            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
-                for (let q = 1; q <= qCount; q++) {
-                    currentChapterKeys.add(getQuestionKey(exName, q));
-                }
-            });
-        }
-
-        const newGlobal = { ...storedGlobal };
-        currentChapterKeys.forEach(k => {
-            if (localProgress[k]) {
-                newGlobal[k] = localProgress[k];
-            } else {
-                delete newGlobal[k];
-            }
-        });
-
-        localStorage.setItem(globalKey, JSON.stringify(newGlobal));
-    }, [localProgress, isOpen, exercisesConfig, normalizedSubName, chapterName, isChapter1]);
-
     // Toast Timer helper
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -194,6 +163,34 @@ const ModuleQuestionTrackerModal = ({
     };
 
     const handleSaveAndClose = async () => {
+        // Save question states to localStorage when explicitly locking in progress
+        const globalKey = 'vinyas_interactive_module_progress';
+        let storedGlobal = {};
+        try {
+            storedGlobal = JSON.parse(localStorage.getItem(globalKey) || '{}');
+        } catch (e) {}
+
+        const currentChapterKeys = new Set();
+        if (exercisesConfig) {
+            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                for (let q = 1; q <= qCount; q++) {
+                    currentChapterKeys.add(getQuestionKey(exName, q));
+                }
+            });
+        }
+
+        const newGlobal = { ...storedGlobal };
+        currentChapterKeys.forEach(k => {
+            if (localProgress[k]) {
+                newGlobal[k] = localProgress[k];
+            } else {
+                delete newGlobal[k];
+            }
+        });
+        try {
+            localStorage.setItem(globalKey, JSON.stringify(newGlobal));
+        } catch (e) {}
+
         // Lock in progress and accuracy to Vinyas syllabus state
         const result = await onSaveProgress({
             comp: stats.calculatedComp,

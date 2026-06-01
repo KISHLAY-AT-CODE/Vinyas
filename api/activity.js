@@ -2,6 +2,7 @@ import { connectToDatabase } from './db.js';
 import { getISTISOString, getISTLogPrefix } from '../src/shared/time.js';
 import { normalizeChapterName } from '../src/shared/normalize.js';
 import { resolveUser, hashSyncId } from './shared/auth.js';
+import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
 
 function normalizeUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return '';
@@ -105,6 +106,221 @@ export default async function handler(req, res) {
         await collection.updateOne({ syncId }, { $unset: { logoutTimestamp: "", alertSent: "" } });
       }
 
+      if (type === 'ADD_ASSIGNMENT') {
+        const { chapterName, assignmentName, url } = details || {};
+        if (!chapterName || !assignmentName || !url) {
+          return res.status(400).json({ error: 'Missing chapterName, assignmentName, or url' });
+        }
+
+        if (!existingDoc) {
+          return res.status(400).json({ error: 'User profile does not exist to add assignment' });
+        }
+
+        const baseTemplate = loadTemplate(existingDoc.cohort);
+        let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
+
+        const normSearchName = normalizeChapterName(chapterName);
+        let found = false;
+
+        for (const sub of syllabusData) {
+          for (const ch of sub.chapters) {
+            if (normalizeChapterName(ch.name) === normSearchName) {
+              if (!ch.assignments) {
+                ch.assignments = [];
+              }
+              // Avoid duplicates
+              if (!ch.assignments.some(a => a.url === url)) {
+                ch.assignments.push({ name: assignmentName, url });
+              }
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+
+        if (!found) {
+          const activityLog = {
+            id: Date.now().toString(),
+            type: 'ASSIGNMENT_SUBMISSION',
+            details: { chapterName, assignmentName, url },
+            timestamp: getISTISOString()
+          };
+          await collection.updateOne(
+            { syncId }, 
+            { 
+              $push: { 
+                activities: { 
+                  $each: [activityLog],
+                  $sort: { timestamp: -1 },
+                  $slice: 50
+                } 
+              } 
+            }
+          );
+          return res.status(200).json({ success: true, unresolved: true });
+        }
+
+        const serializedData = serializeSyllabus(syllabusData, baseTemplate);
+        await collection.updateOne(
+          { syncId },
+          { $set: { data: serializedData, lastUpdated: getISTISOString() } }
+        );
+
+        return res.status(200).json({ success: true });
+      }
+
+      if (type === 'INTERACTIVE_QUESTION_UPDATE') {
+        const { subjectName, chapterName, exerciseName, questionNumber, state } = details || {};
+        if (!subjectName || !chapterName || !exerciseName || !questionNumber) {
+          return res.status(400).json({ error: 'Missing subjectName, chapterName, exerciseName, or questionNumber' });
+        }
+
+        if (!existingDoc) {
+          return res.status(400).json({ error: 'User profile does not exist to update interactive question status' });
+        }
+
+        const baseTemplate = loadTemplate(existingDoc.cohort);
+        let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
+
+        let matchedSubjectIdx = -1;
+        let matchedChapterIdx = -1;
+
+        for (let sIdx = 0; sIdx < syllabusData.length; sIdx++) {
+          const sub = syllabusData[sIdx];
+          const normSubAct = subjectName.toLowerCase().trim();
+          const normSubSyll = sub.name.toLowerCase().trim();
+          if (normSubSyll.includes(normSubAct) || normSubAct.includes(normSubSyll) ||
+              (normSubAct.includes('math') && normSubSyll.includes('math')) ||
+              (normSubAct.includes('phys') && normSubSyll.includes('phys')) ||
+              (normSubAct.includes('chem') && normSubSyll.includes('chem'))
+          ) {
+            const normChAct = normalizeChapterName(chapterName);
+            const cIdx = sub.chapters.findIndex(ch => normalizeChapterName(ch.name) === normChAct);
+            if (cIdx !== -1) {
+              matchedSubjectIdx = sIdx;
+              matchedChapterIdx = cIdx;
+              break;
+            } else {
+              const candidates = [];
+              sub.chapters.forEach((ch, chIdx) => {
+                const chNorm = normalizeChapterName(ch.name);
+                if (chNorm.length > 2 && (chNorm.includes(normChAct) || normChAct.includes(chNorm))) {
+                  candidates.push({ chIdx, name: ch.name, length: chNorm.length });
+                }
+              });
+              if (candidates.length > 0) {
+                candidates.sort((a, b) => b.length - a.length);
+                matchedSubjectIdx = sIdx;
+                matchedChapterIdx = candidates[0].chIdx;
+                break;
+              }
+            }
+          }
+        }
+
+        if (matchedSubjectIdx !== -1 && matchedChapterIdx !== -1) {
+          const sub = syllabusData[matchedSubjectIdx];
+          const ch = sub.chapters[matchedChapterIdx];
+          
+          const normalizeSub = (name) => {
+            const s = (name || '').toLowerCase().trim();
+            if (s.includes('math')) return 'Maths';
+            if (s.includes('phys')) return 'Physics';
+            if (s.includes('chem')) return 'Chem';
+            return name || '';
+          };
+          const normSubName = normalizeSub(sub.name);
+          
+          const isChapter1 = (() => {
+            if (matchedChapterIdx === 0) return true;
+            const c = (ch.name || '').toLowerCase();
+            if (normSubName === 'Maths' && c.includes('sets')) return true;
+            if (normSubName === 'Physics' && c.includes('units')) return true;
+            if (normSubName === 'Chem' && c.includes('mole')) return true;
+            return false;
+          })();
+
+          const getQuestionKey = (exName, qNum) => {
+            if (isChapter1) {
+              return `${normSubName}-${exName}-${qNum}`;
+            } else {
+              return `${normSubName}-${ch.name}-${exName}-${qNum}`;
+            }
+          };
+
+          const key = getQuestionKey(exerciseName, questionNumber);
+          
+          if (!ch.moduleQuestionStates) {
+            ch.moduleQuestionStates = {};
+          }
+
+          if (state === 'none') {
+            delete ch.moduleQuestionStates[key];
+          } else {
+            ch.moduleQuestionStates[key] = state;
+          }
+
+          // Recompute stats
+          const exercisesConfig = ch.customExerciseConfig || {};
+          let completed = 0;
+          let difficult = 0;
+          let later = 0;
+          let total = 0;
+
+          Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+            total += qCount;
+            for (let q = 1; q <= qCount; q++) {
+              const qKey = getQuestionKey(exName, q);
+              if (ch.moduleQuestionStates[qKey]) {
+                if (ch.moduleQuestionStates[qKey] === 'completed') completed++;
+                else if (ch.moduleQuestionStates[qKey] === 'difficult') difficult++;
+                else if (ch.moduleQuestionStates[qKey] === 'later') later++;
+              }
+            }
+          });
+
+          const finalComp = total > 0 ? Math.round((completed / total) * 100) : 0;
+          const totalTracked = completed + difficult + later;
+          const finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
+
+          ch.module = {
+            ...(ch.module || {}),
+            comp: finalComp,
+            acc: finalAcc
+          };
+
+          const serializedData = serializeSyllabus(syllabusData, baseTemplate);
+          
+          // Generate a fresh activity log ID so the React App sees it as a new update and matches it reactively
+          const freshId = Date.now().toString();
+          const activityLog = {
+            id: freshId,
+            type,
+            details,
+            timestamp: getISTISOString()
+          };
+
+          await collection.updateOne(
+            { syncId },
+            { 
+              $set: { data: serializedData, lastUpdated: getISTISOString() },
+              $push: { 
+                activities: { 
+                  $each: [activityLog],
+                  $sort: { timestamp: -1 },
+                  $slice: 50
+                } 
+              }
+            }
+          );
+
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(404).json({ error: 'Chapter/Subject not found in syllabus' });
+        }
+      }
+
       // URL-based deduplication for DPP/Module submissions
       if (type === 'DPP_SCORE' && details?.url) {
         // If it's a MODULE, extract chapterTitle from URL to avoid generic "Exercise" titles overwriting each other
@@ -195,6 +411,8 @@ export default async function handler(req, res) {
         }
       }
 
+
+
       const activityLog = {
         id: Date.now().toString(),
         type,
@@ -221,7 +439,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      const { syncId: rawSyncId, date, checkUrl } = req.query;
+      const { syncId: rawSyncId, date, checkUrl, checkAssignmentUrl } = req.query;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const rawSyncIdTrimmed = String(rawSyncId).trim();
       if (!rawSyncIdTrimmed) return res.status(400).json({ error: 'syncId cannot be empty' });
@@ -230,15 +448,73 @@ export default async function handler(req, res) {
       if (!userDoc) return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
       const syncId = userDoc.syncId;
 
+      if (checkAssignmentUrl) {
+        const normCheckUrl = normalizeUrl(checkAssignmentUrl);
+        const syllabus = userDoc.data || {};
+        let exists = false;
+
+        if (syllabus.isRaw && Array.isArray(syllabus.data)) {
+          exists = syllabus.data.some(sub => 
+            sub.chapters?.some(ch => 
+              ch.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+            )
+          );
+        } else if (Array.isArray(syllabus)) {
+          exists = syllabus.some(sub => 
+            sub.chapters?.some(ch => 
+              ch.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+            )
+          );
+        } else {
+          const inProgress = syllabus.progressList?.some(p => 
+            p.progress?.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+          );
+          const inAdditions = syllabus.additions?.some(add => 
+            add.type === 'chapter' && 
+            add.chapter?.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+          );
+          exists = !!(inProgress || inAdditions);
+        }
+
+        return res.status(200).json({ exists });
+      }
+
       if (checkUrl) {
         // Find if a normalized matching URL exists in the database for the given syncId
         const activities = userDoc.activities || [];
         const normCheckUrl = normalizeUrl(checkUrl);
-        let exists = activities.some(act => 
-          (act.type === 'DPP_SCORE' || act.type === 'PW_BOOKS_QUESTIONS') && 
-          act.details?.url && 
-          normalizeUrl(act.details.url) === normCheckUrl
-        );
+        let exists = activities.some(act => {
+          if (act.type === 'BOOK_CHAPTER_SUBMISSION') {
+            return act.details?.chapterUrl && normalizeUrl(act.details.chapterUrl) === normCheckUrl;
+          }
+          return (act.type === 'DPP_SCORE' || act.type === 'PW_BOOKS_QUESTIONS' || act.type === 'BOOK_SUBMISSION') && 
+            act.details?.url && 
+            normalizeUrl(act.details.url) === normCheckUrl;
+        });
+
+        if (!exists) {
+          const syllabus = userDoc.data || {};
+          if (syllabus.isRaw && Array.isArray(syllabus.data)) {
+            exists = syllabus.data.some(sub => 
+              sub.books?.some(b => 
+                b.chapters && Object.values(b.chapters).some(chUrl => normalizeUrl(chUrl) === normCheckUrl)
+              )
+            );
+          } else {
+            const inColors = syllabus.subjectColors?.some(sub => 
+              sub.books?.some(b => 
+                b.chapters && Object.values(b.chapters).some(chUrl => normalizeUrl(chUrl) === normCheckUrl)
+              )
+            );
+            const inAdditions = syllabus.additions?.some(add => 
+              add.type === 'subject' && 
+              add.books?.some(b => 
+                b.chapters && Object.values(b.chapters).some(chUrl => normalizeUrl(chUrl) === normCheckUrl)
+              )
+            );
+            exists = !!(inColors || inAdditions);
+          }
+        }
 
         // For books/module practice pages, check if the chapter exercises are already configured in the syllabus.
         // If they are already configured, we force exists = true to bypass prompts.

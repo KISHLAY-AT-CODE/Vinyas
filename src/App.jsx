@@ -247,7 +247,7 @@ const applyActivitiesToChapter = (chapter, activities, targetChapterSearch, spec
     const linkedActIds = [];
 
     activities.forEach(act => {
-        if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return;
+        if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS' && act.type !== 'ASSIGNMENT_SUBMISSION') return;
         if (specificActivityId && act.id !== specificActivityId) return;
         
         let actChapterSearch = null;
@@ -264,6 +264,9 @@ const applyActivitiesToChapter = (chapter, activities, targetChapterSearch, spec
         } else if (act.type === 'PW_BOOKS_QUESTIONS') {
             actChapterSearch = act.details?.chapterName;
             actSection = 'module_layout';
+        } else if (act.type === 'ASSIGNMENT_SUBMISSION') {
+            actChapterSearch = act.details?.chapterName;
+            actSection = 'assignments';
         }
 
         const actNorm = normalizeChapterName(actChapterSearch);
@@ -275,6 +278,13 @@ const applyActivitiesToChapter = (chapter, activities, targetChapterSearch, spec
             if (act.type === 'PW_BOOKS_QUESTIONS') {
                 updatedChapter.customExerciseConfig = act.details.exercises;
                 updatedChapter.exerciseDisplayNames = act.details.displayNames;
+            } else if (act.type === 'ASSIGNMENT_SUBMISSION') {
+                if (!updatedChapter.assignments) {
+                    updatedChapter.assignments = [];
+                }
+                if (!updatedChapter.assignments.some(a => a.url === act.details.url)) {
+                    updatedChapter.assignments.push({ name: act.details.assignmentName, url: act.details.url });
+                }
             } else if (actSection === 'dpp') {
                 updatedChapter.dppLogs = { ...(updatedChapter.dppLogs || {}) };
                 updatedChapter.dppLogs[act.id] = { 
@@ -401,6 +411,20 @@ const App = () => {
         localStorage.setItem('vinyas_dashboard_card_hidden', String(hiddenValue));
     };
 
+    // Sidebar visibility state toggled via YogiLogo click in Header
+    const [isSidebarVisible, setIsSidebarVisible] = useState(() => {
+        return localStorage.getItem('vinyas_sidebar_visible') !== 'false';
+    });
+
+    const handleToggleSidebar = useCallback(() => {
+        setIsSidebarVisible(prev => {
+            const nextVal = !prev;
+            localStorage.setItem('vinyas_sidebar_visible', String(nextVal));
+            logEvent('SIDEBAR_TOGGLE', { visible: nextVal }, 'info');
+            return nextVal;
+        });
+    }, []);
+
     // Versioning & Extension states
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [installedExtVersion, setInstalledExtVersion] = useState(null);
@@ -430,6 +454,25 @@ const App = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [isScrolledPastSearch, setIsScrolledPastSearch] = useState(false);
+
+    // Developer Mode State & Console Polling (Toggles visibility dynamically via console)
+    const [devMode, setDevMode] = useState(() => {
+        const devModeRaw = localStorage.getItem('devMode');
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        return devModeRaw === 'true' || (devModeRaw === null && isLocal);
+    });
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const devModeRaw = localStorage.getItem('devMode');
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const currentDevMode = devModeRaw === 'true' || (devModeRaw === null && isLocal);
+            if (currentDevMode !== devMode) {
+                setDevMode(currentDevMode);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [devMode]);
 
     // Modals and Routine States
     const [logModalOpen, setLogModalOpen] = useState(false);
@@ -634,18 +677,6 @@ const App = () => {
     
     // Unresolved Submissions State
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
-    const [fabOpen, setFabOpen] = useState(false);
-    const fabRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (fabRef.current && !fabRef.current.contains(event.target)) {
-                setFabOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
 
     // Change Log & Bug Report Modals States
     const [changeLogOpen, setChangeLogOpen] = useState(false);
@@ -760,6 +791,42 @@ const App = () => {
                     }
                     
                     setData(parsedData);
+                    
+                    // Initialize localStorage vinyas_interactive_module_progress from MongoDB question states on load
+                    try {
+                        const storedGlobal = {};
+                        parsedData.forEach(sub => {
+                            const normalizeSub = (name) => {
+                                const s = (name || '').toLowerCase().trim();
+                                if (s.includes('math')) return 'Maths';
+                                if (s.includes('phys')) return 'Physics';
+                                if (s.includes('chem')) return 'Chem';
+                                return name || '';
+                            };
+                            const normSubName = normalizeSub(sub.name);
+                            
+                            sub.chapters?.forEach((ch, cIdx) => {
+                                const isChapter1 = (() => {
+                                    if (cIdx === 0) return true;
+                                    const c = (ch.name || '').toLowerCase();
+                                    if (normSubName === 'Maths' && c.includes('sets')) return true;
+                                    if (normSubName === 'Physics' && c.includes('units')) return true;
+                                    if (normSubName === 'Chem' && c.includes('mole')) return true;
+                                    return false;
+                                })();
+                                
+                                if (ch.moduleQuestionStates) {
+                                    Object.entries(ch.moduleQuestionStates).forEach(([key, state]) => {
+                                        storedGlobal[key] = state;
+                                    });
+                                }
+                            });
+                        });
+                        localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
+                        console.log("[Vinyas App] Initialized interactive module tracker progress in local storage:", storedGlobal);
+                    } catch (e) {
+                        console.error("[Vinyas App] Error initializing local storage from DB question states:", e);
+                    }
                     
                     if (serverData.routines) {
                         setRoutines(typeof serverData.routines === 'string' ? JSON.parse(serverData.routines) : serverData.routines);
@@ -984,7 +1051,7 @@ const App = () => {
                 clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled, themeSettings, triggerSave]);
+    }, [data, routines, testLogs, achievements, targetDate, cohort, resolvedActivityIds, syncId, isSyncIdSet, isLoaded, email, autoBackupEnabled, themeSettings, lastSeenAppVersion, lastSeenExtVersion, triggerSave]);
 
     // --- Versioning and Extension Detection Logic ---
     const pingExtension = useCallback(() => {
@@ -999,6 +1066,98 @@ const App = () => {
                 console.log("[Vinyas App] Detected extension version:", extVer);
                 setInstalledExtVersion(extVer);
                 setExtensionChecked(true);
+            } else if (event.data && event.data.type === 'VINYAS_SYNC_QUESTION_UPDATE') {
+                const { subjectName, chapterName, exerciseName, questionNumber, state } = event.data.data;
+                console.log("[Vinyas App] Received real-time question update from extension:", event.data.data);
+                
+                setData(prevData => prevData.map(sub => {
+                    if (sub.name.trim().toLowerCase() !== subjectName.trim().toLowerCase()) return sub;
+                    
+                    return {
+                        ...sub,
+                        chapters: sub.chapters.map((ch, cIdx) => {
+                            if (ch.name.trim().toLowerCase() !== chapterName.trim().toLowerCase()) return ch;
+                            
+                            const normalizeSub = (name) => {
+                                const s = (name || '').toLowerCase().trim();
+                                if (s.includes('math')) return 'Maths';
+                                if (s.includes('phys')) return 'Physics';
+                                if (s.includes('chem')) return 'Chem';
+                                return name || '';
+                            };
+                            const normSubName = normalizeSub(sub.name);
+                            
+                            const isChapter1 = (() => {
+                                if (cIdx === 0) return true;
+                                const cName = (ch.name || '').toLowerCase();
+                                if (normSubName === 'Maths' && cName.includes('sets')) return true;
+                                if (normSubName === 'Physics' && cName.includes('units')) return true;
+                                if (normSubName === 'Chem' && cName.includes('mole')) return true;
+                                return false;
+                            })();
+                            
+                            const getQuestionKey = (exName, qNum) => {
+                                if (isChapter1) {
+                                    return `${normSubName}-${exName}-${qNum}`;
+                                } else {
+                                    return `${normSubName}-${ch.name}-${exName}-${qNum}`;
+                                }
+                            };
+                            
+                            const key = getQuestionKey(exerciseName, questionNumber);
+                            const newStates = { ...(ch.moduleQuestionStates || {}) };
+                            if (state === 'none') {
+                                delete newStates[key];
+                            } else {
+                                newStates[key] = state;
+                            }
+                            
+                            // Recompute stats: comp & acc
+                            const exercisesConfig = ch.customExerciseConfig || {};
+                            let completed = 0;
+                            let difficult = 0;
+                            let later = 0;
+                            let total = 0;
+
+                            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                                total += qCount;
+                                for (let q = 1; q <= qCount; q++) {
+                                    const qKey = getQuestionKey(exName, q);
+                                    if (newStates[qKey]) {
+                                        if (newStates[qKey] === 'completed') completed++;
+                                        else if (newStates[qKey] === 'difficult') difficult++;
+                                        else if (newStates[qKey] === 'later') later++;
+                                    }
+                                }
+                            });
+
+                            const finalComp = total > 0 ? Math.round((completed / total) * 100) : 0;
+                            const totalTracked = completed + difficult + later;
+                            const finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
+                            
+                            // Also update localStorage backup in real-time
+                            try {
+                                const storedGlobal = JSON.parse(localStorage.getItem('vinyas_interactive_module_progress') || '{}');
+                                if (state === 'none') {
+                                    delete storedGlobal[key];
+                                } else {
+                                    storedGlobal[key] = state;
+                                }
+                                localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
+                            } catch (e) {}
+
+                            return {
+                                ...ch,
+                                moduleQuestionStates: newStates,
+                                module: {
+                                    ...ch.module,
+                                    comp: finalComp,
+                                    acc: finalAcc
+                                }
+                            };
+                        })
+                    };
+                }));
             }
         };
         window.addEventListener('message', handleExtensionMessage);
@@ -1028,6 +1187,15 @@ const App = () => {
             }
         }
     }, [isLoaded, extensionChecked, installedExtVersion, showWhatsNew]);
+
+    // Automatically sync and save lastSeenExtVersion when a successful extension check verifies a new version
+    useEffect(() => {
+        if (isLoaded && extensionChecked && installedExtVersion) {
+            if (installedExtVersion !== lastSeenExtVersion) {
+                setLastSeenExtVersion(installedExtVersion);
+            }
+        }
+    }, [isLoaded, extensionChecked, installedExtVersion, lastSeenExtVersion]);
 
     const handleWhatsNewDismiss = async () => {
         setShowWhatsNew(false);
@@ -1152,6 +1320,321 @@ const App = () => {
         let resolvedIdsUpdated = false;
 
         activities.forEach(act => {
+            if (act.type === 'INTERACTIVE_QUESTION_UPDATE') {
+                if (!nextResolvedIdsSet.has(act.id)) {
+                    const details = act.details || {};
+                    const { subjectName, chapterName, exerciseName, questionNumber, state } = details;
+                    
+                    if (!subjectName || !chapterName || !exerciseName || !questionNumber) {
+                        nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
+                        resolvedIdsUpdated = true;
+                        return;
+                    }
+
+                    // Find subject and chapter
+                    let matchedSubjectIdx = -1;
+                    let matchedChapterIdx = -1;
+                    
+                    for (let sIdx = 0; sIdx < nextData.length; sIdx++) {
+                        const sub = nextData[sIdx];
+                        // Match subject name
+                        const normSubAct = subjectName.toLowerCase().trim();
+                        const normSubSyll = sub.name.toLowerCase().trim();
+                        if (normSubSyll.includes(normSubAct) || normSubAct.includes(normSubSyll) ||
+                            (normSubAct.includes('math') && normSubSyll.includes('math')) ||
+                            (normSubAct.includes('phys') && normSubSyll.includes('phys')) ||
+                            (normSubAct.includes('chem') && normSubSyll.includes('chem'))
+                        ) {
+                            // Now look for chapter in this subject
+                            const normChAct = normalizeChapterName(chapterName);
+                            const cIdx = sub.chapters.findIndex(ch => normalizeChapterName(ch.name) === normChAct);
+                            if (cIdx !== -1) {
+                                matchedSubjectIdx = sIdx;
+                                matchedChapterIdx = cIdx;
+                                break;
+                            } else {
+                                // Try fuzzy chapter match in this subject
+                                const candidates = [];
+                                sub.chapters.forEach((ch, chIdx) => {
+                                    const chNorm = normalizeChapterName(ch.name);
+                                    if (chNorm.length > 2 && (chNorm.includes(normChAct) || normChAct.includes(chNorm))) {
+                                        candidates.push({ chIdx, name: ch.name, length: chNorm.length });
+                                    }
+                                });
+                                if (candidates.length > 0) {
+                                    candidates.sort((a, b) => b.length - a.length);
+                                    matchedSubjectIdx = sIdx;
+                                    matchedChapterIdx = candidates[0].chIdx;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (matchedSubjectIdx !== -1 && matchedChapterIdx !== -1) {
+                        const matchedSub = nextData[matchedSubjectIdx];
+                        const ch = { ...matchedSub.chapters[matchedChapterIdx] };
+                        
+                        const normalizeSub = (name) => {
+                            const s = (name || '').toLowerCase().trim();
+                            if (s.includes('math')) return 'Maths';
+                            if (s.includes('phys')) return 'Physics';
+                            if (s.includes('chem')) return 'Chem';
+                            return name || '';
+                        };
+                        const normSubName = normalizeSub(matchedSub.name);
+                        
+                        const isChapter1 = (() => {
+                            if (matchedChapterIdx === 0) return true;
+                            const c = (ch.name || '').toLowerCase();
+                            if (normSubName === 'Maths' && c.includes('sets')) return true;
+                            if (normSubName === 'Physics' && c.includes('units')) return true;
+                            if (normSubName === 'Chem' && c.includes('mole')) return true;
+                            return false;
+                        })();
+
+                        const getQuestionKey = (exName, qNum) => {
+                            if (isChapter1) {
+                                return `${normSubName}-${exName}-${qNum}`;
+                            } else {
+                                return `${normSubName}-${ch.name}-${exName}-${qNum}`;
+                            }
+                        };
+
+                        const key = getQuestionKey(exerciseName, questionNumber);
+                        
+                        // Update React state/DB question states
+                        const newStates = { ...(ch.moduleQuestionStates || {}) };
+                        if (state === 'none') {
+                            delete newStates[key];
+                        } else {
+                            newStates[key] = state;
+                        }
+
+                        // Recompute stats: comp & acc
+                        const exercisesConfig = ch.customExerciseConfig || {};
+                        let completed = 0;
+                        let difficult = 0;
+                        let later = 0;
+                        let total = 0;
+
+                        Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
+                            total += qCount;
+                            for (let q = 1; q <= qCount; q++) {
+                                const qKey = getQuestionKey(exName, q);
+                                if (newStates[qKey]) {
+                                    if (newStates[qKey] === 'completed') completed++;
+                                    else if (newStates[qKey] === 'difficult') difficult++;
+                                    else if (newStates[qKey] === 'later') later++;
+                                }
+                            }
+                        });
+
+                        const finalComp = total > 0 ? Math.round((completed / total) * 100) : 0;
+                        const totalTracked = completed + difficult + later;
+                        const finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
+
+                        ch.moduleQuestionStates = newStates;
+                        ch.module = {
+                            ...(ch.module || {}),
+                            comp: finalComp,
+                            acc: finalAcc
+                        };
+
+                        // Write to Vinyas app's local storage backup so the Modal UI stays fully in sync if opened manually
+                        try {
+                            const storedGlobal = JSON.parse(localStorage.getItem('vinyas_interactive_module_progress') || '{}');
+                            if (state === 'none') {
+                                delete storedGlobal[key];
+                            } else {
+                                storedGlobal[key] = state;
+                            }
+                            localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
+                        } catch (e) {
+                            console.error("[Vinyas App] Error updating local storage for interactive module question state:", e);
+                        }
+
+                        // Save update back to nextData
+                        nextData[matchedSubjectIdx] = { ...matchedSub, chapters: [...matchedSub.chapters] };
+                        nextData[matchedSubjectIdx].chapters[matchedChapterIdx] = ch;
+                        syllabusUpdated = true;
+
+                        nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
+                        resolvedIdsUpdated = true;
+                    }
+                }
+                return;
+            }
+
+            if (act.type === 'BOOK_SUBMISSION') {
+                if (!nextResolvedIdsSet.has(act.id)) {
+                    const details = act.details || {};
+                    const bookName = details.bookName;
+                    
+                    if (!bookName) {
+                        nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
+                        resolvedIdsUpdated = true;
+                        return;
+                    }
+
+                    // Try to match book to existing subject
+                    const cleanedBookName = bookName.toLowerCase();
+                    let matchedSubjectIdx = -1;
+                    
+                    for (let sIdx = 0; sIdx < nextData.length; sIdx++) {
+                        const subName = nextData[sIdx].name.toLowerCase();
+                        const stem = subName.substring(0, Math.min(subName.length, 5));
+                        if (cleanedBookName.includes(subName) || cleanedBookName.includes(stem)) {
+                            matchedSubjectIdx = sIdx;
+                            break;
+                        }
+                    }
+
+                    if (matchedSubjectIdx !== -1) {
+                        const matchedSub = nextData[matchedSubjectIdx];
+                        const isAlreadyResolved = nextResolvedIdsSet.has(act.id);
+                        
+                        const hasBookUrl = matchedSub.bookUrl === details.url || (matchedSub.books && matchedSub.books.some(b => b.url === details.url));
+                        
+                        if (!hasBookUrl || !isAlreadyResolved) {
+                            const updatedSub = { ...matchedSub };
+                            
+                            if (!updatedSub.books) updatedSub.books = [];
+                            
+                            const bookEntryIdx = updatedSub.books.findIndex(b => b.url === details.url);
+                            if (bookEntryIdx === -1) {
+                                updatedSub.books.push({
+                                    name: details.bookName,
+                                    url: details.url,
+                                    chapters: {}
+                                });
+                            }
+                            
+                            updatedSub.bookUrl = details.url;
+                            updatedSub.bookName = details.bookName;
+                            
+                            nextData[matchedSubjectIdx] = updatedSub;
+                            syllabusUpdated = true;
+
+                            if (!isAlreadyResolved) {
+                                nextResolvedIds.push(act.id);
+                                nextResolvedIdsSet.add(act.id);
+                                resolvedIdsUpdated = true;
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (act.type === 'BOOK_CHAPTER_SUBMISSION') {
+                if (!nextResolvedIdsSet.has(act.id)) {
+                    const details = act.details || {};
+                    const chapterName = details.chapterName;
+                    const bookUrl = details.bookUrl;
+                    const chapterUrl = details.chapterUrl;
+
+                    if (!chapterName || !bookUrl || !chapterUrl) {
+                        nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
+                        resolvedIdsUpdated = true;
+                        return;
+                    }
+
+                    let matchedSubjectIdx = -1;
+                    let matchedBookIdx = -1;
+
+                    for (let sIdx = 0; sIdx < nextData.length; sIdx++) {
+                        const sub = nextData[sIdx];
+                        const books = sub.books || [];
+                        const bIdx = books.findIndex(b => b.url === bookUrl);
+                        if (bIdx !== -1) {
+                            matchedSubjectIdx = sIdx;
+                            matchedBookIdx = bIdx;
+                            break;
+                        }
+                        if (sub.bookUrl === bookUrl) {
+                            matchedSubjectIdx = sIdx;
+                            break;
+                        }
+                    }
+
+                    if (matchedSubjectIdx !== -1) {
+                        const matchedSub = nextData[matchedSubjectIdx];
+                        const normSearchName = normalizeChapterName(chapterName);
+                        let matchedChapterIdx = -1;
+                        let matchedChapterNameInSyllabus = '';
+
+                        if (normSearchName) {
+                            matchedChapterIdx = matchedSub.chapters.findIndex(ch => normalizeChapterName(ch.name) === normSearchName);
+                            if (matchedChapterIdx !== -1) {
+                                matchedChapterNameInSyllabus = matchedSub.chapters[matchedChapterIdx].name;
+                            } else {
+                                const candidates = [];
+                                matchedSub.chapters.forEach((ch, cIdx) => {
+                                    const chNorm = normalizeChapterName(ch.name);
+                                    if (chNorm.length > 2 && (chNorm.includes(normSearchName) || normSearchName.includes(chNorm))) {
+                                        candidates.push({ cIdx, name: ch.name, length: chNorm.length });
+                                    }
+                                });
+                                if (candidates.length > 0) {
+                                    candidates.sort((a, b) => b.length - a.length);
+                                    matchedChapterIdx = candidates[0].cIdx;
+                                    matchedChapterNameInSyllabus = candidates[0].name;
+                                }
+                            }
+                        }
+
+                        if (matchedChapterIdx !== -1) {
+                            const updatedSub = { ...matchedSub };
+                            if (!updatedSub.books) updatedSub.books = [];
+                            
+                            if (matchedBookIdx === -1) {
+                                const existingIdx = updatedSub.books.findIndex(b => b.url === bookUrl);
+                                if (existingIdx === -1) {
+                                    updatedSub.books.push({
+                                        name: updatedSub.bookName || "Module Book",
+                                        url: bookUrl,
+                                        chapters: {}
+                                    });
+                                    matchedBookIdx = updatedSub.books.length - 1;
+                                } else {
+                                    matchedBookIdx = existingIdx;
+                                }
+                            }
+
+                            const targetBook = { ...updatedSub.books[matchedBookIdx] };
+                            if (!targetBook.chapters) targetBook.chapters = {};
+                            
+                            const isAlreadyMapped = targetBook.chapters[matchedChapterNameInSyllabus] === chapterUrl;
+                            const isAlreadyResolved = nextResolvedIdsSet.has(act.id);
+
+                            if (!isAlreadyMapped || !isAlreadyResolved) {
+                                targetBook.chapters = {
+                                    ...targetBook.chapters,
+                                    [matchedChapterNameInSyllabus]: chapterUrl
+                                };
+                                updatedSub.books = [...updatedSub.books];
+                                updatedSub.books[matchedBookIdx] = targetBook;
+                                
+                                nextData[matchedSubjectIdx] = updatedSub;
+                                syllabusUpdated = true;
+
+                                if (!isAlreadyResolved) {
+                                    nextResolvedIds.push(act.id);
+                                    nextResolvedIdsSet.add(act.id);
+                                    resolvedIdsUpdated = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
             if (act.type === 'PW_BOOKS_QUESTIONS') {
                 const details = act.details || {};
                 const chapterSearch = details.chapterName;
@@ -1190,6 +1673,54 @@ const App = () => {
                             nextResolvedIds.push(act.id);
                             nextResolvedIdsSet.add(act.id);
                             resolvedIdsUpdated = true;
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (act.type === 'ASSIGNMENT_SUBMISSION') {
+                if (!nextResolvedIdsSet.has(act.id)) {
+                    const details = act.details || {};
+                    const chapterSearch = details.chapterName;
+                    
+                    if (!chapterSearch) {
+                        nextResolvedIds.push(act.id);
+                        nextResolvedIdsSet.add(act.id);
+                        resolvedIdsUpdated = true;
+                        return;
+                    }
+
+                    const matches = findAllChaptersByName(nextData, chapterSearch);
+                    const match = matches.length === 1 ? matches[0] : null;
+                    
+                    if (match) {
+                        const { sIdx, cIdx } = match;
+                        const ch = nextData[sIdx].chapters[cIdx];
+                        const isAlreadyResolved = nextResolvedIdsSet.has(act.id);
+                        
+                        if (!ch.assignments) {
+                            ch.assignments = [];
+                        }
+
+                        if (!ch.assignments.some(a => a.url === details.url) || !isAlreadyResolved) {
+                            const updatedCh = { 
+                                ...ch,
+                                assignments: ch.assignments ? [...ch.assignments] : []
+                            };
+                            if (!updatedCh.assignments.some(a => a.url === details.url)) {
+                                updatedCh.assignments.push({ name: details.assignmentName, url: details.url });
+                            }
+                            
+                            nextData[sIdx] = { ...nextData[sIdx], chapters: [...nextData[sIdx].chapters] };
+                            nextData[sIdx].chapters[cIdx] = updatedCh;
+                            syllabusUpdated = true;
+
+                            if (!isAlreadyResolved) {
+                                nextResolvedIds.push(act.id);
+                                nextResolvedIdsSet.add(act.id);
+                                resolvedIdsUpdated = true;
+                            }
                         }
                     }
                 }
@@ -1272,7 +1803,7 @@ const App = () => {
     const unresolvedSubmissions = useMemo(() => {
         const unresolved = [];
         activities.forEach(act => {
-            if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return;
+            if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS' && act.type !== 'ASSIGNMENT_SUBMISSION' && act.type !== 'BOOK_SUBMISSION' && act.type !== 'BOOK_CHAPTER_SUBMISSION') return;
             if (resolvedActivityIds.includes(act.id)) return;
 
             const details = act.details || {};
@@ -1289,18 +1820,106 @@ const App = () => {
             } else if (act.type === 'PW_BOOKS_QUESTIONS') {
                 chapterSearch = details.chapterName;
                 section = 'module_layout';
+            } else if (act.type === 'ASSIGNMENT_SUBMISSION') {
+                chapterSearch = details.chapterName;
+                section = 'assignments';
+            } else if (act.type === 'BOOK_SUBMISSION') {
+                chapterSearch = details.bookName;
+                section = 'book';
+            } else if (act.type === 'BOOK_CHAPTER_SUBMISSION') {
+                chapterSearch = details.chapterName;
+                section = 'book_chapter';
             }
 
-            const matches = findAllChaptersByName(data, chapterSearch);
-            const isDuplicate = matches.length > 1;
-            if (matches.length === 0 || isDuplicate) {
-                unresolved.push({ 
-                    act, 
-                    chapterSearch, 
-                    section,
-                    isDuplicate,
-                    message: isDuplicate ? "Search found more than one chapter with same names which you are refferring to ?" : null
-                });
+            if (act.type === 'BOOK_SUBMISSION') {
+                const bookName = details.bookName || '';
+                const cleanedBookName = bookName.toLowerCase();
+                let hasMatch = false;
+                for (const sub of data) {
+                    const subName = sub.name.toLowerCase();
+                    const stem = subName.substring(0, Math.min(subName.length, 5));
+                    if (cleanedBookName.includes(subName) || cleanedBookName.includes(stem)) {
+                        hasMatch = true;
+                        break;
+                    }
+                }
+                if (!hasMatch) {
+                    unresolved.push({ 
+                        act, 
+                        chapterSearch, 
+                        section,
+                        isDuplicate: false,
+                        message: null
+                    });
+                }
+            } else if (act.type === 'BOOK_CHAPTER_SUBMISSION') {
+                const bookUrl = details.bookUrl;
+                const chapterName = details.chapterName || '';
+                // 1. Find matched subject by book url
+                let matchedSub = null;
+                for (const sub of data) {
+                    const books = sub.books || [];
+                    if (books.some(b => b.url === bookUrl) || sub.bookUrl === bookUrl) {
+                        matchedSub = sub;
+                        break;
+                    }
+                }
+
+                if (!matchedSub) {
+                    // Book is not linked to any subject. Definitely unresolved!
+                    unresolved.push({
+                        act,
+                        chapterSearch,
+                        section,
+                        isDuplicate: false,
+                        message: "Parent book is not linked to any subject."
+                    });
+                } else {
+                    // Book is linked to matchedSub. Check if chapter is matched.
+                    const normSearchName = normalizeChapterName(chapterName);
+                    let matchedChapterIdx = -1;
+                    if (normSearchName) {
+                        matchedChapterIdx = matchedSub.chapters.findIndex(ch => normalizeChapterName(ch.name) === normSearchName);
+                        if (matchedChapterIdx === -1) {
+                            const candidates = [];
+                            matchedSub.chapters.forEach((ch, cIdx) => {
+                                const chNorm = normalizeChapterName(ch.name);
+                                if (chNorm.length > 2 && (chNorm.includes(normSearchName) || normSearchName.includes(chNorm))) {
+                                    candidates.push({ cIdx, name: ch.name });
+                                }
+                            });
+                            if (candidates.length === 1) {
+                                matchedChapterIdx = candidates[0].cIdx;
+                            } else if (candidates.length > 1) {
+                                matchedChapterIdx = -2;
+                            }
+                        }
+                    }
+
+                    if (matchedChapterIdx === -1 || matchedChapterIdx === -2) {
+                        unresolved.push({
+                            act,
+                            chapterSearch,
+                            section,
+                            isDuplicate: matchedChapterIdx === -2,
+                            message: matchedChapterIdx === -2 
+                                ? "Found multiple matching chapters in the matched subject."
+                                : "No matching chapter found in the matched subject."
+                        });
+                    }
+                }
+            } else {
+                const matches = findAllChaptersByName(data, chapterSearch);
+                const isDuplicate = matches.length > 1;
+                if (matches.length === 0 || isDuplicate) {
+                    unresolved.push({ 
+                        act, 
+                        chapterSearch, 
+                        section,
+                        isDuplicate,
+                        message: isDuplicate ? "Search found more than one chapter with same names which you are refferring to ?" : null
+                    });
+                }
             }
         });
         return unresolved;
@@ -2282,7 +2901,14 @@ const App = () => {
     const handleInlineSearchSelect = (sIdx, cIdx) => {
         setSearchQuery('');
         setIsSearchFocused(false);
-        scrollToAndHighlight(sIdx, cIdx);
+        if (sIdx !== activeSubjectIdx) {
+            setActiveSubjectIdx(sIdx);
+            setTimeout(() => {
+                scrollToAndHighlight(sIdx, cIdx);
+            }, 200);
+        } else {
+            scrollToAndHighlight(sIdx, cIdx);
+        }
     };
 
     const handleScrollToTop = () => {
@@ -2292,7 +2918,14 @@ const App = () => {
     const handleOverlaySearchSelect = (sIdx, cIdx) => {
         setOverlaySearchOpen(false);
         setOverlaySearchQuery('');
-        scrollToAndHighlight(sIdx, cIdx);
+        if (sIdx !== activeSubjectIdx) {
+            setActiveSubjectIdx(sIdx);
+            setTimeout(() => {
+                scrollToAndHighlight(sIdx, cIdx);
+            }, 200);
+        } else {
+            scrollToAndHighlight(sIdx, cIdx);
+        }
         if (activeRoutineIndex !== null) {
             toggleRoutineState(activeRoutineIndex, true);
             setActiveRoutineIndex(null);
@@ -2452,6 +3085,254 @@ const App = () => {
 
     const handleResolveDismiss = (actId) => {
         setResolvedActivityIds(prev => [...prev, actId]);
+    };
+
+    const handleResolveLinkBookChapter = (act, subjectName, chapterName) => {
+        const details = act.details || {};
+        const bookUrl = details.bookUrl;
+        const chapterUrl = details.chapterUrl;
+
+        let resolvedBookName = 'Module Book';
+        const existingBook = data.flatMap(s => s.books || []).find(b => b.url === bookUrl);
+        if (existingBook) {
+            resolvedBookName = existingBook.name;
+        } else {
+            const bookAct = activities.find(a => a.type === 'BOOK_SUBMISSION' && a.details?.url === bookUrl);
+            if (bookAct && bookAct.details?.bookName) {
+                resolvedBookName = bookAct.details.bookName;
+            }
+        }
+
+        setData(prevData => {
+            return prevData.map(sub => {
+                if (sub.name.trim().toLowerCase() !== subjectName.trim().toLowerCase()) return sub;
+
+                const updatedSub = { ...sub };
+                if (!updatedSub.books) updatedSub.books = [];
+
+                let bookIdx = updatedSub.books.findIndex(b => b.url === bookUrl);
+                if (bookIdx === -1) {
+                    updatedSub.books.push({
+                        name: resolvedBookName,
+                        url: bookUrl,
+                        chapters: {}
+                    });
+                    bookIdx = updatedSub.books.length - 1;
+                }
+
+                const targetBook = { ...updatedSub.books[bookIdx] };
+                if (!targetBook.chapters) targetBook.chapters = {};
+
+                const normChapter = normalizeChapterName(chapterName);
+                let actualChapterName = chapterName;
+                let chExists = updatedSub.chapters.some(ch => normalizeChapterName(ch.name) === normChapter);
+
+                if (!chExists) {
+                    updatedSub.chapters = [
+                        ...updatedSub.chapters,
+                        {
+                            name: chapterName,
+                            status: 'None',
+                            lectures: 0,
+                            log: '',
+                            dpp: { acc: 0, comp: 0 },
+                            module: { acc: 0, comp: 0 },
+                            dppLogs: {},
+                            moduleLogs: {},
+                            customExerciseConfig: null,
+                            exerciseDisplayNames: null,
+                            moduleQuestionStates: {},
+                            focusTime: 0,
+                            reviewsDone: 0,
+                            nextReview: null,
+                            lastReviewRating: null,
+                            assignments: []
+                        }
+                    ];
+                } else {
+                    const matchedCh = updatedSub.chapters.find(ch => normalizeChapterName(ch.name) === normChapter);
+                    if (matchedCh) {
+                        actualChapterName = matchedCh.name;
+                    }
+                }
+
+                targetBook.chapters = {
+                    ...targetBook.chapters,
+                    [actualChapterName]: chapterUrl
+                };
+
+                updatedSub.books = [...updatedSub.books];
+                updatedSub.books[bookIdx] = targetBook;
+
+                return updatedSub;
+            });
+        });
+
+        setResolvedActivityIds(prev => {
+            if (!prev.includes(act.id)) {
+                return [...prev, act.id];
+            }
+            return prev;
+        });
+
+        logEvent('RESOLVE_LINK_BOOK_CHAPTER', {
+            subject: subjectName,
+            chapter: chapterName,
+            book: resolvedBookName,
+            url: chapterUrl
+        }, 'success');
+    };
+
+    const handleResolveCreateSubjectAndLinkBookChapter = (act, newSubjectName, chapterName) => {
+        const details = act.details || {};
+        const bookUrl = details.bookUrl;
+        const chapterUrl = details.chapterUrl;
+
+        let resolvedBookName = 'Module Book';
+        const bookAct = activities.find(a => a.type === 'BOOK_SUBMISSION' && a.details?.url === bookUrl);
+        if (bookAct && bookAct.details?.bookName) {
+            resolvedBookName = bookAct.details.bookName;
+        }
+
+        const newSubject = {
+            name: newSubjectName,
+            color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                   newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                   newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
+                   newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+            books: [{
+                name: resolvedBookName,
+                url: bookUrl,
+                chapters: {
+                    [chapterName]: chapterUrl
+                }
+            }],
+            chapters: [{
+                name: chapterName,
+                status: 'None',
+                lectures: 0,
+                log: '',
+                dpp: { acc: 0, comp: 0 },
+                module: { acc: 0, comp: 0 },
+                dppLogs: {},
+                moduleLogs: {},
+                customExerciseConfig: null,
+                exerciseDisplayNames: null,
+                moduleQuestionStates: {},
+                focusTime: 0,
+                reviewsDone: 0,
+                nextReview: null,
+                lastReviewRating: null,
+                assignments: []
+            }]
+        };
+
+        setData(prevData => [...prevData, newSubject]);
+
+        setResolvedActivityIds(prev => {
+            if (!prev.includes(act.id)) {
+                return [...prev, act.id];
+            }
+            return prev;
+        });
+
+        logEvent('RESOLVE_CREATE_SUBJECT_BOOK_CHAPTER', {
+            subject: newSubjectName,
+            chapter: chapterName,
+            book: resolvedBookName,
+            url: chapterUrl
+        }, 'success');
+    };
+
+    const handleLinkChapterBookUrl = (sIdx, bookUrl, chapterName, chapterUrl) => {
+        setData(prevData => prevData.map((sub, idx) => {
+            if (idx !== sIdx) return sub;
+
+            const updatedSub = { ...sub };
+            if (!updatedSub.books) updatedSub.books = [];
+
+            let bookIdx = updatedSub.books.findIndex(b => b.url === bookUrl);
+            if (bookIdx === -1) {
+                const legacyUrl = sub.bookUrl || bookUrl;
+                const legacyName = sub.bookName || 'Module Book';
+                updatedSub.books.push({
+                    name: legacyName,
+                    url: legacyUrl,
+                    chapters: {}
+                });
+                bookIdx = updatedSub.books.length - 1;
+            }
+
+            const targetBook = { ...updatedSub.books[bookIdx] };
+            if (!targetBook.chapters) targetBook.chapters = {};
+            targetBook.chapters = {
+                ...targetBook.chapters,
+                [chapterName]: chapterUrl
+            };
+
+            updatedSub.books = [...updatedSub.books];
+            updatedSub.books[bookIdx] = targetBook;
+            return updatedSub;
+        }));
+
+        logEvent('CH_BOOK_LINK', {
+            subject: data[sIdx]?.name,
+            chapter: chapterName,
+            bookUrl,
+            chapterUrl
+        }, 'success');
+    };
+
+    const handleResolveLinkBook = (act, subjectName) => {
+        setData(prevData => prevData.map(sub => {
+            if (sub.name !== subjectName) return sub;
+            return {
+                ...sub,
+                bookUrl: act.details.url,
+                bookName: act.details.bookName
+            };
+        }));
+
+        setResolvedActivityIds(prev => {
+            if (!prev.includes(act.id)) {
+                return [...prev, act.id];
+            }
+            return prev;
+        });
+
+        logEvent('RESOLVE_LINK_BOOK', { 
+            subject: subjectName, 
+            bookName: act.details.bookName, 
+            url: act.details.url 
+        }, 'success');
+    };
+
+    const handleResolveCreateSubjectAndLinkBook = (act, newSubjectName) => {
+        const newSubject = {
+            name: newSubjectName,
+            color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                   newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                   newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
+                   newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+            chapters: [],
+            bookUrl: act.details.url,
+            bookName: act.details.bookName
+        };
+
+        setData(prevData => [...prevData, newSubject]);
+
+        setResolvedActivityIds(prev => {
+            if (!prev.includes(act.id)) {
+                return [...prev, act.id];
+            }
+            return prev;
+        });
+
+        logEvent('RESOLVE_CREATE_SUBJECT_BOOK', { 
+            subject: newSubjectName, 
+            bookName: act.details.bookName, 
+            url: act.details.url 
+        }, 'success');
     };
 
     const toggleRoutineState = (index, forceState = null) => {
@@ -2943,10 +3824,12 @@ const App = () => {
                 activities={activities}
                 requestConfirm={requestConfirm}
                 onOpenBugReport={() => setBugReportOpen(true)}
+                isSidebarVisible={isSidebarVisible}
+                onToggleSidebar={handleToggleSidebar}
             />
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 w-full pb-24">
-                <main className={`w-full max-w-none mx-auto grid grid-cols-1 xl:grid-cols-4 gap-8 pt-6 transition-all duration-300 ${isCardHidden ? 'pl-4 xl:pl-28 pr-4 xl:pr-8' : 'pl-4 xl:pl-8 pr-4 xl:pr-8'}`}>
+                <main className={`w-full max-w-none mx-auto grid grid-cols-1 xl:grid-cols-4 gap-8 pt-6 transition-all duration-300 pr-4 xl:pr-8 ${isSidebarVisible ? 'pl-4 xl:pl-28' : 'pl-4 xl:pl-8'}`}>
                 <GamifiedDashboard 
                     currentLevel={currentLevel} 
                     focusPoints={focusPoints} 
@@ -2980,9 +3863,10 @@ const App = () => {
                     handleToggleCardHidden={handleToggleCardHidden}
                     onTabChange={null}
                     performanceMode={themeSettings.performanceMode}
+                    isSidebarVisible={isSidebarVisible}
                 />
 
-                <div className={`flex flex-col relative transition-all duration-300 ${isCardHidden ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
+                <div className={`flex flex-col relative transition-all duration-300 ${(isCardHidden || !isSidebarVisible) ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
                     {data.length > 0 ? (
                         <div className="w-full relative min-h-[400px]">
                             {data[activeSubjectIdx] && (
@@ -3002,6 +3886,7 @@ const App = () => {
                                     activeSubjectIdx={activeSubjectIdx}
                                     totalSubjects={data.length}
                                     performanceMode={themeSettings.performanceMode}
+                                    onLinkChapterBookUrl={handleLinkChapterBookUrl}
                                 />
                             )}
                         </div>
@@ -3120,47 +4005,10 @@ const App = () => {
                         }
                     });
 
-                    // 4. Compare localProgress (questionStates) vs localStorage (storedGlobal)
-                    let matches = true;
-                    for (const key of chapterKeys) {
-                        if ((questionStates[key] || null) !== (storedGlobal[key] || null)) {
-                            matches = false;
-                            break;
-                        }
-                    }
-
                     let finalQuestionStates = { ...questionStates };
                     let finalComp = comp;
                     let finalAcc = acc;
                     let isUsingBackup = false;
-
-                    if (!matches) {
-                        // Rebuild using localStorage data (modified for MongoDB submit)
-                        isUsingBackup = true;
-                        const resolvedProgress = {};
-                        let completed = 0;
-                        let difficult = 0;
-                        let later = 0;
-                        let total = 0;
-
-                        Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
-                            total += qCount;
-                            for (let q = 1; q <= qCount; q++) {
-                                const key = getQuestionKey(exName, q);
-                                if (storedGlobal[key]) {
-                                    resolvedProgress[key] = storedGlobal[key];
-                                    if (storedGlobal[key] === 'completed') completed++;
-                                    else if (storedGlobal[key] === 'difficult') difficult++;
-                                    else if (storedGlobal[key] === 'later') later++;
-                                }
-                            }
-                        });
-
-                        finalQuestionStates = resolvedProgress;
-                        finalComp = total > 0 ? Math.round((completed / total) * 100) : 0;
-                        const totalTracked = completed + difficult + later;
-                        finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
-                    }
 
                     // 5. Update local React state data
                     const updatedData = data.map((sub, subIdx) => {
@@ -3317,60 +4165,13 @@ const App = () => {
                         onAddChapter={handleResolveAddChapter}
                         onLinkChapter={handleResolveLinkChapter}
                         onDismiss={handleResolveDismiss}
+                        onLinkBookToSubject={handleResolveLinkBook}
+                        onCreateSubjectAndLinkBook={handleResolveCreateSubjectAndLinkBook}
+                        activities={activities}
+                        onLinkBookChapter={handleResolveLinkBookChapter}
+                        onCreateSubjectAndLinkBookChapter={handleResolveCreateSubjectAndLinkBookChapter}
                     />
 
-                    {/* Unified Floating Action Button (FAB) Menu */}
-                    <div ref={fabRef} className="fixed bottom-6 right-6 z-[100] flex flex-col items-center gap-3">
-                        {/* Expanded Menu Actions */}
-                        {fabOpen && (
-                            <div className="flex flex-col items-center gap-3 animate-fade-in mb-1">
-                                {isScrolledPastSearch && (
-                                    <button
-                                        onClick={() => {
-                                            handleScrollToTop();
-                                            setFabOpen(false);
-                                        }}
-                                        className="w-12 h-12 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full shadow-lg border border-slate-650 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
-                                        title="Scroll to Top"
-                                    >
-                                        <i className="ph-bold ph-arrow-up text-lg text-slate-300"></i>
-                                    </button>
-                                )}
-                                
-                                <button
-                                    onClick={() => {
-                                        setOverlaySearchOpen(true);
-                                        setFabOpen(false);
-                                    }}
-                                    className="w-12 h-12 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full shadow-lg border border-slate-650 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
-                                    title="Spotlight Search"
-                                >
-                                    <i className="ph-bold ph-magnifying-glass text-lg text-slate-300"></i>
-                                </button>
-
-                                <button
-                                    onClick={() => {
-                                        pollActivities();
-                                        setFabOpen(false);
-                                    }}
-                                    disabled={isPollingActivities}
-                                    className="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg border border-blue-400 flex items-center justify-center disabled:opacity-50 hover:scale-105 active:scale-95 transition-all"
-                                    title="Refresh Cloud Data"
-                                >
-                                    <i className={`ph-bold ph-arrows-clockwise text-lg ${isPollingActivities ? 'animate-spin' : ''}`}></i>
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Main FAB Trigger Button */}
-                        <button
-                            onClick={() => setFabOpen(!fabOpen)}
-                            className="w-14 h-14 bg-gradient-to-r from-orange-600 to-red-500 hover:from-orange-500 hover:to-red-400 text-white rounded-full shadow-[0_4px_25px_rgba(249,115,22,0.4)] border border-orange-400 transition-all flex items-center justify-center hover:scale-105 active:scale-95"
-                            title="Quick Actions Menu"
-                        >
-                            <i className={`ph-bold ${fabOpen ? 'ph-x text-xl rotate-90' : 'ph-compass text-2xl'} transition-transform duration-300`}></i>
-                        </button>
-                    </div>
                 </>
             ) : currentPath === '/extension' ? (
                 <ExtensionPage 
@@ -3435,7 +4236,7 @@ const App = () => {
                 onSave={handleSaveUsername}
             />
 
-            {((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') || localStorage.getItem('devMode') === 'true') && (
+            {devMode && (
                 <DevToolsOverlay 
                     syncId={syncId}
                     allAchievements={allAchievements}

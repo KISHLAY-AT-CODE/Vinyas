@@ -36,6 +36,9 @@ export function serializeSyllabus(userData, baseTemplate) {
         type: 'subject',
         subjectName: sub.name,
         color: sub.color,
+        bookUrl: sub.bookUrl,
+        bookName: sub.bookName,
+        books: sub.books || [],
         chapters: sub.chapters
       });
       return;
@@ -79,7 +82,8 @@ export function serializeSyllabus(userData, baseTemplate) {
           (userCh.focusTime > 0) ||
           (userCh.reviewsDone > 0) ||
           (userCh.nextReview && userCh.nextReview.trim() !== '') ||
-          (userCh.lastReviewRating && userCh.lastReviewRating.trim() !== '');
+          (userCh.lastReviewRating && userCh.lastReviewRating.trim() !== '') ||
+          (userCh.assignments && userCh.assignments.length > 0);
 
         if (hasProgress) {
           progressList.push({
@@ -99,7 +103,8 @@ export function serializeSyllabus(userData, baseTemplate) {
               focusTime: userCh.focusTime,
               reviewsDone: userCh.reviewsDone,
               nextReview: userCh.nextReview,
-              lastReviewRating: userCh.lastReviewRating
+              lastReviewRating: userCh.lastReviewRating,
+              assignments: userCh.assignments || []
             }
           });
         }
@@ -112,7 +117,7 @@ export function serializeSyllabus(userData, baseTemplate) {
     additions,
     deletions,
     progressList,
-    subjectColors: userData.map(s => ({ name: s.name, color: s.color }))
+    subjectColors: userData.map(s => ({ name: s.name, color: s.color, bookUrl: s.bookUrl, bookName: s.bookName, books: s.books || [] }))
   };
 }
 
@@ -121,7 +126,96 @@ export function deserializeSyllabus(serialized, baseTemplate) {
   if (Array.isArray(serialized)) return serialized;
   if (serialized.isRaw) return serialized.data || [];
 
-  if (!baseTemplate) return [];
+  if (!baseTemplate) {
+    const reconstructed = [];
+    const COLORS = ["bg-blue-600", "bg-emerald-600", "bg-indigo-600", "bg-purple-600", "bg-rose-600", "bg-amber-600", "bg-cyan-600"];
+
+    // 1. Reconstruct custom subjects first
+    if (serialized.additions && Array.isArray(serialized.additions)) {
+      serialized.additions.forEach(add => {
+        if (add.type === 'subject') {
+          reconstructed.push({
+            name: add.subjectName,
+            color: add.color || "bg-indigo-600",
+            bookUrl: add.bookUrl,
+            bookName: add.bookName,
+            books: add.books || [],
+            chapters: add.chapters || []
+          });
+        }
+      });
+    }
+
+    // 2. Reconstruct from progressList (base template chapters with progress)
+    if (serialized.progressList && Array.isArray(serialized.progressList)) {
+      serialized.progressList.forEach(p => {
+        let sub = reconstructed.find(s => s.name.trim().toLowerCase() === p.subjectName.trim().toLowerCase());
+        if (!sub) {
+          const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === p.subjectName.toLowerCase());
+          const color = savedColorObj ? savedColorObj.color : COLORS[reconstructed.length % COLORS.length];
+          sub = {
+            name: p.subjectName,
+            color,
+            bookUrl: savedColorObj?.bookUrl,
+            bookName: savedColorObj?.bookName,
+            books: savedColorObj?.books || [],
+            chapters: []
+          };
+          reconstructed.push(sub);
+        }
+        
+        const exists = sub.chapters.some(c => c.name.trim().toLowerCase() === p.chapterName.trim().toLowerCase());
+        if (!exists) {
+          sub.chapters.push({
+            name: p.chapterName,
+            status: p.progress.status || 'None',
+            lectures: p.progress.lectures || 0,
+            log: p.progress.log || '',
+            dpp: p.progress.dpp || { acc: 0, comp: 0 },
+            module: p.progress.module || { acc: 0, comp: 0 },
+            dppLogs: p.progress.dppLogs || {},
+            moduleLogs: p.progress.moduleLogs || {},
+            customExerciseConfig: p.progress.customExerciseConfig || null,
+            exerciseDisplayNames: p.progress.exerciseDisplayNames || null,
+            moduleQuestionStates: p.progress.moduleQuestionStates || {},
+            focusTime: p.progress.focusTime || 0,
+            reviewsDone: p.progress.reviewsDone || 0,
+            nextReview: p.progress.nextReview || null,
+            lastReviewRating: p.progress.lastReviewRating || null,
+            assignments: p.progress.assignments || []
+          });
+        }
+      });
+    }
+
+    // 3. Reconstruct custom chapters second
+    if (serialized.additions && Array.isArray(serialized.additions)) {
+      serialized.additions.forEach(add => {
+        if (add.type === 'chapter') {
+          let sub = reconstructed.find(s => s.name.trim().toLowerCase() === add.subjectName.trim().toLowerCase());
+          if (!sub) {
+            const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === add.subjectName.toLowerCase());
+            const color = savedColorObj ? savedColorObj.color : COLORS[reconstructed.length % COLORS.length];
+            sub = {
+              name: add.subjectName,
+              color,
+              bookUrl: savedColorObj?.bookUrl,
+              bookName: savedColorObj?.bookName,
+              books: savedColorObj?.books || [],
+              chapters: []
+            };
+            reconstructed.push(sub);
+          }
+          const exists = sub.chapters.some(c => c.name.trim().toLowerCase() === add.chapter.name.trim().toLowerCase());
+          if (!exists) {
+            sub.chapters.push(add.chapter);
+          }
+        }
+      });
+    }
+
+    return reconstructed;
+  }
 
   const COLORS = ["bg-blue-600", "bg-emerald-600", "bg-indigo-600", "bg-purple-600", "bg-rose-600", "bg-amber-600", "bg-cyan-600"];
   
@@ -129,6 +223,9 @@ export function deserializeSyllabus(serialized, baseTemplate) {
   const reconstructed = baseTemplate.map((baseSub, idx) => {
     const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === baseSub.name.toLowerCase());
     const color = savedColorObj ? savedColorObj.color : COLORS[idx % COLORS.length];
+    const bookUrl = savedColorObj?.bookUrl;
+    const bookName = savedColorObj?.bookName;
+    const books = savedColorObj?.books || [];
 
     // Filter chapters (remove deletions)
     const filteredChapters = baseSub.chapters
@@ -162,7 +259,8 @@ export function deserializeSyllabus(serialized, baseTemplate) {
             focusTime: savedProgress.progress.focusTime || 0,
             reviewsDone: savedProgress.progress.reviewsDone || 0,
             nextReview: savedProgress.progress.nextReview || null,
-            lastReviewRating: savedProgress.progress.lastReviewRating || null
+            lastReviewRating: savedProgress.progress.lastReviewRating || null,
+            assignments: savedProgress.progress.assignments || []
           };
         }
 
@@ -182,13 +280,17 @@ export function deserializeSyllabus(serialized, baseTemplate) {
           focusTime: 0,
           reviewsDone: 0,
           nextReview: null,
-          lastReviewRating: null
+          lastReviewRating: null,
+          assignments: []
         };
       });
 
     return {
       name: baseSub.name,
       color,
+      bookUrl,
+      bookName,
+      books,
       chapters: filteredChapters
     };
   });
@@ -200,6 +302,8 @@ export function deserializeSyllabus(serialized, baseTemplate) {
         reconstructed.push({
           name: add.subjectName,
           color: add.color || "bg-indigo-600",
+          bookUrl: add.bookUrl,
+          bookName: add.bookName,
           chapters: add.chapters || []
         });
       } else if (add.type === 'chapter') {
@@ -207,9 +311,13 @@ export function deserializeSyllabus(serialized, baseTemplate) {
         if (sub) {
           sub.chapters.push(add.chapter);
         } else {
+          const savedColorObj = serialized.subjectColors?.find(c => c.name.trim().toLowerCase() === add.subjectName.toLowerCase());
           reconstructed.push({
             name: add.subjectName,
-            color: "bg-indigo-600",
+            color: savedColorObj ? savedColorObj.color : "bg-indigo-600",
+            bookUrl: savedColorObj?.bookUrl,
+            bookName: savedColorObj?.bookName,
+            books: savedColorObj?.books || [],
             chapters: [add.chapter]
           });
         }

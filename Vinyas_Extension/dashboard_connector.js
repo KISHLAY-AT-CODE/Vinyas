@@ -34,6 +34,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 error: e.message
             });
         }
+    } else if (request.action === "syncQuestionUpdate") {
+        console.log("[Vinyas Tracker] Received syncQuestionUpdate from background worker:", request.data);
+        try {
+            window.postMessage({
+                type: 'VINYAS_SYNC_QUESTION_UPDATE',
+                data: request.data
+            }, '*');
+            sendResponse({ success: true });
+        } catch (e) {
+            console.error("[Vinyas Tracker] Failed to forward syncQuestionUpdate message to web app page:", e);
+            sendResponse({ success: false, error: e.message });
+        }
     }
     // Return true to keep the message channel open for asynchronous response
     return true;

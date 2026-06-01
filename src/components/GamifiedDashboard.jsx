@@ -203,7 +203,7 @@ const SuggestedGoalCard = ({ goal, onDiscard, onSave }) => {
     );
 };
 
-const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden, onTabChange, performanceMode = false }) => {
+const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNextLevel, routines, handleRoutineClick, calculateGlobalProgress, data, openMorningPlanner, openNightlyWrapUp, achievements, activities, cohort, suggestedGoals, handleSaveGoal, handleDiscardGoal, handleRemoveRoutine, syncId, onLogFocusTime, onUpdateChapter, streakInfo, onTriggerSpecificAchievement, requestConfirm, isCardHidden, handleToggleCardHidden, onTabChange, performanceMode = false, isSidebarVisible = true }) => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     
     // Filter out connection tests
@@ -259,9 +259,15 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
     };
 
     return (
-        <div className={`relative transition-all duration-300 pl-14 xl:pl-0 ${isCardHidden ? 'xl:col-span-0 xl:absolute xl:w-0 xl:h-0 xl:overflow-hidden pointer-events-none h-16 xl:h-auto' : 'xl:col-span-1 w-full h-[480px] xl:h-auto'}`}>
+        <div className={`relative transition-all duration-300 ${
+            !isSidebarVisible 
+                ? 'xl:col-span-0 xl:absolute xl:w-0 xl:h-0 xl:overflow-hidden pointer-events-none h-0 w-0 opacity-0 pl-0' 
+                : isCardHidden 
+                    ? 'xl:col-span-0 xl:absolute xl:w-0 xl:h-0 xl:overflow-hidden pointer-events-none h-16 xl:h-auto opacity-100 pl-14 xl:pl-0' 
+                    : 'xl:col-span-1 w-full h-[480px] xl:h-auto opacity-100 pl-14 xl:pl-0'
+        }`}>
             {/* Unified Fixed Y-Centered Wrapper (Dynamically offset under sticky navbar) */}
-            <div className="fixed left-2 sm:left-4 top-[calc(var(--navbar-height)+16px)] z-40 flex items-center gap-2 sm:gap-4 pointer-events-none transition-all duration-300">
+            <div className={`fixed top-[calc(var(--navbar-height)+16px)] z-40 flex items-center gap-2 sm:gap-4 pointer-events-none transition-all duration-300 ${isSidebarVisible ? 'left-2 sm:left-4 opacity-100 translate-x-0' : '-left-96 opacity-0 -translate-x-full'}`}>
                 {/* Reorderable Sidebar Dock */}
                 <Reorder.Group
                     axis="y"
@@ -574,7 +580,7 @@ const GamifiedDashboard = ({ currentLevel, focusPoints, levelProgressPct, xpToNe
                         )}
 
                         {activeTab === 'achievements' && (
-                            <div className="glass-card hover-achievements p-6 relative overflow-visible group transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
+                            <div className="glass-card hover-achievements p-6 relative overflow-visible transition-all duration-300 hover:-translate-y-0.5 hover:scale-[100.5%]">
                                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
                                 
                                 <div className="w-full flex flex-wrap justify-between items-center gap-2 pb-3 border-b border-slate-800/60 mb-4">

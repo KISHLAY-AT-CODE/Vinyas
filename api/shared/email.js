@@ -252,7 +252,7 @@ export async function sendWhatsNewEmail(toEmail, syncId, changelogData) {
     }
   });
 
-  const version = changelogData?.version || '1.2.5';
+  const version = changelogData?.version || '2.0.0';
   const releaseDate = changelogData?.date || 'May 28, 2026';
   const clientChanges = changelogData?.clientChanges || [];
   const coreChanges = changelogData?.coreChanges || [];

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const SearchOverlay = ({ 
     overlaySearchOpen, 
@@ -10,7 +10,32 @@ const SearchOverlay = ({
     handleOverlaySearchSelect, 
     activeRoutineIndex 
 }) => {
+    const [selectedIdx, setSelectedIdx] = useState(0);
+
+    // Reset selection when search query result updates
+    useEffect(() => {
+        setSelectedIdx(0);
+    }, [overlaySearchResults]);
+
     if (!overlaySearchOpen) return null;
+
+    const handleKeyDown = (e) => {
+        if (overlaySearchResults.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIdx(prev => (prev + 1) % overlaySearchResults.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIdx(prev => (prev - 1 + overlaySearchResults.length) % overlaySearchResults.length);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const selected = overlaySearchResults[selectedIdx];
+            if (selected) {
+                handleOverlaySearchSelect(selected.sIdx, selected.cIdx);
+            }
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] px-4 bg-slate-950/90 backdrop-blur-sm animate-pop-in" onClick={closeRoutineModal}>
@@ -23,6 +48,7 @@ const SearchOverlay = ({
                         placeholder={activeRoutineIndex !== null ? "Search chapter to update and complete routine..." : "Jump instantly to any chapter..."} 
                         value={overlaySearchQuery}
                         onChange={(e) => setOverlaySearchQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         className="bg-transparent text-xl text-slate-100 w-full outline-none placeholder-slate-500 font-medium"
                     />
                     <button onClick={closeRoutineModal} className="text-slate-500 hover:text-slate-300 bg-slate-800 p-2 rounded-lg ml-2">
@@ -30,15 +56,25 @@ const SearchOverlay = ({
                     </button>
                 </div>
                 <div className="max-h-[50vh] overflow-y-auto">
-                    {overlaySearchResults.length > 0 ? overlaySearchResults.map((res, i) => (
-                        <div key={i} onClick={() => handleOverlaySearchSelect(res.sIdx, res.cIdx)} className="px-6 py-4 hover:bg-slate-700 cursor-pointer flex items-center justify-between border-b border-slate-700/30 transition-colors group">
-                            <span className="font-semibold text-slate-200 group-hover:text-white text-lg">{res.name}</span>
-                            <div className="flex items-center gap-3">
-                                <span className={`text-xs px-2.5 py-1 rounded-md font-bold text-white shadow-sm ${res.color}`}>{res.subject}</span>
-                                <i className="ph-bold ph-arrow-right text-slate-500 group-hover:text-bitsat-400 transition-colors"></i>
+                    {overlaySearchResults.length > 0 ? overlaySearchResults.map((res, i) => {
+                        const isSelected = i === selectedIdx;
+                        return (
+                            <div 
+                                key={i} 
+                                onClick={() => handleOverlaySearchSelect(res.sIdx, res.cIdx)} 
+                                onMouseEnter={() => setSelectedIdx(i)}
+                                className={`px-6 py-4 cursor-pointer flex items-center justify-between border-b border-slate-700/30 transition-colors group ${
+                                    isSelected ? 'bg-slate-700/60 text-white' : 'hover:bg-slate-750/30 text-slate-200'
+                                }`}
+                            >
+                                <span className="font-semibold text-slate-200 group-hover:text-white text-lg">{res.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs px-2.5 py-1 rounded-md font-bold text-white shadow-sm ${res.color}`}>{res.subject}</span>
+                                    <i className={`ph-bold ph-arrow-right transition-colors ${isSelected ? 'text-bitsat-400 translate-x-1' : 'text-slate-500 group-hover:translate-x-1'}`}></i>
+                                </div>
                             </div>
-                        </div>
-                    )) : overlaySearchQuery ? (
+                        );
+                    }) : overlaySearchQuery ? (
                         <div className="px-6 py-8 text-center text-slate-500 font-medium">No chapters found matching "{overlaySearchQuery}"</div>
                     ) : (
                         <div className="px-6 py-8 text-center text-slate-500 font-medium text-sm">Type to search your syllabus...</div>

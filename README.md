@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.5-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.0.0-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -339,7 +339,20 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
-### v1.2.5 (May 28, 2026) - Latest Update
+### v2.0.0 (June 1, 2026) - Major Update
+- 🎯 **Integrated Interactive Widget Overlay**: Beautiful glassmorphic overlay matches your active chapter practice pages directly, allowing you to register question states seamlessly without doing split screen.
+- 👑 **Draggable & Bounded Widget Layout**: Drag and reposition the floating question tracker anywhere on your viewport, bounded safely inside browser borders.
+- 🎥 **Immediate Glassmorphic Loading State**: Features an instant animated loading spinner overlay showing feedback immediately while data loads.
+- 🚪 **Sidebar Toggle Shortcut**: Click on the Vinyas Logo in the header to instantly collapse or expand the navigation sidebar dock, persisted beautifully in browser local storage.
+- 🛑 **Native Submit Button Hiding**: Chrome extension automatically hides native PW quiz submit buttons using active styling overrides to keep layout clean.
+- 🔥 **Programmatic Submit Redirection**: Submitting on the Vinyas widget acts as a proxy, clicking and completing the native PW submission programmatically.
+- 📚 **Multi-Textbook Modules Support**: Sync multiple textbook modules per subject and toggle between them using a gorgeous glassy dropdown in the subject matrix.
+- 🔗 **Smarter Chapter Reading Links**: Chapter rows render Phosphorus icons directing you to synced book chapter pages in a single click, or prompting a map utility if unlinked.
+- ⚡ **Real-Time Tab Synchronization Bridge**: Background worker dynamically broadcasts live overlay status updates to all open Vinyas dashboard tabs, eliminating stale overwrite race conditions.
+- 📦 **Aligned Key Generation**: Aligned key generation formulas between content script scanners and backend processors to ensure consistent question mappings.
+- 🛡️ **Security Telemetry Validation**: Cryptographically secure prefix validations in all telemetry routes.
+
+### v1.2.5 (May 28, 2026)
 - ⚡ **Syllabus Scroll Optimization**: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.
 - 💾 **Real-Time LocalStorage Sync**: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.
 - 🛡️ **Save Mismatch Auto-Recovery**: Compares questions progress on save and automatically restores correct status from LocalStorage in case of DB sync mismatch.

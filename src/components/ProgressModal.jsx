@@ -290,7 +290,7 @@ const ProgressModal = ({
                 <div className="p-6">
                     {/* Tabs */}
                     <div className="flex gap-2 p-1 bg-slate-900/50 rounded-xl mb-8 border border-slate-700/50">
-                        {['dpp', 'module'].map((tab) => (
+                        {['dpp', 'module', 'assignments'].map((tab) => (
                             <button 
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -363,6 +363,54 @@ const ProgressModal = ({
                                     <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${acc}%` }}></div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'assignments' && (
+                        <div className="space-y-3 mb-6">
+                            {(!chapterData || !chapterData.assignments || chapterData.assignments.length === 0) ? (
+                                <div className="text-center bg-slate-900/40 border border-slate-700/50 rounded-2xl p-8 flex flex-col items-center">
+                                    <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-3 text-lg">
+                                        📄
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-300 mb-1">No Sync'd Assignments</h4>
+                                    <p className="text-xs text-slate-400 max-w-[240px] leading-relaxed">
+                                        Sync assignments automatically by opening assignment PDFs on PW batches.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                    {chapterData.assignments.map((assignment, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            className="p-4 bg-slate-950/40 border border-slate-700/50 rounded-2xl flex items-center justify-between gap-3 hover:bg-slate-900/60 hover:border-slate-600 transition-all backdrop-blur-md relative overflow-hidden"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0 text-orange-400 text-base">
+                                                    📄
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="text-sm font-bold text-slate-200 truncate pr-2" title={assignment.name}>
+                                                        {assignment.name}
+                                                    </h4>
+                                                    <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
+                                                        {assignment.url}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <a 
+                                                href={assignment.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="py-2 px-3 bg-gradient-to-r from-orange-600 to-red-650 hover:from-orange-500 hover:to-red-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-md shadow-orange-950/20"
+                                            >
+                                                <i className="ph-bold ph-arrow-square-out text-sm"></i>
+                                                Open
+                                            </a>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 

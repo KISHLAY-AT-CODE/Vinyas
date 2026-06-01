@@ -145,12 +145,64 @@ const SubjectTable = ({
     onNextSubject = () => {},
     activeSubjectIdx = 0,
     totalSubjects = 1,
-    performanceMode = false
+    performanceMode = false,
+    onLinkChapterBookUrl
 }) => {
     const [showAddChapterModal, setShowAddChapterModal] = useState(false);
     const [newChapterName, setNewChapterName] = useState('');
     const headerRef = React.useRef(null);
     const [isStuck, setIsStuck] = useState(false);
+
+    const [showLinkBookModal, setShowLinkBookModal] = useState(false);
+    const [linkModalChapter, setLinkModalChapter] = useState('');
+    const [linkModalInputUrl, setLinkModalInputUrl] = useState('');
+    const [linkModalSelectedBookUrl, setLinkModalSelectedBookUrl] = useState('');
+
+    const dropdownContainerRef = React.useRef(null);
+    const [activeBookUrl, setActiveBookUrl] = useState(() => {
+        if (subject.books && subject.books.length > 0) {
+            return subject.books[0].url;
+        }
+        return subject.bookUrl || '';
+    });
+    const [showBooksDropdown, setShowBooksDropdown] = useState(false);
+
+    React.useEffect(() => {
+        if (subject.books && subject.books.length > 0) {
+            setActiveBookUrl(subject.books[0].url);
+        } else {
+            setActiveBookUrl(subject.bookUrl || '');
+        }
+        setShowBooksDropdown(false);
+    }, [subject]);
+
+    React.useEffect(() => {
+        if (!showBooksDropdown) return;
+        const handleOutsideClick = (e) => {
+            if (dropdownContainerRef.current && !dropdownContainerRef.current.contains(e.target)) {
+                setShowBooksDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        return () => document.removeEventListener('click', handleOutsideClick);
+    }, [showBooksDropdown]);
+
+    const getChapterBookUrl = (chName) => {
+        if (activeBookUrl && subject.books) {
+            const activeBook = subject.books.find(b => b.url === activeBookUrl);
+            if (activeBook && activeBook.chapters && activeBook.chapters[chName]) {
+                return { url: activeBook.chapters[chName], bookName: activeBook.name };
+            }
+        }
+        if (subject.books) {
+            for (const book of subject.books) {
+                if (book.chapters && book.chapters[chName]) {
+                    return { url: book.chapters[chName], bookName: book.name };
+                }
+            }
+        }
+        return null;
+    };
 
     React.useEffect(() => {
         let ticking = false;
@@ -239,6 +291,72 @@ const SubjectTable = ({
                     <h2 className={`text-xl font-black flex items-center gap-2.5 relative z-10 transition-all duration-300 ${glassTheme.titleColor}`}>
                         <i className={`ph-fill ${glassTheme.iconClass} text-2xl`}></i>
                         <span>{subject.name}</span>
+                        {(() => {
+                            if (subject.books && subject.books.length > 1) {
+                                return (
+                                    <div className="relative inline-block" ref={dropdownContainerRef}>
+                                        <button 
+                                            onClick={() => setShowBooksDropdown(prev => !prev)}
+                                            className="ml-1 text-slate-400 hover:text-indigo-400 transition-colors duration-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-800/50 cursor-pointer"
+                                            title="Select Book Module"
+                                        >
+                                            <i className="ph-bold ph-book-open text-lg"></i>
+                                            <i className={`ph-bold ph-caret-down text-[10px] ml-0.5 transition-transform duration-200 ${showBooksDropdown ? 'rotate-180' : ''}`}></i>
+                                        </button>
+                                        {showBooksDropdown && (
+                                            <div className="absolute left-0 mt-1 w-64 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl backdrop-blur-xl z-30 p-1 divide-y divide-slate-800/50 animate-fade-in">
+                                                {subject.books.map((book) => (
+                                                    <button
+                                                        key={book.url}
+                                                        onClick={() => {
+                                                            setActiveBookUrl(book.url);
+                                                            setShowBooksDropdown(false);
+                                                            window.open(book.url, '_blank', 'noopener,noreferrer');
+                                                        }}
+                                                        className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+                                                            activeBookUrl === book.url 
+                                                                ? 'text-indigo-400 bg-indigo-500/10' 
+                                                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        <i className="ph-fill ph-book-open"></i>
+                                                        <span className="truncate flex-1">{book.name}</span>
+                                                        {activeBookUrl === book.url && (
+                                                            <span className="text-[9px] uppercase tracking-wider bg-indigo-500/20 text-indigo-300 font-extrabold px-1.5 py-0.5 rounded">Active</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            } else if (subject.books && subject.books.length === 1) {
+                                return (
+                                    <a 
+                                        href={subject.books[0].url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="ml-1 text-slate-400 hover:text-indigo-400 transition-colors duration-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-800/50"
+                                        title={`Open Book: ${subject.books[0].name}`}
+                                    >
+                                        <i className="ph-bold ph-book-open text-lg"></i>
+                                    </a>
+                                );
+                            } else if (subject.bookUrl) {
+                                return (
+                                    <a 
+                                        href={subject.bookUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="ml-1 text-slate-400 hover:text-indigo-400 transition-colors duration-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-800/50"
+                                        title={`Open Book: ${subject.bookName || 'Subject Module'}`}
+                                    >
+                                        <i className="ph-bold ph-book-open text-lg"></i>
+                                    </a>
+                                );
+                            }
+                            return null;
+                        })()}
                     </h2>
 
                     <button 
@@ -307,6 +425,37 @@ const SubjectTable = ({
                                             <span className={`truncate max-w-[120px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-[320px] lg:max-w-[420px] xl:max-w-[550px] transition-all duration-300 relative group-hover:${theme.text}`}>
                                                 {chapter.name}
                                             </span>
+                                            {((subject.books && subject.books.length > 0) || !!subject.bookUrl) && (
+                                                <button 
+                                                    onClick={() => {
+                                                        const mappedInfo = getChapterBookUrl(chapter.name);
+                                                        if (mappedInfo && mappedInfo.url) {
+                                                            window.open(mappedInfo.url, '_blank', 'noopener,noreferrer');
+                                                        } else {
+                                                            setLinkModalChapter(chapter.name);
+                                                            setLinkModalInputUrl('');
+                                                            if (subject.books && subject.books.length > 0) {
+                                                                setLinkModalSelectedBookUrl(activeBookUrl || subject.books[0].url);
+                                                            } else {
+                                                                setLinkModalSelectedBookUrl(subject.bookUrl || '');
+                                                            }
+                                                            setShowLinkBookModal(true);
+                                                        }
+                                                    }}
+                                                    className={`ml-2 transition-colors flex items-center justify-center p-0.5 rounded hover:bg-slate-800/50 cursor-pointer ${
+                                                        getChapterBookUrl(chapter.name) 
+                                                            ? 'text-indigo-400 hover:text-indigo-300' 
+                                                            : 'text-slate-500 hover:text-slate-350'
+                                                    }`}
+                                                    title={
+                                                        getChapterBookUrl(chapter.name) 
+                                                            ? `Read chapter in book: ${getChapterBookUrl(chapter.name).bookName}` 
+                                                            : 'Book is not configured. Click to link it yourself.'
+                                                    }
+                                                >
+                                                    <i className="ph-bold ph-book-open text-sm"></i>
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity relative z-10">
                                             <button onClick={() => openLogModal(sIdx, cIdx, chapter.name, chapter.log)} className={`transition-colors focus:outline-none p-1 rounded hover:bg-slate-700 ${chapter.log ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}`} title={chapter.log ? "Edit your Notes" : "Add prep notes for AI analysis"}>
@@ -452,6 +601,97 @@ const SubjectTable = ({
                                     }`}
                                 >
                                     Create Chapter
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Manual Link Chapter Book URL Modal */}
+            {showLinkBookModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full animate-pop-in relative">
+                        <div className={`absolute -left-12 -top-12 w-24 h-24 rounded-full blur-3xl pointer-events-none opacity-30 ${glassTheme.spotlightClass}`} />
+                        
+                        <button 
+                            onClick={() => {
+                                setShowLinkBookModal(false);
+                                setLinkModalChapter('');
+                                setLinkModalInputUrl('');
+                            }} 
+                            className="absolute top-4 right-4 text-slate-450 hover:text-white transition-colors"
+                        >
+                            <i className="ph-bold ph-x text-lg"></i>
+                        </button>
+                        
+                        <div className="mb-4">
+                            <h3 className="text-base font-black flex items-center gap-2 text-white">
+                                <i className="ph-fill ph-book-open text-lg text-indigo-400"></i>
+                                Book Not Configured
+                            </h3>
+                            <p className="text-xs text-slate-450 mt-1">
+                                Reading link for <span className="text-slate-200 font-bold">"{linkModalChapter}"</span> is not configured. Map the link yourself.
+                            </p>
+                        </div>
+                        
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const url = linkModalInputUrl.trim();
+                                if (url) {
+                                    onLinkChapterBookUrl(sIdx, linkModalSelectedBookUrl, linkModalChapter, url);
+                                    setShowLinkBookModal(false);
+                                    setLinkModalChapter('');
+                                    setLinkModalInputUrl('');
+                                }
+                            }}
+                            className="space-y-4"
+                        >
+                            {subject.books && subject.books.length > 1 && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Book to Link:</label>
+                                    <select 
+                                        value={linkModalSelectedBookUrl} 
+                                        onChange={e => setLinkModalSelectedBookUrl(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                                    >
+                                        {subject.books.map(b => (
+                                            <option key={b.url} value={b.url}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Chapter Reading Link:</label>
+                                <input 
+                                    type="url"
+                                    value={linkModalInputUrl}
+                                    onChange={e => setLinkModalInputUrl(e.target.value)}
+                                    placeholder="e.g. https://books.pw.live/..."
+                                    required
+                                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-all font-semibold"
+                                />
+                            </div>
+                            
+                            <div className="flex gap-2 justify-end pt-2">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setShowLinkBookModal(false);
+                                        setLinkModalChapter('');
+                                        setLinkModalInputUrl('');
+                                    }}
+                                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-750 transition-all cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer"
+                                >
+                                    Confirm Link
                                 </button>
                             </div>
                         </form>
