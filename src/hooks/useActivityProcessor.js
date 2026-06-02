@@ -101,7 +101,8 @@ export const useActivityProcessor = ({
         let nextResolvedIdsSet = new Set(nextResolvedIds);
         let resolvedIdsUpdated = false;
 
-        activities.forEach(act => {
+        const sortedActivities = [...activities].reverse();
+        sortedActivities.forEach(act => {
             if (act.type === 'INTERACTIVE_QUESTION_UPDATE') {
                 if (!nextResolvedIdsSet.has(act.id)) {
                     const details = act.details || {};
@@ -200,7 +201,7 @@ export const useActivityProcessor = ({
                         const key = getQuestionKey(exerciseName, questionNumber);
                         const newStates = { ...(ch.moduleQuestionStates || {}) };
                         if (state === 'none') {
-                            delete newStates[key];
+                            newStates[key] = 'none';
                         } else {
                             newStates[key] = state;
                         }
@@ -234,17 +235,7 @@ export const useActivityProcessor = ({
                             acc: finalAcc
                         };
 
-                        try {
-                            const storedGlobal = JSON.parse(localStorage.getItem('vinyas_interactive_module_progress') || '{}');
-                            if (state === 'none') {
-                                delete storedGlobal[key];
-                            } else {
-                                storedGlobal[key] = state;
-                            }
-                            localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
-                        } catch (e) {
-                            console.error("[Vinyas App] Error updating local storage for interactive module question state:", e);
-                        }
+                        // Removed localStorage vinyas_interactive_module_progress updates to prevent collisions
 
                         nextData[matchedSubjectIdx] = { ...matchedSub, chapters: [...matchedSub.chapters] };
                         nextData[matchedSubjectIdx].chapters[matchedChapterIdx] = ch;

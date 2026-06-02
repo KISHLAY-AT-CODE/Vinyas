@@ -165,8 +165,10 @@ export default async function handler(req, res) {
                     ch.exerciseDisplayNames = exCh.exerciseDisplayNames;
                   }
                   if (exCh.moduleQuestionStates && Object.keys(exCh.moduleQuestionStates || {}).length > 0) {
-                    if (ch.moduleQuestionStates === undefined || ch.moduleQuestionStates === null) {
+                    if (ch.moduleQuestionStates === undefined || ch.moduleQuestionStates === null || Object.keys(ch.moduleQuestionStates || {}).length === 0) {
                       ch.moduleQuestionStates = exCh.moduleQuestionStates;
+                    } else {
+                      ch.moduleQuestionStates = { ...exCh.moduleQuestionStates, ...ch.moduleQuestionStates };
                     }
                   }
                 }

@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.1.1-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -348,6 +348,11 @@ Ensure all environment variables are configured in your Vercel project settings.
 ---
 
 ## 📅 Changelog
+
+### v2.1.1 (June 2, 2026)
+- 🐛 **Critical Bug Fix**: Fixed a major issue where interactive question states (Difficult/Later) would reset back to Completed when reloading the app.
+- 🎯 **Dynamic Extension**: The extension now intelligently adapts to any module practice without getting stuck or showing incorrect question counts.
+- 🧹 **Interface Polish**: Removed the redundant Leave button from the native page and unused diagnostic tools for a cleaner experience.
 
 ### v2.1.0 (June 2, 2026)
 - 💡 **Suggest Feature Modal**: Propose feature ideas or feedback directly to the developer, routed via secure SMTP email.

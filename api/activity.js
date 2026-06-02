@@ -256,7 +256,7 @@ export default async function handler(req, res) {
           }
 
           if (state === 'none') {
-            delete ch.moduleQuestionStates[key];
+            ch.moduleQuestionStates[key] = 'none';
           } else {
             ch.moduleQuestionStates[key] = state;
           }
@@ -318,6 +318,99 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true });
         } else {
           return res.status(404).json({ error: 'Chapter/Subject not found in syllabus' });
+        }
+      }
+
+      if (type === 'PW_BOOKS_QUESTIONS') {
+        const { chapterName, exercises, displayNames, url, forceUpdate } = details || {};
+        if (!chapterName || !exercises) {
+          return res.status(400).json({ error: 'Missing chapterName or exercises' });
+        }
+
+        if (!existingDoc) {
+          return res.status(400).json({ error: 'User profile does not exist to update chapter exercises configuration' });
+        }
+
+        const existingActivities = existingDoc.activities || [];
+        const normPayloadUrl = normalizeUrl(url);
+        const existingAct = existingActivities.find(act => 
+          act.type === 'PW_BOOKS_QUESTIONS' && 
+          act.details?.url && 
+          normalizeUrl(act.details.url) === normPayloadUrl
+        );
+
+        if (existingAct && !forceUpdate) {
+          return res.status(200).json({ success: true, duplicate: true });
+        }
+
+        const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
+        let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
+
+        const normChAct = normalizeChapterName(chapterName);
+        let updated = false;
+
+        for (let sIdx = 0; sIdx < syllabusData.length; sIdx++) {
+          const sub = syllabusData[sIdx];
+          const cIdx = sub.chapters.findIndex(ch => normalizeChapterName(ch.name) === normChAct);
+          if (cIdx !== -1) {
+            const ch = sub.chapters[cIdx];
+            ch.customExerciseConfig = exercises;
+            ch.exerciseDisplayNames = displayNames || {};
+            updated = true;
+            break;
+          } else {
+            const candidates = [];
+            sub.chapters.forEach((ch, chIdx) => {
+              const chNorm = normalizeChapterName(ch.name);
+              if (chNorm.length > 2 && (chNorm.includes(normChAct) || normChAct.includes(chNorm))) {
+                candidates.push({ chIdx, name: ch.name, length: chNorm.length });
+              }
+            });
+            if (candidates.length > 0) {
+              candidates.sort((a, b) => b.length - a.length);
+              const ch = sub.chapters[candidates[0].chIdx];
+              ch.customExerciseConfig = exercises;
+              ch.exerciseDisplayNames = displayNames || {};
+              updated = true;
+              break;
+            }
+          }
+        }
+
+        if (updated) {
+          const serializedData = serializeSyllabus(syllabusData, baseTemplate);
+          const freshId = existingAct ? existingAct.id : Date.now().toString();
+          const activityLog = {
+            id: freshId,
+            type,
+            details,
+            timestamp: timestamp || getISTISOString()
+          };
+
+          let newActivities = [...existingActivities];
+          if (existingAct) {
+            newActivities = newActivities.map(act => act.id === existingAct.id ? activityLog : act);
+          } else {
+            newActivities.unshift(activityLog);
+            if (newActivities.length > 50) {
+              newActivities = newActivities.slice(0, 50);
+            }
+          }
+
+          await collection.updateOne(
+            { syncId },
+            { 
+              $set: { 
+                data: serializedData, 
+                activities: newActivities,
+                lastUpdated: getISTISOString() 
+              }
+            }
+          );
+
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(404).json({ error: 'Chapter not found in syllabus to sync exercises' });
         }
       }
 
@@ -590,35 +683,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // URL-based deduplication for PW Books questions configs
-      if (type === 'PW_BOOKS_QUESTIONS' && details?.url) {
-        const userDocForPost = await collection.findOne({ syncId }, { projection: { activities: 1 } });
-        const existingActivities = userDocForPost?.activities || [];
-        const normPayloadUrl = normalizeUrl(details.url);
-        const existingAct = existingActivities.find(act => 
-          act.type === 'PW_BOOKS_QUESTIONS' && 
-          act.details?.url && 
-          normalizeUrl(act.details.url) === normPayloadUrl
-        );
-
-        if (existingAct) {
-          if (details.forceUpdate) {
-            const freshId = Date.now().toString();
-            // Bypass deduplication, update existing entry matched by activity ID and refresh its ID to trigger react updates
-            await collection.updateOne(
-              { syncId, 'activities.id': existingAct.id, 'activities.type': 'PW_BOOKS_QUESTIONS' },
-              { $set: {
-                'activities.$.id': freshId,
-                'activities.$.details': details,
-                'activities.$.timestamp': timestamp || getISTISOString()
-              }}
-            );
-            return res.status(200).json({ success: true, updated: true });
-          } else {
-            return res.status(200).json({ success: true, duplicate: true });
-          }
-        }
-      }
+      // (Old PW_BOOKS_QUESTIONS deduplication block removed, handled directly on top)
 
 
 

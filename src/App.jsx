@@ -200,7 +200,7 @@ const App = () => {
                     const key = getQuestionKey(exerciseName, questionNumber);
                     const newStates = { ...(ch.moduleQuestionStates || {}) };
                     if (state === 'none') {
-                        delete newStates[key];
+                        newStates[key] = 'none';
                     } else {
                         newStates[key] = state;
                     }
@@ -227,15 +227,7 @@ const App = () => {
                     const totalTracked = completed + difficult + later;
                     const finalAcc = totalTracked > 0 ? Math.round((completed / totalTracked) * 100) : 0;
                     
-                    try {
-                        const storedGlobal = JSON.parse(localStorage.getItem('vinyas_interactive_module_progress') || '{}');
-                        if (state === 'none') {
-                            delete storedGlobal[key];
-                        } else {
-                            storedGlobal[key] = state;
-                        }
-                        localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
-                    } catch (e) {}
+                    // Removed localStorage vinyas_interactive_module_progress updates to prevent collisions
 
                     return {
                         ...ch,

@@ -891,7 +891,14 @@ function parseBooksQuestionsFromDOM() {
                     const exNum = match[1];
                     const exKey = `Exercise ${exNum}`;
                     exercises[exKey] = qCount;
-                    displayNames[exKey] = titleText;
+                    
+                    let cleanedDisplayName = titleText;
+                    if (chapterName) {
+                        const escapedChName = chapterName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
+                        cleanedDisplayName = cleanedDisplayName.replace(regex, '');
+                    }
+                    displayNames[exKey] = cleanedDisplayName || titleText;
                 }
             }
         });
@@ -1170,6 +1177,7 @@ function showRedirectIndexPrompt(chapter, syncId, apiUrl) {
         host.remove();
         trackerFailed = true;
         showPwSubmitButton();
+        showPwLeaveButton();
         console.log('[Vinyas Tracker] User skipped chapter indexing prompt.');
     });
 
@@ -2127,6 +2135,7 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
         host.remove();
         trackerFailed = true;
         showPwSubmitButton();
+        showPwLeaveButton();
     });
 
     shadow.getElementById('backdrop').addEventListener('click', (e) => {
@@ -2134,6 +2143,7 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
             host.remove();
             trackerFailed = true;
             showPwSubmitButton();
+            showPwLeaveButton();
         }
     });
 
@@ -2358,10 +2368,10 @@ setInterval(() => {
             checkStudyGoals();
         }
         
-        // 4. Parse PW book exercises ONLY on the practice portal sub-path
+        // 4. Parse PW book exercises ONLY on the practice portal sub-path (disabled)
         if (url.includes("/practice") || url.includes("/books")) {
-            checkPwBooksQuestions();
-            checkPwPracticeV2Questions();
+            // checkPwBooksQuestions();
+            // checkPwPracticeV2Questions();
         }
 
         // 5. Check if PDF is loaded
@@ -2383,8 +2393,10 @@ setInterval(() => {
             checkInteractiveModuleTracker();
             if (!trackerFailed) {
                 hidePwSubmitButton();
+                hidePwLeaveButton();
             } else {
                 showPwSubmitButton();
+                showPwLeaveButton();
             }
         } else {
             const existing = document.getElementById('vinyas-tracker-widget-host');
@@ -2428,6 +2440,17 @@ function findPwSubmitButton() {
 }
 
 function findPwLeaveButton() {
+    // 1. Try to find the specific PW back button from the header (with class mr-3, cursor-pointer and containing an svg)
+    const specificDiv = Array.from(document.querySelectorAll('div.cursor-pointer')).find(el => {
+        const classStr = typeof el.className === 'string' ? el.className : '';
+        if (el.id && el.id.includes('vinyas')) return false;
+        return classStr.includes('mr-3') && classStr.includes('w-full') && el.querySelector('svg');
+    });
+    if (specificDiv) return specificDiv;
+
+    const specificDiv2 = document.querySelector('div.flex.justify-between.flex-col.w-full.mr-3.py-\\[6px\\].px-1.cursor-pointer');
+    if (specificDiv2) return specificDiv2;
+
     const leaveKeywords = ['leave', 'exit', 'quit', 'go back', 'back', 'close'];
     let foundLeaveBtn = null;
     
@@ -2497,6 +2520,30 @@ function showPwSubmitButton() {
         }
     } catch (e) {
         console.error("[Vinyas Tracker] Error showing PW submit button:", e);
+    }
+}
+
+function hidePwLeaveButton() {
+    try {
+        const btn = findPwLeaveButton();
+        if (btn && btn.style.display !== 'none') {
+            btn.style.setProperty('display', 'none', 'important');
+            console.log("[Vinyas Tracker] Hidden native PW leave button:", btn);
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error hiding PW leave button:", e);
+    }
+}
+
+function showPwLeaveButton() {
+    try {
+        const btn = findPwLeaveButton();
+        if (btn && btn.style.display === 'none') {
+            btn.style.removeProperty('display');
+            console.log("[Vinyas Tracker] Restored/Unhidden native PW leave button:", btn);
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error showing PW leave button:", e);
     }
 }
 
@@ -2583,6 +2630,49 @@ function renderLoadingWidget() {
     `;
 }
 
+function waitForExerciseLayout(callback) {
+    let attempts = 0;
+    const maxAttempts = 12; // 6 seconds total
+    const interval = setInterval(() => {
+        attempts++;
+        let scrapedExKey = null;
+        let scrapedQCount = 0;
+
+        const activeExElement = Array.from(document.querySelectorAll('span, div, h1, h2, h3, p')).find(el => {
+            const text = el.innerText?.trim() || '';
+            if (!text.toLowerCase().includes('exercise-') && !text.toLowerCase().includes('exercise ')) return false;
+            const hasMatchingChild = Array.from(el.children).some(child => {
+                const childText = child.innerText?.trim() || '';
+                return childText.toLowerCase().includes('exercise-') || childText.toLowerCase().includes('exercise ');
+            });
+            return !hasMatchingChild;
+        });
+
+        if (activeExElement) {
+            const scrapedExName = activeExElement.innerText.trim();
+            const matchScraped = scrapedExName.match(/exercise[- ]*(\d+)/i);
+            if (matchScraped && matchScraped[1]) {
+                scrapedExKey = `Exercise ${matchScraped[1]}`;
+            }
+        }
+
+        const leafDigits = Array.from(document.querySelectorAll('div, button, span'))
+            .filter(el => el.children.length === 0 && /^\d+$/.test(el.innerText?.trim() || ''))
+            .map(el => parseInt(el.innerText.trim(), 10));
+        if (leafDigits.length > 0) {
+            const maxQ = Math.max(...leafDigits);
+            if (maxQ > 0 && maxQ <= 150) {
+                scrapedQCount = maxQ;
+            }
+        }
+
+        if ((scrapedExKey && scrapedQCount > 0) || attempts >= maxAttempts) {
+            clearInterval(interval);
+            callback();
+        }
+    }, 500);
+}
+
 function initInteractiveModuleTracker() {
     const urlParams = new URLSearchParams(window.location.search);
     let chapterTitleRaw = urlParams.get('chapterTitle') || '';
@@ -2592,42 +2682,47 @@ function initInteractiveModuleTracker() {
 
     renderLoadingWidget();
 
-    chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
-        const syncId = result.vinyasSyncId;
-        const apiUrl = result.vinyasApiUrl;
-        if (!syncId || !apiUrl) {
-            console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping tracker widget.");
-            const existing = document.getElementById('vinyas-tracker-widget-host');
-            if (existing) existing.remove();
-            trackerFailed = true;
-            showPwSubmitButton();
-            return;
-        }
-
-        chrome.runtime.sendMessage({
-            action: "fetchSyllabus",
-            data: { syncId, apiUrl }
-        }, (response) => {
-            if (response && response.success && response.data) {
-                const subjects = response.data.data || [];
-                const matches = findChapterMatchesInSyllabus(subjects, chapterTitle);
-                if (matches.length === 1) {
-                    renderTrackerWidget(matches[0].subject, matches[0].chapter, syncId, apiUrl);
-                } else {
-                    console.log(`[Vinyas Tracker] Mismatch or ambiguous syllabus chapter match for "${chapterTitle}"`);
-                    const existing = document.getElementById('vinyas-tracker-widget-host');
-                    if (existing) existing.remove();
-                    trackerFailed = true;
-                    showPwSubmitButton();
-                    showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl);
-                }
-            } else {
-                console.error("[Vinyas Tracker] Failed to fetch syllabus data:", response?.error);
+    waitForExerciseLayout(() => {
+        chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
+            const syncId = result.vinyasSyncId;
+            const apiUrl = result.vinyasApiUrl;
+            if (!syncId || !apiUrl) {
+                console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping tracker widget.");
                 const existing = document.getElementById('vinyas-tracker-widget-host');
                 if (existing) existing.remove();
                 trackerFailed = true;
                 showPwSubmitButton();
+                showPwLeaveButton();
+                return;
             }
+
+            chrome.runtime.sendMessage({
+                action: "fetchSyllabus",
+                data: { syncId, apiUrl }
+            }, (response) => {
+                if (response && response.success && response.data) {
+                    const subjects = response.data.data || [];
+                    const matches = findChapterMatchesInSyllabus(subjects, chapterTitle);
+                    if (matches.length === 1) {
+                        renderTrackerWidget(matches[0].subject, matches[0].chapter, syncId, apiUrl);
+                    } else {
+                        console.log(`[Vinyas Tracker] Mismatch or ambiguous syllabus chapter match for "${chapterTitle}"`);
+                        const existing = document.getElementById('vinyas-tracker-widget-host');
+                        if (existing) existing.remove();
+                        trackerFailed = true;
+                        showPwSubmitButton();
+                        showPwLeaveButton();
+                        showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl);
+                    }
+                } else {
+                    console.error("[Vinyas Tracker] Failed to fetch syllabus data:", response?.error);
+                    const existing = document.getElementById('vinyas-tracker-widget-host');
+                    if (existing) existing.remove();
+                    trackerFailed = true;
+                    showPwSubmitButton();
+                    showPwLeaveButton();
+                }
+            });
         });
     });
 }
@@ -2651,74 +2746,93 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
     activeWidgetChapter = chapter;
     activeQuestionStates = chapter.moduleQuestionStates || {};
 
-    let exerciseKeys = Object.keys(customExerciseConfig);
-    if (exerciseKeys.length === 0) {
-        console.log("[Vinyas Tracker] No exercise config found. Attempting to dynamically scrape exercise details...");
-        
-        let scrapedExKey = 'Exercise 1';
-        let scrapedExDisplayName = 'Exercise 1';
-        let scrapedQCount = 0;
-        let scraped = false;
+    // 1. Run dynamic scraper to find current active exercise and question count on load
+    let scrapedExKey = null;
+    let scrapedExDisplayName = null;
+    let scrapedQCount = 0;
+    let scraped = false;
 
-        // 1. Scrape active exercise name from DOM
-        const activeExElement = Array.from(document.querySelectorAll('span, div, h1, h2, h3, p')).find(el => {
-            const text = el.innerText?.trim() || '';
-            return text.toLowerCase().includes('exercise-') || text.toLowerCase().includes('exercise ');
+    // A. Scrape active exercise name from DOM (find the deepest element containing "exercise" to avoid containers with chapter titles)
+    const activeExElement = Array.from(document.querySelectorAll('span, div, h1, h2, h3, p')).find(el => {
+        const text = el.innerText?.trim() || '';
+        if (!text.toLowerCase().includes('exercise-') && !text.toLowerCase().includes('exercise ')) return false;
+        const hasMatchingChild = Array.from(el.children).some(child => {
+            const childText = child.innerText?.trim() || '';
+            return childText.toLowerCase().includes('exercise-') || childText.toLowerCase().includes('exercise ');
         });
-        if (activeExElement) {
-            const scrapedExName = activeExElement.innerText.trim();
-            const matchScraped = scrapedExName.match(/exercise[- ]*(\d+)/i);
-            const scrapedNum = matchScraped ? matchScraped[1] : '';
-            if (scrapedNum) {
-                scrapedExKey = `Exercise ${scrapedNum}`;
-                scrapedExDisplayName = scrapedExName.split('\n')[0].trim();
-                scraped = true;
+        return !hasMatchingChild;
+    });
+    if (activeExElement) {
+        const scrapedExName = activeExElement.innerText.trim();
+        const matchScraped = scrapedExName.match(/exercise[- ]*(\d+)/i);
+        const scrapedNum = matchScraped ? matchScraped[1] : '';
+        if (scrapedNum) {
+            scrapedExKey = `Exercise ${scrapedNum}`;
+            let cleanedDisplayName = scrapedExName.split('\n')[0].trim();
+            if (chapter && chapter.name) {
+                const escapedChName = chapter.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
+                cleanedDisplayName = cleanedDisplayName.replace(regex, '');
             }
+            scrapedExDisplayName = cleanedDisplayName || scrapedExName.split('\n')[0].trim();
+            scraped = true;
         }
+    }
 
-        // 2. Scrape total questions count from DOM (grid digit buttons)
-        const leafDigits = Array.from(document.querySelectorAll('div, button, span'))
-            .filter(el => el.children.length === 0 && /^\d+$/.test(el.innerText?.trim() || ''))
-            .map(el => parseInt(el.innerText.trim(), 10));
-        if (leafDigits.length > 0) {
-            const maxQ = Math.max(...leafDigits);
-            if (maxQ > 0 && maxQ <= 150) {
-                scrapedQCount = maxQ;
-                scraped = true;
-            }
+    // B. Scrape total questions count from DOM (grid digit buttons)
+    const leafDigits = Array.from(document.querySelectorAll('div, button, span'))
+        .filter(el => el.children.length === 0 && /^\d+$/.test(el.innerText?.trim() || ''))
+        .map(el => parseInt(el.innerText.trim(), 10));
+    if (leafDigits.length > 0) {
+        const maxQ = Math.max(...leafDigits);
+        if (maxQ > 0 && maxQ <= 150) {
+            scrapedQCount = maxQ;
         }
+    }
 
-        if (scraped && scrapedQCount > 0) {
-            console.log(`[Vinyas Tracker] Successfully scraped: "${scrapedExKey}" with ${scrapedQCount} questions.`);
-            
-            // Populate local config
+    let exerciseKeys = Object.keys(customExerciseConfig);
+
+    if (scraped && scrapedExKey && scrapedQCount > 0) {
+        console.log(`[Vinyas Tracker] Scraped exercise details: "${scrapedExKey}" with ${scrapedQCount} questions.`);
+        
+        const isAlreadyConfigured = customExerciseConfig[scrapedExKey] === scrapedQCount && 
+                                    exerciseDisplayNames[scrapedExKey] === scrapedExDisplayName;
+        
+        if (!isAlreadyConfigured) {
+            console.log(`[Vinyas Tracker] Appending/updating "${scrapedExKey}" config to database.`);
             customExerciseConfig[scrapedExKey] = scrapedQCount;
             exerciseDisplayNames[scrapedExKey] = scrapedExDisplayName;
-            exerciseKeys = [scrapedExKey];
+            exerciseKeys = Object.keys(customExerciseConfig);
             
-            // Sync new configuration to database
+            // Sync new configuration to database immediately
             logActivity('PW_BOOKS_QUESTIONS', {
                 chapterName: chapter.name,
                 exercises: customExerciseConfig,
                 displayNames: exerciseDisplayNames,
-                url: window.location.href
+                url: window.location.href,
+                forceUpdate: true
             });
-        } else {
-            console.log("[Vinyas Tracker] Failed to scrape layout from active page. Checking if redirect index prompt can be shown.");
-            if (window.location.search) {
-                showRedirectIndexPrompt(chapter, syncId, apiUrl);
-            } else {
-                console.warn("[Vinyas Tracker] No custom exercise configuration found for chapter:", chapter.name);
-                lastCheckedTrackerUrl = '';
-                host.remove();
-                trackerFailed = true;
-                showPwSubmitButton();
-            }
-            return;
         }
+    } else {
+        console.log("[Vinyas Tracker] Scraper did not detect layout from active page. Relying on database config.");
     }
 
-    let activeExercise = exerciseKeys[0];
+    if (exerciseKeys.length === 0) {
+        console.log("[Vinyas Tracker] No exercise config found and failed to scrape layout. Checking if redirect index prompt can be shown.");
+        if (window.location.search) {
+            showRedirectIndexPrompt(chapter, syncId, apiUrl);
+        } else {
+            console.warn("[Vinyas Tracker] No custom exercise configuration found for chapter:", chapter.name);
+            lastCheckedTrackerUrl = '';
+            host.remove();
+            trackerFailed = true;
+            showPwSubmitButton();
+            showPwLeaveButton();
+        }
+        return;
+    }
+
+    let activeExercise = scrapedExKey && customExerciseConfig[scrapedExKey] ? scrapedExKey : exerciseKeys[0];
     let activeQuestion = 1;
 
     const normalizeSubName = (name) => {
@@ -2958,18 +3072,26 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
             </div>
             <div class="divider"></div>
             <select class="select-field" id="select-exercise">
-                ${exerciseKeys.map(k => `
-                    <option value="${k}" ${k === activeExercise ? 'selected' : ''}>
-                        ${escapeHTML(exerciseDisplayNames[k] || k)}
-                    </option>
-                `).join('')}
+                ${exerciseKeys.map(k => {
+                    let dispName = exerciseDisplayNames[k] || k;
+                    if (chapter && chapter.name) {
+                        const escapedChName = chapter.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
+                        dispName = dispName.replace(regex, '');
+                    }
+                    return `
+                        <option value="${k}" ${k === activeExercise ? 'selected' : ''}>
+                            ${escapeHTML(dispName || k)}
+                        </option>
+                    `;
+                }).join('')}
             </select>
             <div class="divider"></div>
             <div class="nav-wrapper">
                 <button class="nav-btn" id="btn-prev" title="Previous Question">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </button>
-                <span class="q-label" id="label-question">Q${activeQuestion}</span>
+                <span class="q-label" id="label-question">Q${activeQuestion} / ${customExerciseConfig[activeExercise] || 1}</span>
                 <button class="nav-btn" id="btn-next" title="Next Question">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
@@ -3069,7 +3191,8 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
     };
 
     const updateQuestionUI = () => {
-        labelQuestion.textContent = `Q${activeQuestion}`;
+        const maxQ = customExerciseConfig[activeExercise] || 1;
+        labelQuestion.textContent = `Q${activeQuestion} / ${maxQ}`;
         const state = getActiveQuestionState();
         updateStatusButtonUI(state);
     };
@@ -3110,7 +3233,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
 
         const key = getQuestionKey(activeExercise, activeQuestion);
         if (newState === 'none') {
-            delete activeQuestionStates[key];
+            activeQuestionStates[key] = 'none';
         } else {
             activeQuestionStates[key] = newState;
         }
@@ -3208,16 +3331,80 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
                 }
             }
 
-            const activeExElement = Array.from(document.querySelectorAll('span, div')).find(el => {
+            const activeExElement = Array.from(document.querySelectorAll('span, div, h1, h2, h3, p')).find(el => {
                 const text = el.innerText?.trim() || '';
-                return text.toLowerCase().includes('exercise-') || text.toLowerCase().includes('exercise ');
+                if (!text.toLowerCase().includes('exercise-') && !text.toLowerCase().includes('exercise ')) return false;
+                const hasMatchingChild = Array.from(el.children).some(child => {
+                    const childText = child.innerText?.trim() || '';
+                    return childText.toLowerCase().includes('exercise-') || childText.toLowerCase().includes('exercise ');
+                });
+                return !hasMatchingChild;
             });
+
             if (activeExElement) {
                 const scrapedExName = activeExElement.innerText.trim();
                 const matchScraped = scrapedExName.match(/exercise[- ]*(\d+)/i);
                 const scrapedNum = matchScraped ? matchScraped[1] : '';
 
                 if (scrapedNum) {
+                    const scrapedExKey = `Exercise ${scrapedNum}`;
+                    let scrapedQCount = 0;
+                    
+                    // Scrape total questions count from DOM (grid digit buttons)
+                    const leafDigits = Array.from(document.querySelectorAll('div, button, span'))
+                        .filter(el => el.children.length === 0 && /^\d+$/.test(el.innerText?.trim() || ''))
+                        .map(el => parseInt(el.innerText.trim(), 10));
+                    if (leafDigits.length > 0) {
+                        const maxQ = Math.max(...leafDigits);
+                        if (maxQ > 0 && maxQ <= 150) {
+                            scrapedQCount = maxQ;
+                        }
+                    }
+
+                    if (scrapedQCount > 0) {
+                        // Check if we need to add/update this exercise configuration
+                        const hasEx = customExerciseConfig[scrapedExKey] !== undefined;
+                        const isAlreadyConfigured = hasEx && 
+                                                    customExerciseConfig[scrapedExKey] === scrapedQCount;
+                        
+                        if (!isAlreadyConfigured) {
+                            console.log(`[Vinyas Tracker] Dynamically detected new exercise layout in SPA: "${scrapedExKey}" with ${scrapedQCount} questions.`);
+                            customExerciseConfig[scrapedExKey] = scrapedQCount;
+                            
+                            let cleanedDisplayName = scrapedExName.split('\n')[0].trim();
+                            if (chapter && chapter.name) {
+                                const escapedChName = chapter.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                                const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
+                                cleanedDisplayName = cleanedDisplayName.replace(regex, '');
+                            }
+                            exerciseDisplayNames[scrapedExKey] = cleanedDisplayName || scrapedExName.split('\n')[0].trim();
+                            
+                            // Re-render select options in dropdown
+                            selectExercise.innerHTML = Object.keys(customExerciseConfig).map(k => {
+                                let dispName = exerciseDisplayNames[k] || k;
+                                if (chapter && chapter.name) {
+                                    const escapedChName = chapter.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                                    const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
+                                    dispName = dispName.replace(regex, '');
+                                }
+                                return `
+                                    <option value="${k}" ${k === scrapedExKey ? 'selected' : ''}>
+                                        ${escapeHTML(dispName || k)}
+                                    </option>
+                                `;
+                            }).join('');
+
+                            // Sync new configuration to database immediately
+                            logActivity('PW_BOOKS_QUESTIONS', {
+                                chapterName: chapter.name,
+                                exercises: customExerciseConfig,
+                                displayNames: exerciseDisplayNames,
+                                url: window.location.href,
+                                forceUpdate: true
+                            });
+                        }
+                    }
+
                     const matchedKey = Object.keys(customExerciseConfig).find(k => {
                         const matchKey = k.match(/exercise[- ]*(\d+)/i);
                         return matchKey && matchKey[1] === scrapedNum;
@@ -3241,6 +3428,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
         }
         syncPageToWidget();
         hidePwSubmitButton();
+        hidePwLeaveButton();
     }, 1000);
 }
 

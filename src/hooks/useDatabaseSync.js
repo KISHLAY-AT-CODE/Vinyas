@@ -106,32 +106,8 @@ export const useDatabaseSync = ({
                     
                     setData(parsedData);
                     
-                    // Initialize localStorage vinyas_interactive_module_progress from MongoDB question states on load
-                    try {
-                        const storedGlobal = {};
-                        parsedData.forEach(sub => {
-                            const normalizeSub = (name) => {
-                                const s = (name || '').toLowerCase().trim();
-                                if (s.includes('math')) return 'Maths';
-                                if (s.includes('phys')) return 'Physics';
-                                if (s.includes('chem')) return 'Chem';
-                                return name || '';
-                            };
-                            const normSubName = normalizeSub(sub.name);
-                            
-                            sub.chapters?.forEach((ch, cIdx) => {
-                                if (ch.moduleQuestionStates) {
-                                    Object.entries(ch.moduleQuestionStates).forEach(([key, state]) => {
-                                        storedGlobal[key] = state;
-                                    });
-                                }
-                            });
-                        });
-                        localStorage.setItem('vinyas_interactive_module_progress', JSON.stringify(storedGlobal));
-                        console.log("[Vinyas App] Initialized interactive module tracker progress in local storage:", storedGlobal);
-                    } catch (e) {
-                        console.error("[Vinyas App] Error initializing local storage from DB question states:", e);
-                    }
+                    // Removed localStorage vinyas_interactive_module_progress initialization to prevent collisions
+                    console.log("[Vinyas App] Bypassed localStorage initialization. Relying strictly on fresh MongoDB question states.");
                     
                     if (serverData.routines) {
                         setRoutines(typeof serverData.routines === 'string' ? JSON.parse(serverData.routines) : serverData.routines);

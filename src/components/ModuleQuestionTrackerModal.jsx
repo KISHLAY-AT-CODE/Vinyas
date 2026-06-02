@@ -156,40 +156,14 @@ const ModuleQuestionTrackerModal = ({
         if (newState) {
             updatedProgress[key] = newState;
         } else {
-            delete updatedProgress[key];
+            updatedProgress[key] = 'none';
         }
 
         setLocalProgress(updatedProgress);
     };
 
     const handleSaveAndClose = async () => {
-        // Save question states to localStorage when explicitly locking in progress
-        const globalKey = 'vinyas_interactive_module_progress';
-        let storedGlobal = {};
-        try {
-            storedGlobal = JSON.parse(localStorage.getItem(globalKey) || '{}');
-        } catch (e) {}
-
-        const currentChapterKeys = new Set();
-        if (exercisesConfig) {
-            Object.entries(exercisesConfig).forEach(([exName, qCount]) => {
-                for (let q = 1; q <= qCount; q++) {
-                    currentChapterKeys.add(getQuestionKey(exName, q));
-                }
-            });
-        }
-
-        const newGlobal = { ...storedGlobal };
-        currentChapterKeys.forEach(k => {
-            if (localProgress[k]) {
-                newGlobal[k] = localProgress[k];
-            } else {
-                delete newGlobal[k];
-            }
-        });
-        try {
-            localStorage.setItem(globalKey, JSON.stringify(newGlobal));
-        } catch (e) {}
+        // Removed localStorage vinyas_interactive_module_progress updates to prevent collisions
 
         // Lock in progress and accuracy to Vinyas syllabus state
         const result = await onSaveProgress({
