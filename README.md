@@ -17,6 +17,14 @@
 
 ---
 
+> ### 🏁 Project Closure Announcement (v2.1.1)
+> As of **June 2, 2026**, Vinyas has officially reached its final planned feature milestone at **version 2.1.1**.
+> The codebase is now in **Active Maintenance Mode** — focus has shifted entirely to platform stability, performance optimizations, bug fixes, and introducing unlockable achievements. 
+> 
+> * **Experience the Story**: Visit the interactive [/vinyas-lived](/vinyas-lived) route directly in the web app to explore the project timeline, detailed engineering chronicles, and play in the feature sandbox.
+
+---
+
 ![Vinyas Dashboard](public/bg3.png)
 
 ## 🌟 Overview
@@ -34,7 +42,7 @@ Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition 
 ### 🧩 Chrome Extension Companion
 A lightweight Manifest V3 browser extension that seamlessly pairs with your dashboard. Features:
 * **Interactive Tracker Widget Overlay**: A floating, draggable, and bounded widget injected directly into textbook exercise and quiz pages to log question difficulty states (`Easy`, `Medium`, `Hard`, `Difficult`) and syncs progress in real-time.
-* **Leave & Submit Actions**: Widget leave button saves progress to the database and native exit is triggered programmatically. Submit proxy triggers native submit triggers.
+* **Auto-Save & Submit Actions**: Widget auto-saves question states directly to the MongoDB database in real-time, preventing progress loss. Native PW quiz submit button actions are proxied programmatically.
 * **Trimmed URL Checker & Auto-Indexing**: Automatically detects unconfigured chapters, prompts to redirect to trimmed list pages to auto-scrape question counts, saves to database, and redirects back to active quiz in under 2 seconds.
 * **1-Click Auto-Pair**: Detects Sync IDs and links dashboard automatically, with beautiful glassmorphic popups alerting on account connection and disconnection states.
 

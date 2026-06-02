@@ -175,7 +175,8 @@ const Header = ({
     onOpenSuggestFeature,
     onUpdateThemeSettings,
     isSidebarVisible,
-    onToggleSidebar
+    onToggleSidebar,
+    onNavigateToVinyasLived
 }) => {
     const fileInputRef = useRef(null);
     const { showToast } = useToast();
@@ -824,6 +825,15 @@ const Header = ({
                         title="Refresh, press R"
                     >
                         <i className={`ph-bold ph-arrows-clockwise text-lg ${isPollingActivities ? 'animate-spin text-orange-400' : ''}`}></i>
+                    </button>
+
+                    {/* Vinyas Lived Journey Button */}
+                    <button 
+                        onClick={onNavigateToVinyasLived}
+                        className="w-10 h-10 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/80 hover:border-orange-500/35 rounded-xl flex items-center justify-center text-slate-300 hover:text-orange-400 shadow transition-all active:scale-95 cursor-pointer hover:shadow-[0_0_15px_rgba(249,115,22,0.25)] group"
+                        title="Vinyas Journey & Chronicles"
+                    >
+                        <i className="ph-bold ph-flag text-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12 text-orange-400"></i>
                     </button>
 
                     {/* Settings Dropdown right beside greetings */}

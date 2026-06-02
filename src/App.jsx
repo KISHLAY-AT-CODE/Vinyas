@@ -13,6 +13,7 @@ import NightlyWrapUpModal from './components/NightlyWrapUpModal';
 import AchievementToast from './components/AchievementToast';
 import CohortSetupModal from './components/CohortSetupModal';
 import ExtensionPage from './components/ExtensionPage';
+import VinyasLivedPage from './components/VinyasLivedPage';
 import BackupSettingsModal from './components/BackupSettingsModal';
 import ResolveSubmissionsModal from './components/ResolveSubmissionsModal';
 import ThemeModal from './components/ThemeModal';
@@ -997,6 +998,7 @@ const App = () => {
                 onLogout={handleLogout}
                 onDeleteAccount={handleDeleteAccount}
                 onNavigateToExtension={() => navigate('/extension')}
+                onNavigateToVinyasLived={() => navigate('/vinyas-lived')}
                 onOpenBackupSettings={() => setBackupSettingsOpen(true)}
                 onOpenChangeLog={() => setChangeLogOpen(true)}
                 showExtensionWarning={showExtWarningHeader}
@@ -1301,6 +1303,10 @@ const App = () => {
                 </>
             ) : currentPath === '/extension' ? (
                 <ExtensionPage 
+                    onBack={() => navigate('/')}
+                />
+            ) : currentPath === '/vinyas-lived' ? (
+                <VinyasLivedPage 
                     onBack={() => navigate('/')}
                 />
             ) : null}

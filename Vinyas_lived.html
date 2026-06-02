@@ -1,0 +1,2732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyas | The Journey & Sandbox</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #060813;
+            --surface: rgba(17, 24, 39, 0.45);
+            --surface-glow: rgba(99, 102, 241, 0.15);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --accent-tertiary: #f43f5e;
+            --success: #10b981;
+            --amber: #f59e0b;
+            --danger: #ef4444;
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 80%, rgba(244, 63, 94, 0.08) 0%, transparent 45%);
+            background-attachment: fixed;
+            line-height: 1.6;
+            transition: background 0.5s ease;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* Glassmorphism panel base style */
+        .glass {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary), var(--accent-tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Navigation Menu tabs styling */
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 2rem;
+            margin-bottom: 2rem;
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+        }
+
+        .logo-nav-svg {
+            width: 32px;
+            height: 32px;
+            transition: transform 0.5s ease;
+        }
+
+        .nav-brand:hover .logo-nav-svg {
+            transform: rotate(360deg);
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50px;
+            padding: 0.25rem;
+            border: 1px solid var(--glass-border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 0.6rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Profile HUD (Top panel of sandbox) */
+        .profile-hud {
+            padding: 1.5rem 2rem;
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-hud::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--accent-tertiary));
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .hud-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-tertiary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+
+        .hud-info h3 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: white;
+        }
+
+        .hud-info p {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .hud-xp-container {
+            flex-grow: 1;
+            max-width: 500px;
+            margin: 0 1.5rem;
+        }
+
+        .xp-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+
+        .xp-bar-bg {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 50px;
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .xp-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50px;
+            width: 0%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .hud-stat {
+            text-align: center;
+        }
+
+        .hud-stat-val {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: white;
+            line-height: 1;
+        }
+
+        .hud-stat-lbl {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.25rem;
+        }
+
+        /* Hero Landing Header */
+        header {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            padding: 3rem 1rem;
+        }
+
+        .logo-container {
+            width: 160px;
+            height: 160px;
+            margin-bottom: 2rem;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .logo-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130%;
+            height: 130%;
+            background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+            filter: blur(35px);
+            opacity: 0.45;
+            z-index: -1;
+            transition: opacity 0.5s ease;
+        }
+
+        .logo-container:hover .logo-glow {
+            opacity: 0.7;
+        }
+
+        .logo-container svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .logo-container:hover svg {
+            transform: scale(1.05) rotate(5deg);
+        }
+
+        .logo-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: 50px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            font-weight: 700;
+            letter-spacing: 0.75px;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+            animation: pulse-slow 3s infinite;
+        }
+
+        header h1 {
+            font-size: 4.5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        header p {
+            font-size: 1.35rem;
+            color: var(--text-secondary);
+            max-width: 750px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.6;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.8rem;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.45);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Sections Grid Content */
+        section {
+            padding: 4rem 0;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Narrative Chronicles Layout */
+        .chronicle-card {
+            padding: 3rem;
+            margin-bottom: 3rem;
+            line-height: 1.8;
+        }
+
+        .chronicle-card h3 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 1.25rem;
+            color: white;
+        }
+
+        .chronicle-card p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chronicle-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .chronicle-quote {
+            border-left: 4px solid var(--accent-secondary);
+            background: rgba(168, 85, 247, 0.05);
+            padding: 1.25rem 2rem;
+            border-radius: 0 16px 16px 0;
+            font-style: italic;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 2rem 0;
+        }
+
+        /* Feature Details Columns */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 15px var(--surface-glow);
+        }
+
+        .feature-icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            margin-bottom: 1.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon-wrapper {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: white;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Development Timeline */
+        .timeline {
+            position: relative;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 50%;
+            width: 2px;
+            background: linear-gradient(to bottom, transparent, var(--accent-primary) 10%, var(--accent-secondary) 50%, var(--accent-tertiary) 90%, transparent);
+            transform: translateX(-50%);
+        }
+
+        .timeline-item {
+            display: flex;
+            justify-content: flex-end;
+            padding-right: 50%;
+            position: relative;
+            margin-bottom: 4rem;
+        }
+
+        .timeline-item:nth-child(even) {
+            justify-content: flex-start;
+            padding-right: 0;
+            padding-left: 50%;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            top: 8px;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            border: 4px solid var(--accent-primary);
+            z-index: 5;
+            box-shadow: 0 0 15px var(--accent-primary);
+            transition: transform 0.3s ease;
+        }
+
+        .timeline-item:nth-child(even) .timeline-marker {
+            right: auto;
+            left: -10px;
+        }
+
+        .timeline-item:hover .timeline-marker {
+            transform: scale(1.3);
+        }
+
+        .timeline-box {
+            width: 90%;
+            padding: 2.25rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .timeline-box:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5), 0 0 20px var(--surface-glow);
+            border-color: rgba(99, 102, 241, 0.35);
+        }
+
+        .timeline-date {
+            color: var(--accent-primary);
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+            display: block;
+        }
+
+        .timeline-version {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .timeline-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.6rem;
+        }
+
+        .timeline-list li::before {
+            content: '✦';
+            position: absolute;
+            left: 0;
+            color: var(--accent-secondary);
+            font-size: 0.8rem;
+        }
+
+        /* Sandbox Playground layout */
+        .sandbox-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2.5rem;
+        }
+
+        .sandbox-widgets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .widget-card {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: border 0.3s ease;
+        }
+
+        .widget-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .widget-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.8rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .widget-title h4 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .widget-badge {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-primary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Widget 1: Streak Mock styling */
+        .streak-stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 1.25rem;
+        }
+
+        .streak-val {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+        }
+
+        .streak-lbl {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .streak-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.4rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 0.8rem;
+        }
+
+        .streak-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .streak-cell:hover {
+            transform: scale(1.15);
+            z-index: 10;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .streak-cell.active {
+            background: var(--success);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .streak-cell.highly-active {
+            background: #059669;
+            box-shadow: 0 0 12px rgba(5, 150, 105, 0.8);
+        }
+
+        /* Widget 2: Focus Timer Mock */
+        .timer-display-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin: 1.5rem 0;
+        }
+
+        .timer-svg {
+            transform: rotate(-90deg);
+            width: 140px;
+            height: 140px;
+        }
+
+        .timer-circle-bg {
+            fill: none;
+            stroke: rgba(0, 0, 0, 0.3);
+            stroke-width: 6;
+        }
+
+        .timer-circle-fill {
+            fill: none;
+            stroke: var(--accent-primary);
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.1s linear, stroke 0.5s ease;
+        }
+
+        .timer-text-overlay {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timer-clock {
+            font-size: 1.8rem;
+            font-weight: 900;
+            font-family: monospace;
+            color: white;
+            letter-spacing: -1px;
+        }
+
+        .timer-status {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.1rem;
+        }
+
+        .timer-selectors {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .timer-select {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.5rem;
+            border-radius: 8px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .timer-shortcuts {
+            display: flex;
+            gap: 0.4rem;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .shortcut-btn {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .shortcut-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .timer-btn {
+            flex-grow: 1;
+            padding: 0.75rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            transition: all 0.25s ease;
+        }
+
+        .timer-btn-start {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .timer-btn-start.running {
+            background: var(--amber);
+        }
+
+        .timer-btn-reset {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+            flex-grow: 0;
+            width: 48px;
+        }
+
+        .timer-fast-mode {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* Widget 3: Spaced Repetition Mock */
+        .revision-card {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-subject {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            color: white;
+        }
+
+        .card-due-indicator {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .card-due-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-tertiary);
+            animation: pulse-slow 1.5s infinite;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: white;
+            line-height: 1.3;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-history {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .card-history span {
+            color: var(--accent-secondary);
+            font-weight: 800;
+        }
+
+        .card-actions-wrapper {
+            position: relative;
+            min-height: 50px;
+        }
+
+        .recall-slider-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.35rem;
+            animation: slideUp 0.3s ease forwards;
+        }
+
+        .recall-btn {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.4rem 0.2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .recall-btn:hover {
+            border-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .recall-btn-name {
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: block;
+        }
+
+        .recall-btn-time {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            display: block;
+            margin-top: 0.1rem;
+        }
+
+        .recall-btn.again .recall-btn-name { color: var(--accent-tertiary); }
+        .recall-btn.hard .recall-btn-name { color: var(--amber); }
+        .recall-btn.good .recall-btn-name { color: var(--accent-primary); }
+        .recall-btn.easy .recall-btn-name { color: var(--success); }
+
+        /* Widget 4: Interactive Module Question Grid */
+        .module-stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .module-stat-mini {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            padding: 0.6rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .module-stat-mini-val {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: white;
+        }
+
+        .module-stat-mini-lbl {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .module-q-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.35rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.8rem;
+            border-radius: 14px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 1rem;
+        }
+
+        .module-q-cell {
+            aspect-ratio: 1.1;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .module-q-cell:hover {
+            transform: scale(1.12);
+            border-color: rgba(255,255,255,0.25);
+            color: white;
+            z-index: 2;
+        }
+
+        .module-q-cell.completed {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: var(--success);
+        }
+
+        .module-q-cell.difficult {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: var(--danger);
+        }
+
+        .module-q-cell.later {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: var(--amber);
+        }
+
+        .module-legend {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding: 0 0.25rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .sync-btn {
+            width: 100%;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 0.65rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .sync-btn:hover {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Widget 5: AI Coach Chat window Mock */
+        .ai-chat-window {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            height: 250px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+
+        .ai-chat-header {
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ai-bot-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            position: relative;
+        }
+
+        .ai-bot-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; right: -1px;
+            width: 7px;
+            height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            border: 1.5px solid #000;
+        }
+
+        .ai-bot-name {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: white;
+        }
+
+        .ai-chat-messages {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            custom-scrollbar: thin;
+        }
+
+        .chat-msg {
+            max-width: 85%;
+            padding: 0.65rem 0.9rem;
+            border-radius: 14px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            animation: slideUp 0.25s ease forwards;
+        }
+
+        .chat-msg.bot {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-bottom-left-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .chat-msg.user {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 3px;
+        }
+
+        .chat-msg.typing {
+            color: var(--text-secondary);
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .ai-coach-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.35rem;
+        }
+
+        .ai-action-btn {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .ai-action-btn:hover {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.06);
+            color: white;
+        }
+
+        /* Mock Activity log feed */
+        .mock-feed-panel {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .feed-header {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .feed-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            animation: slideInLeft 0.3s ease forwards;
+        }
+
+        .feed-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feed-icon {
+            font-size: 1rem;
+        }
+
+        .feed-text {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .feed-xp-badge {
+            color: var(--success);
+            font-weight: 800;
+        }
+
+        .feed-time {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+        }
+
+        /* Floating XP indicator animation */
+        .xp-float {
+            position: absolute;
+            font-weight: 900;
+            color: var(--success);
+            font-size: 1.25rem;
+            pointer-events: none;
+            z-index: 1000;
+            animation: floatUpFade 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Canvas for confetti */
+        #confetti-canvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        /* Modal Dialog popup simulation */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            width: 90%;
+            max-width: 420px;
+            padding: 2rem;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.open .modal-box {
+            transform: scale(1);
+        }
+
+        .modal-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-box h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.75rem;
+        }
+
+        .modal-box p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Milestone Banner */
+        .milestone-banner {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08), rgba(244, 63, 94, 0.08));
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 3rem;
+            border-radius: 24px;
+            text-align: center;
+            margin: 4rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .milestone-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.04"/></svg>');
+            pointer-events: none;
+        }
+
+        .milestone-banner h2 {
+            font-size: 2.2rem;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .milestone-banner p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 4rem 2rem;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 5rem;
+            background: rgba(6, 8, 19, 0.85);
+        }
+
+        .heart {
+            color: var(--accent-tertiary);
+            animation: heartbeat 1.5s infinite;
+            display: inline-block;
+        }
+
+        /* Animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(0.97); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            14% { transform: scale(1.2); }
+            28% { transform: scale(1); }
+            42% { transform: scale(1.2); }
+            70% { transform: scale(1); }
+        }
+
+        @keyframes floatUpFade {
+            0% { opacity: 0; transform: translateY(0) scale(0.8); }
+            15% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-70px) scale(1.1); }
+        }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 2.8rem; }
+            header p { font-size: 1.1rem; }
+            .nav-bar { flex-direction: column; gap: 1rem; }
+            .timeline::before { left: 24px; }
+            .timeline-item { justify-content: flex-start; padding-left: 50px; padding-right: 0; }
+            .timeline-item:nth-child(even) { padding-left: 50px; }
+            .timeline-marker { left: 14px !important; right: auto !important; }
+            .timeline-box { width: 100%; padding: 1.5rem; }
+            .profile-hud { flex-direction: column; text-align: center; }
+            .hud-left { flex-direction: column; }
+            .hud-xp-container { margin: 1rem 0; width: 100%; }
+            .hud-right { justify-content: center; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="container">
+        
+        <!-- Sticky Navigation Bar -->
+        <nav class="nav-bar glass">
+            <div class="nav-brand" onclick="toggleBrandLogo()">
+                <!-- Inline Dynamic Logo Container (swaps SVGs on click) -->
+                <div class="logo-nav-svg" id="nav-logo-holder">
+                    <!-- SVG 1: Default Classic Orange Logo -->
+                    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="256" cy="256" r="230" fill="#0b0f19" stroke="#f97316" stroke-width="8"/>
+                        <path d="M 172,130 C 172,130 186,190 216,285 C 222,305 235,340 244,360 C 246,364 250,364 252,360 C 255,354 262,330 268,310 L 220,170 C 214,152 196,130 172,130 Z" fill="#f97316" />
+                        <path d="M 234,324 C 252,310 290,265 315,225 C 328,205 332,192 332,184 C 332,176 324,170 316,170 C 304,170 290,188 274,212 L 242,260 Z" fill="#ef4444" />
+                        <path d="M 264,260 C 288,230 330,172 356,134 C 368,116 374,104 374,96 C 374,86 364,80 354,80 C 342,80 326,98 308,124 L 272,178 Z" fill="#db2777" />
+                        <g transform="translate(366, 88)">
+                            <path d="M 0,-8 L 2.5,-2.5 L 8,0 L 2.5,2.5 L 0,8 L -2.5,2.5 L -8,0 L -2.5,-2.5 Z" fill="#fef08a" />
+                        </g>
+                    </svg>
+                </div>
+                <span>Vinyas <span class="text-gradient">Lived</span></span>
+            </div>
+
+            <div class="nav-tabs">
+                <button class="tab-btn active" onclick="switchTab('chronicle')">Chronicles</button>
+                <button class="tab-btn" onclick="switchTab('sandbox')">Interactive Sandbox</button>
+            </div>
+        </nav>
+
+        <!-- Sandbox Profile HUD Header (Visible only when Sandbox tab is selected) -->
+        <div class="profile-hud glass" id="sandbox-hud" style="display: none;">
+            <div class="hud-left">
+                <div class="hud-avatar" id="hud-avatar-icon">🎓</div>
+                <div class="hud-info">
+                    <h3 id="hud-username">Vinyas Champ</h3>
+                    <p id="hud-rank">Novice Scholar</p>
+                </div>
+            </div>
+            
+            <div class="hud-xp-container">
+                <div class="xp-header">
+                    <span id="xp-text-level">Level 1</span>
+                    <span id="xp-text-progress">0 / 100 XP</span>
+                </div>
+                <div class="xp-bar-bg">
+                    <div class="xp-bar-fill" id="xp-fill-indicator"></div>
+                </div>
+            </div>
+
+            <div class="hud-right">
+                <div class="hud-stat">
+                    <div class="hud-stat-val" id="hud-total-xp">0</div>
+                    <div class="hud-stat-lbl">Total XP</div>
+                </div>
+                <div class="hud-stat" style="cursor: pointer;" onclick="incrementStreakManual()" title="Click to test streak increment!">
+                    <div class="hud-stat-val" id="hud-streak-val">🔥 0</div>
+                    <div class="hud-stat-lbl">Streak</div>
+                </div>
+                <div class="hud-stat">
+                    <div class="hud-stat-val" id="hud-xp-mult">1.0x</div>
+                    <div class="hud-stat-lbl">Multiplier</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Narrative Chronicles Tab Content -->
+        <div id="tab-chronicle-content">
+            
+            <!-- Hero Landing Presentation -->
+            <header>
+                <div class="logo-badge">🎉 Feature Complete v2.1.1</div>
+                <div class="logo-container" onclick="toggleBrandLogo()" title="Click to rotate and toggle theme logo!">
+                    <div class="logo-glow" id="header-logo-glow"></div>
+                    <div id="header-logo-holder">
+                        <!-- SVG 1: Default Classic Orange Logo -->
+                        <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="256" cy="256" r="230" fill="#0b0f19" stroke="#f97316" stroke-width="8"/>
+                            <path d="M 172,130 C 172,130 186,190 216,285 C 222,305 235,340 244,360 C 246,364 250,364 252,360 C 255,354 262,330 268,310 L 220,170 C 214,152 196,130 172,130 Z" fill="#f97316" />
+                            <path d="M 234,324 C 252,310 290,265 315,225 C 328,205 332,192 332,184 C 332,176 324,170 316,170 C 304,170 290,188 274,212 L 242,260 Z" fill="#ef4444" />
+                            <path d="M 264,260 C 288,230 330,172 356,134 C 368,116 374,104 374,96 C 374,86 364,80 354,80 C 342,80 326,98 308,124 L 272,178 Z" fill="#db2777" />
+                            <g transform="translate(366, 88)">
+                                <path d="M 0,-8 L 2.5,-2.5 L 8,0 L 2.5,2.5 L 0,8 L -2.5,2.5 L -8,0 L -2.5,-2.5 Z" fill="#fef08a" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+                <h1 class="text-gradient">Vinyas: The Journey</h1>
+                <p>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner. This is the story of how we revolutionized daily preparation for competitive exams.</p>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="switchTab('sandbox')">🚀 Play in Sandbox</button>
+                    <button class="btn btn-secondary" onclick="scrollToElement('chronicles-start')">📖 Read the Story</button>
+                </div>
+            </header>
+
+            <!-- Chronicles: Section 1 (The Spark & The Genesis) -->
+            <section id="chronicles-start">
+                <div class="chronicle-card glass">
+                    <h3>The Spark & The Genesis</h3>
+                    <p>
+                        Preparing for competitive examinations in India, such as <strong>JEE</strong>, <strong>NEET</strong>, or <strong>BITSAT</strong>, is a monumental test of endurance. Students spend upwards of twelve hours daily immersed in video lectures, solving infinite sheets of Daily Practice Problems (DPPs), and tracking their errors in massive, physically heavy study booklets. In this intense process, traditional tracking utilities fail. Keeping spreadsheets up to date becomes a chore, and studying in isolation leads to burnout.
+                    </p>
+                    <div class="chronicle-quote">
+                        "Passive watching creates an illusion of competence. True learning only begins when you close the video player, open the question module, and grapple with a challenging problem. Vinyas was built to celebrate that exact shift."
+                    </div>
+                    <p>
+                        Vinyas was conceptualized as a personal study hub that removes friction. The core vision was simple: a student studying on a digital platform like <strong>PhysicsWallah (PW)</strong> should not have to manually log their work. An intelligent Chrome extension companion would detect when they are watching lectures or completing quizzes, capturing their metrics programmatically and feeding them to a serverless MongoDB cloud backend.
+                    </p>
+                    <p>
+                        This basic idea evolved into a comprehensive gamified tracker. We added XP matrices, Pomodoro timers, flashcards, customized daily planners, and multi-textbook support, turning a solitary grind into a highly engaging, visually rewarding game.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Chronicles: Section 2 (Deep Feature Analysis) -->
+            <section>
+                <div class="section-header">
+                    <h2>Features in Focus</h2>
+                    <p>An in-depth look at the modules that form the Vinyas ecosystem.</p>
+                </div>
+
+                <div class="feature-grid">
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">🧩</div>
+                        <h3>The Chrome Companion</h3>
+                        <p>
+                            A Manifest V3 extension that pairs with the dashboard via a 1-click Auto-Pair Sync ID. It injects a draggable, bounded glassmorphic widget directly into textbook exercise portals. Students label question states (Easy, Medium, Hard, Difficult) on-page, and the extension proxy submits their answers to the backend, completely eliminating split-screen setups.
+                        </p>
+                    </div>
+
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">🏆</div>
+                        <h3>Gamified Progress</h3>
+                        <p>
+                            Every action in Vinyas earns Experience Points (XP). The dashboard tracks study streaks using a visual activity heatmap. Maintaining a streak activates XP multipliers (1.2x for 3 days, 1.5x for 7 days), driving student engagement. Reaching milestones triggers a full-screen animated celebration overlay.
+                        </p>
+                    </div>
+
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">🧠</div>
+                        <h3>Syllabus Auto-Builder</h3>
+                        <p>
+                            Generating an exam syllabus is instant with server-hosted templates (BITSAT, JEE, NEET). Students skip manual setup, choosing an exam template and adjusting chapters or importing custom textbook modules containing detailed exercise tracking configurations.
+                        </p>
+                    </div>
+
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">⏱️</div>
+                        <h3>Focus & Revisions</h3>
+                        <p>
+                            A built-in Pomodoro Timer logs focus blocks to specific chapters, awarding XP and sounding A5 audio beeps on completion. For retention, a Spaced Repetition card deck schedules chapters for review based on recall difficulty (Again: 1 day, Hard: 3 days, Good: 7 days, Easy: 14 days).
+                        </p>
+                    </div>
+
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">🤖</div>
+                        <h3>AI Study Companion</h3>
+                        <p>
+                            A conversational Study Buddy helps optimize prep. It analyzes syllabus progress, daily checklists, and mock test scores. Using a rotating load-balancer of up to 20 Google Gemini keys, with seamless failovers to Cerebras and Groq, it provides instant advice and productivity plans.
+                        </p>
+                    </div>
+
+                    <div class="feature-card glass">
+                        <div class="feature-icon-wrapper">🛡️</div>
+                        <h3>Encrypted Backups</h3>
+                        <p>
+                            Protecting user data is key. Weekly automated cron tasks bundle a student's database state, encrypting it client-side with AES-256-GCM (using PBKDF2 with 100,000 iterations) using their Sync ID. This secure file is emailed to their inbox, meaning even if their email is compromised, the data remains unreadable.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chronicles: Section 3 (Engineering Challenges & Victories) -->
+            <section>
+                <div class="chronicle-card glass">
+                    <h3>Engineering Challenges & Victories</h3>
+                    <p>
+                        Developing Vinyas required addressing significant technical challenges. A key issue was **State Collisions & Ghost Overwrites**. Early versions cached progress in browser `localStorage` and synced with MongoDB asynchronously. In multi-tab environments, this created race conditions where older cached states would overwrite newer database records. The solution was removing local storage overrides entirely and establishing the MongoDB cloud database as the absolute single source of truth, with live tab communication managed via custom background events.
+                    </p>
+                    <p>
+                        Another major hurdle was **Dynamic SPA Interception**. The PhysicsWallah platform operates as a React Single Page Application (SPA), meaning conventional URL matching failed since the page loads content dynamically. We resolved this by refactoring content scripts to run lightweight, high-frequency `MutationObserver` loops alongside targeted DOM polling. This allowed the extension to detect quiz elements and inject the tracker widget reliably without impacting host performance.
+                    </p>
+                    <p>
+                        Finally, configuring the **AI study buddy** required managing strict API rate limits. We built a robust serverless API gateway that cycles through 20 Google Gemini API keys. In case of key exhaustion, the gateway falls back to Cerebras and Groq in milliseconds, maintaining a seamless experience for the user.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Chronicles: Section 4 (Timeline of Lifespan) -->
+            <section>
+                <div class="section-header">
+                    <h2>Lifespan Timeline</h2>
+                    <p>The timeline of features introduced across key milestones.</p>
+                </div>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">April 20, 2026</span>
+                            <h4 class="timeline-version">v1.0.0 — The Foundation</h4>
+                            <ul class="timeline-list">
+                                <li>Released the core syllabus tracker dashboard with custom subjects.</li>
+                                <li>Implemented the XP-based leveling matrix and streaks calendar.</li>
+                                <li>Created the first Manifest V3 Chrome Extension to log basic study sessions.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">May 10, 2026</span>
+                            <h4 class="timeline-version">v1.1.0 — Security & Focus</h4>
+                            <ul class="timeline-list">
+                                <li>Added secure Cryptographic Sync IDs to pair extensions without login.</li>
+                                <li>Introduced Pomodoro Focus Timer with automated XP rewards.</li>
+                                <li>Built client-side AES-256-GCM encrypted database backups mailed via Vercel Cron.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">May 25, 2026</span>
+                            <h4 class="timeline-version">v1.2.0 — Maturation</h4>
+                            <ul class="timeline-list">
+                                <li>Built the Inactivity Lifecycle: 5-day warning email, 6-day automatic MongoDB profile purge.</li>
+                                <li>Added a Diagnostics Panel and Bug Reporter with SMTP telemetry.</li>
+                                <li>Merged study goals (Lectures + DPPs) into a unified daily checklist.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">May 28, 2026</span>
+                            <h4 class="timeline-version">v1.2.x — Interface Polish</h4>
+                            <ul class="timeline-list">
+                                <li>Added custom profile usernames and a branded loading progress bar.</li>
+                                <li>Created the Theme settings panel with image uploading, blur sliders, and drag-to-position backdrops.</li>
+                                <li>Optimized scrolling performance to eliminate layout thrashing.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">June 1, 2026</span>
+                            <h4 class="timeline-version">v2.0.0 — Tracker Widget Overlay</h4>
+                            <ul class="timeline-list">
+                                <li>Released the glassmorphic interactive tracker widget injected directly into exercise pages.</li>
+                                <li>Built bounded, draggable widget support to track questions on-page.</li>
+                                <li>Implemented the background broadcast bridge to sync all open tabs.</li>
+                                <li>Added a Suggest Feature modal with multi-screenshot attachments.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-box glass">
+                            <span class="timeline-date">June 2, 2026</span>
+                            <h4 class="timeline-version">v2.1.1 — The Final Milestone</h4>
+                            <ul class="timeline-list">
+                                <li>Resolved progress reset bugs, securing question states (Difficult/Later) upon reload.</li>
+                                <li>Cleaned up diagnostic overlays and removed redundant widget controls.</li>
+                                <li>Declared project feature-complete; shifted focus to maintenance, stability, and achievements.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Interactive Sandbox Playground Tab Content -->
+        <div id="tab-sandbox-content" style="display: none;">
+            
+            <div class="sandbox-container">
+                
+                <div class="sandbox-widgets-grid">
+                    
+                    <!-- Sandbox Widget 1: Streak Heatmap Grid -->
+                    <div class="widget-card glass">
+                        <div class="widget-title">
+                            <h4>🔥 Streak & Activity Tracker</h4>
+                            <span class="widget-badge" id="badge-streak-mult">1.0x XP</span>
+                        </div>
+                        <p class="hud-stat-lbl" style="margin-bottom: 0.75rem; text-align: left;">Click boxes below to simulate daily activity logs. Green indicates study sessions completed.</p>
+                        
+                        <div class="streak-stat-box">
+                            <div class="hud-stat">
+                                <div class="streak-val" id="sb-current-streak">0 days</div>
+                                <div class="streak-lbl">Current Streak</div>
+                            </div>
+                            <div class="hud-stat">
+                                <div class="streak-val" id="sb-max-streak">0 days</div>
+                                <div class="streak-lbl">Longest Streak</div>
+                            </div>
+                        </div>
+
+                        <div class="streak-grid" id="streak-interactive-grid">
+                            <!-- 28 Cells dynamically inserted here -->
+                        </div>
+                        
+                        <div style="font-size: 0.75rem; text-align: center; color: var(--text-secondary); font-style: italic;">
+                            💡 Tip: Get a 3-day streak for 1.2x XP, or 7+ days for a 1.5x XP multiplier!
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Widget 2: Focus Timer (Pomodoro) -->
+                    <div class="widget-card glass">
+                        <div class="widget-title">
+                            <h4>⏱️ Pomodoro Focus Timer</h4>
+                            <span class="widget-badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9;">Focus</span>
+                        </div>
+                        
+                        <div class="timer-selectors">
+                            <select class="timer-select" id="timer-sub-select" onchange="updateTimerTopic()">
+                                <option value="Physics">Physics</option>
+                                <option value="Chemistry">Chemistry</option>
+                                <option value="Maths">Mathematics</option>
+                            </select>
+                            <select class="timer-select" id="timer-chapter-select">
+                                <option value="Rotational Dynamics">Rotational Dynamics</option>
+                                <option value="Electrostatics">Electrostatics</option>
+                                <option value="Thermodynamics">Thermodynamics</option>
+                            </select>
+                        </div>
+
+                        <div class="timer-display-wrapper">
+                            <svg class="timer-svg" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="44" class="timer-circle-bg" />
+                                <circle cx="50" cy="50" r="44" class="timer-circle-fill" id="timer-radial-indicator" stroke-dasharray="276.4" stroke-dashoffset="0" />
+                            </svg>
+                            <div class="timer-text-overlay">
+                                <span class="timer-clock" id="timer-clock-text">25:00</span>
+                                <span class="timer-status" id="timer-status-text">Ready</span>
+                            </div>
+                        </div>
+
+                        <label class="timer-fast-mode">
+                            <input type="checkbox" id="timer-fast-checkbox">
+                            ⚡ Fast Mode (100x Speed Run for testing)
+                        </label>
+
+                        <div class="timer-shortcuts">
+                            <button class="shortcut-btn" onclick="setTimerDuration(5)">5 min</button>
+                            <button class="shortcut-btn" onclick="setTimerDuration(15)">15 min</button>
+                            <button class="shortcut-btn active" onclick="setTimerDuration(25)">25 min</button>
+                            <button class="shortcut-btn" onclick="setTimerDuration(50)">50 min</button>
+                        </div>
+
+                        <div class="timer-controls">
+                            <button class="timer-btn timer-btn-start" id="timer-btn-toggle" onclick="toggleTimer()">
+                                ▶ Start Session
+                            </button>
+                            <button class="timer-btn timer-btn-reset" onclick="resetTimer()">
+                                ↺
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Widget 3: Spaced Repetition Revision Scheduler -->
+                    <div class="widget-card glass">
+                        <div class="widget-title">
+                            <h4>🧠 Revision Scheduler (Spaced Repetiton)</h4>
+                            <span class="widget-badge" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">Revisions</span>
+                        </div>
+                        <p class="hud-stat-lbl" style="margin-bottom: 0.75rem; text-align: left;">Rate your recall strength to schedule the next review cycle and earn XP.</p>
+
+                        <div class="revision-card">
+                            <div class="card-meta">
+                                <span class="card-subject" id="rev-subject" style="background-color: var(--accent-primary);">Physics</span>
+                                <span class="card-due-indicator">
+                                    <span class="card-due-dot"></span>
+                                    <span id="rev-due-text">Due Today</span>
+                                </span>
+                            </div>
+                            <div class="card-title" id="rev-title">Rotational Mechanics</div>
+                            <div class="card-history" id="rev-history">Reviews completed: <span>2</span></div>
+                        </div>
+
+                        <div class="card-actions-wrapper">
+                            <div class="recall-slider-panel">
+                                <button class="recall-btn again" onclick="submitRecallStrength(1)">
+                                    <span class="recall-btn-name">Again</span>
+                                    <span class="recall-btn-time">1d delay</span>
+                                </button>
+                                <button class="recall-btn hard" onclick="submitRecallStrength(2)">
+                                    <span class="recall-btn-name">Hard</span>
+                                    <span class="recall-btn-time">3d delay</span>
+                                </button>
+                                <button class="recall-btn good" onclick="submitRecallStrength(3)">
+                                    <span class="recall-btn-name">Good</span>
+                                    <span class="recall-btn-time">7d delay</span>
+                                </button>
+                                <button class="recall-btn easy" onclick="submitRecallStrength(4)">
+                                    <span class="recall-btn-name">Easy</span>
+                                    <span class="recall-btn-time">14d delay</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Widget 4: Module Question Tracker Overlay -->
+                    <div class="widget-card glass">
+                        <div class="widget-title">
+                            <h4>📊 PW Module Question Tracker</h4>
+                            <span class="widget-badge" style="background: rgba(244, 63, 94, 0.1); color: #f43f5e;">Scraper</span>
+                        </div>
+                        
+                        <div class="module-stats-row">
+                            <div class="module-stat-mini">
+                                <div class="module-stat-mini-val" id="mod-completion-val">0%</div>
+                                <div class="module-stat-mini-lbl">Completion</div>
+                            </div>
+                            <div class="module-stat-mini">
+                                <div class="module-stat-mini-val" id="mod-accuracy-val">0%</div>
+                                <div class="module-stat-mini-lbl">Accuracy</div>
+                            </div>
+                        </div>
+
+                        <div class="module-q-grid" id="module-questions-container">
+                            <!-- 30 question blocks loaded by script -->
+                        </div>
+
+                        <div class="module-legend">
+                            <div class="legend-item"><span class="legend-dot" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);"></span> Todo</div>
+                            <div class="legend-item"><span class="legend-dot" style="background: var(--success);"></span> Easy</div>
+                            <div class="legend-item"><span class="legend-dot" style="background: var(--danger);"></span> Hard</div>
+                            <div class="legend-item"><span class="legend-dot" style="background: var(--amber);"></span> Later</div>
+                        </div>
+
+                        <button class="sync-btn" onclick="syncModuleDatabase()">
+                            ☁ Sync Progress to MongoDB
+                        </button>
+                    </div>
+
+                    <!-- Sandbox Widget 5: AI Coach Chat Assistant -->
+                    <div class="widget-card glass" style="grid-column: span 1;">
+                        <div class="widget-title">
+                            <h4>🤖 Vinyas AI Study Coach</h4>
+                            <span class="widget-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">Online</span>
+                        </div>
+
+                        <div class="ai-chat-window">
+                            <div class="ai-chat-header">
+                                <div class="ai-bot-avatar">🤖</div>
+                                <span class="ai-bot-name">Vinyas AI Coach</span>
+                            </div>
+                            <div class="ai-chat-messages" id="chat-messages-container">
+                                <div class="chat-msg bot">
+                                    Hello Champ! I am your Vinyas AI Coach. Choose a syllabus diagnostics or strategy plan below.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ai-coach-actions">
+                            <button class="ai-action-btn" onclick="triggerAICoachAction('mock')">
+                                🎯 Analyze Mock Tests
+                            </button>
+                            <button class="ai-action-btn" onclick="triggerAICoachAction('weakness')">
+                                📊 Syllabus Scan
+                            </button>
+                            <button class="ai-action-btn" onclick="triggerAICoachAction('strategy')">
+                                ⚡ Today's Strategy
+                            </button>
+                            <button class="ai-action-btn" onclick="triggerAICoachAction('motivation')">
+                                🔥 Motivation Boost
+                            </button>
+                        </div>
+                    </div>
+
+                </div> <!-- End of widgets grid -->
+
+                <!-- Sandbox Interactive Feed Logs -->
+                <div class="mock-feed-panel">
+                    <div class="feed-header">
+                        <span>📋 Real-Time Activity Log Feed</span>
+                    </div>
+                    <div class="feed-list" id="sandbox-feed-list">
+                        <div class="feed-item" style="animation: none;">
+                            <div class="feed-item-left">
+                                <span class="feed-icon">🔑</span>
+                                <span class="feed-text">Created Sandbox Profile. Paired with Sync ID vny_sec_sandbox.</span>
+                            </div>
+                            <span class="feed-time">Just Now</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- End of sandbox container -->
+            
+        </div>
+
+        <!-- Project Closure Banner -->
+        <div class="milestone-banner">
+            <h2>🏁 Project Closure</h2>
+            <p>At version 2.1.1, Vinyas has reached its planned final state. Core features are locked and complete. Future updates will focus strictly on bug fixes, system stability, and releasing unlockable achievements to keep users motivated. The journey from a simple concept to a comprehensive exam prep ecosystem is complete.</p>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <div class="logo-container" style="width: 70px; height: 70px; margin: 0 auto 1.5rem; animation: none;" onclick="toggleBrandLogo()">
+                <div id="footer-logo-holder">
+                    <!-- SVG 1: Default Classic Orange Logo -->
+                    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="256" cy="256" r="230" fill="#0b0f19" stroke="#f97316" stroke-width="8"/>
+                        <path d="M 172,130 C 172,130 186,190 216,285 C 222,305 235,340 244,360 C 246,364 250,364 252,360 C 255,354 262,330 268,310 L 220,170 C 214,152 196,130 172,130 Z" fill="#f97316" />
+                        <path d="M 234,324 C 252,310 290,265 315,225 C 328,205 332,192 332,184 C 332,176 324,170 316,170 C 304,170 290,188 274,212 L 242,260 Z" fill="#ef4444" />
+                        <path d="M 264,260 C 288,230 330,172 356,134 C 368,116 374,104 374,96 C 374,86 364,80 354,80 C 342,80 326,98 308,124 L 272,178 Z" fill="#db2777" />
+                        <g transform="translate(366, 88)">
+                            <path d="M 0,-8 L 2.5,-2.5 L 8,0 L 2.5,2.5 L 0,8 L -2.5,2.5 L -8,0 L -2.5,-2.5 Z" fill="#fef08a" />
+                        </g>
+                    </svg>
+                </div>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 1.05rem;">
+                Built with <span class="heart">❤️</span> for students, by students.
+            </p>
+            <p style="color: var(--text-muted); margin-top: 0.75rem; font-size: 0.85rem; font-weight: 600;">
+                Vinyas Tracker | Version 2.1.1 | 2026
+            </p>
+        </footer>
+
+    </div>
+
+    <!-- Simulated Sync Success Modal -->
+    <div class="modal-overlay" id="sandbox-sync-modal">
+        <div class="modal-box glass">
+            <div class="modal-icon">☁️</div>
+            <h3>MongoDB Sync Verified</h3>
+            <p id="sync-modal-text">Successfully transmitted 30 module question difficulty records to MongoDB Cluster Atlas under account vny_sec_sandbox. Your accuracy percentage is updated in real-time.</p>
+            <button class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.85rem;" onclick="closeSyncModal()">Awesome</button>
+        </div>
+    </div>
+
+    <!-- JavaScript logic for Sandbox, Confetti, and general page tabs -->
+    <script>
+        // --- 1. BRAND LOGO TOGGLE LOGIC ---
+        // Let users swap between Classic Orange Theme and Neon Orchid Theme logos
+        let currentLogoTheme = 'classic'; // 'classic' or 'cyber'
+        
+        const classicOrangeSVG = `
+            <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="256" cy="256" r="230" fill="#0b0f19" stroke="#f97316" stroke-width="8"/>
+                <path d="M 172,130 C 172,130 186,190 216,285 C 222,305 235,340 244,360 C 246,364 250,364 252,360 C 255,354 262,330 268,310 L 220,170 C 214,152 196,130 172,130 Z" fill="#f97316" />
+                <path d="M 234,324 C 252,310 290,265 315,225 C 328,205 332,192 332,184 C 332,176 324,170 316,170 C 304,170 290,188 274,212 L 242,260 Z" fill="#ef4444" />
+                <path d="M 264,260 C 288,230 330,172 356,134 C 368,116 374,104 374,96 C 374,86 364,80 354,80 C 342,80 326,98 308,124 L 272,178 Z" fill="#db2777" />
+                <g transform="translate(366, 88)">
+                    <path d="M 0,-8 L 2.5,-2.5 L 8,0 L 2.5,2.5 L 0,8 L -2.5,2.5 L -8,0 L -2.5,-2.5 Z" fill="#fef08a" />
+                </g>
+            </svg>
+        `;
+
+        const cyberIndigoSVG = `
+            <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="256" cy="256" r="230" fill="#050515" stroke="url(#nav-border-glow-grad)" stroke-width="8"/>
+                <defs>
+                    <linearGradient id="nav-border-glow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#06b6d4" />
+                        <stop offset="50%" stop-color="#8b5cf6" />
+                        <stop offset="100%" stop-color="#ec4899" />
+                    </linearGradient>
+                </defs>
+                <path d="M 170,160 C 155,160 145,172 148,187 L 218,362 C 224,377 238,385 250,385 C 256,385 262,382 266,377 L 224,225 C 220,210 206,160 170,160 Z" fill="#6366f1" />
+                <path d="M 342,160 C 357,160 367,172 364,187 L 294,362 C 288,377 274,385 262,385 C 256,385 250,382 246,377 L 288,225 C 292,210 306,160 342,160 Z" fill="#06b6d4" />
+                <path d="M 160,290 C 185,330 225,360 256,360 C 290,360 325,270 360,130" fill="none" stroke="#ec4899" stroke-width="8" stroke-linecap="round" />
+                <circle cx="160" cy="290" r="12" fill="#ec4899" />
+                <circle cx="225" cy="342" r="12" fill="#a855f7" />
+                <circle cx="295" cy="310" r="14" fill="#06b6d4" />
+                <g transform="translate(360, 130)">
+                    <path d="M 0,-12 L 3,-3 L 12,0 L 3,3 L 0,12 L -3,3 L -12,0 L -3,-3 Z" fill="#ffffff" />
+                </g>
+            </svg>
+        `;
+
+        function toggleBrandLogo() {
+            const holders = ['nav-logo-holder', 'header-logo-holder', 'footer-logo-holder'];
+            
+            if (currentLogoTheme === 'classic') {
+                currentLogoTheme = 'cyber';
+                holders.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = cyberIndigoSVG;
+                });
+                // Switch some css variables in body to match the neon vibe
+                document.documentElement.style.setProperty('--accent-primary', '#06b6d4');
+                document.documentElement.style.setProperty('--accent-secondary', '#8b5cf6');
+                document.documentElement.style.setProperty('--accent-tertiary', '#ec4899');
+                addNotificationLog("🎨 Swapped Workspace Theme: Neon Orchid active.", "🔑");
+            } else {
+                currentLogoTheme = 'classic';
+                holders.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = classicOrangeSVG;
+                });
+                document.documentElement.style.setProperty('--accent-primary', '#6366f1');
+                document.documentElement.style.setProperty('--accent-secondary', '#a855f7');
+                document.documentElement.style.setProperty('--accent-tertiary', '#f43f5e');
+                addNotificationLog("🎨 Swapped Workspace Theme: Classic Orange active.", "🔑");
+            }
+        }
+
+        // --- 2. NAVIGATION AND TAB SWITCHING ---
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase().includes(tabId)) {
+                    btn.classList.add('active');
+                }
+            });
+
+            const chronicleContent = document.getElementById('tab-chronicle-content');
+            const sandboxContent = document.getElementById('tab-sandbox-content');
+            const sandboxHud = document.getElementById('sandbox-hud');
+
+            if (tabId === 'chronicle') {
+                chronicleContent.style.display = 'block';
+                sandboxContent.style.display = 'none';
+                sandboxHud.style.display = 'none';
+            } else {
+                chronicleContent.style.display = 'none';
+                sandboxContent.style.display = 'block';
+                sandboxHud.style.display = 'flex';
+                // Trigger layout resizing/rendering for canvas if necessary
+                initStreakGrid();
+                initQuestionGrid();
+                initSpacedRepetitionDeck();
+            }
+        }
+
+        function scrollToElement(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+
+        // --- 3. CONFETTI EMITTER SYSTEM ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let confettiActive = false;
+        let confettiParticles = [];
+        const colors = ['#6366f1', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#06b6d4'];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Confetti {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -10 - 20;
+                this.size = Math.random() * 8 + 6;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.speedY = Math.random() * 5 + 4;
+                this.speedX = Math.random() * 3 - 1.5;
+                this.rotation = Math.random() * 360;
+                this.spin = Math.random() * 5 - 2.5;
+            }
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                this.rotation += this.spin;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function startConfetti() {
+            if (confettiActive) return;
+            confettiActive = true;
+            confettiParticles = [];
+            for (let i = 0; i < 150; i++) {
+                confettiParticles.push(new Confetti());
+            }
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            if (!confettiActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let alive = false;
+            confettiParticles.forEach(p => {
+                p.update();
+                p.draw();
+                if (p.y < canvas.height) {
+                    alive = true;
+                }
+            });
+
+            if (alive) {
+                requestAnimationFrame(animateConfetti);
+            } else {
+                confettiActive = false;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+
+        // --- 4. GLOBAL XP, LEVEL & STREAK MANAGEMENT ---
+        let totalXP = 0;
+        let currentLevel = 1;
+        let xpNeeded = 100;
+        let streakCount = 0;
+        let longestStreak = 0;
+        let xpMultiplier = 1.0;
+
+        function addXP(amount) {
+            const finalAmount = Math.round(amount * xpMultiplier);
+            totalXP += finalAmount;
+            
+            // Floating XP effect
+            createFloatingXPText(`+${finalAmount} XP`);
+            
+            // Level calculations
+            let levelUpOccurred = false;
+            while (totalXP >= getXPNeededForLevel(currentLevel)) {
+                totalXP -= getXPNeededForLevel(currentLevel);
+                currentLevel++;
+                levelUpOccurred = true;
+            }
+
+            // Update UI elements
+            updateXPHUD(levelUpOccurred);
+        }
+
+        function getXPNeededForLevel(lvl) {
+            return 100 + (lvl - 1) * 50; // Level 1 is 100XP, Level 2 is 150XP, etc.
+        }
+
+        function createFloatingXPText(text) {
+            const hud = document.getElementById('sandbox-hud');
+            if (!hud || hud.style.display === 'none') return;
+            
+            const rect = document.getElementById('xp-fill-indicator').getBoundingClientRect();
+            const floatText = document.createElement('div');
+            floatText.className = 'xp-float';
+            floatText.innerText = text;
+            
+            floatText.style.left = `${rect.left + rect.width / 2 + window.scrollX - 20}px`;
+            floatText.style.top = `${rect.top + window.scrollY - 20}px`;
+            
+            document.body.appendChild(floatText);
+            setTimeout(() => floatText.remove(), 1200);
+        }
+
+        function updateXPHUD(levelUp) {
+            document.getElementById('hud-total-xp').innerText = Math.round(totalXP + getCumulativeXP(currentLevel - 1));
+            document.getElementById('xp-text-level').innerText = `Level ${currentLevel}`;
+            
+            const needed = getXPNeededForLevel(currentLevel);
+            document.getElementById('xp-text-progress').innerText = `${totalXP} / ${needed} XP`;
+            
+            const percentage = (totalXP / needed) * 100;
+            document.getElementById('xp-fill-indicator').style.width = `${percentage}%`;
+
+            // Update Rank Title
+            let rank = 'Novice Scholar';
+            if (currentLevel >= 3) rank = 'Focus Apprentice';
+            if (currentLevel >= 6) rank = 'Syllabus Architect';
+            if (currentLevel >= 10) rank = 'JEE Legend';
+            document.getElementById('hud-rank').innerText = rank;
+
+            if (levelUp) {
+                startConfetti();
+                addNotificationLog(`🎉 LEVEL UP! Reached Level ${currentLevel} (${rank})`, "🏆");
+                // Play level-up sound tone
+                playLevelUpChime();
+            }
+        }
+
+        function getCumulativeXP(lvl) {
+            let sum = 0;
+            for (let i = 1; i <= lvl; i++) {
+                sum += getXPNeededForLevel(i);
+            }
+            return sum;
+        }
+
+        function updateMultiplier() {
+            if (streakCount >= 7) {
+                xpMultiplier = 1.5;
+            } else if (streakCount >= 3) {
+                xpMultiplier = 1.2;
+            } else {
+                xpMultiplier = 1.0;
+            }
+            document.getElementById('badge-streak-mult').innerText = `${xpMultiplier.toFixed(1)}x XP`;
+            document.getElementById('hud-xp-mult').innerText = `${xpMultiplier.toFixed(1)}x`;
+        }
+
+        function playLevelUpChime() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.15);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime + idx * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.15 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + idx * 0.15);
+                    osc.stop(audioCtx.currentTime + idx * 0.15 + 0.45);
+                });
+            } catch (e) {
+                console.error("Audio Context level chime failed:", e);
+            }
+        }
+
+
+        // --- 5. ACTIVITY LOG FEED LOGGER ---
+        function addNotificationLog(text, icon = "📝") {
+            const feed = document.getElementById('sandbox-feed-list');
+            if (!feed) return;
+
+            const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const item = document.createElement('div');
+            item.className = 'feed-item';
+            
+            let xpBadge = '';
+            if (text.includes("XP")) {
+                xpBadge = `<span class="feed-xp-badge">Active</span>`;
+            }
+
+            item.innerHTML = `
+                <div class="feed-item-left">
+                    <span class="feed-icon">${icon}</span>
+                    <span class="feed-text">${text}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap: 0.5rem;">
+                    ${xpBadge}
+                    <span class="feed-time">${time}</span>
+                </div>
+            `;
+            
+            feed.insertBefore(item, feed.firstChild);
+        }
+
+
+        // --- 6. SANDBOX WIDGET: STREAK GRID ---
+        const streakCellsState = Array(28).fill(false);
+        
+        function initStreakGrid() {
+            const grid = document.getElementById('streak-interactive-grid');
+            if (!grid || grid.children.length > 0) return;
+
+            grid.innerHTML = '';
+            for (let i = 0; i < 28; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'streak-cell';
+                cell.setAttribute('title', `Simulate Day ${i+1}`);
+                cell.onclick = () => toggleStreakCell(i);
+                grid.appendChild(cell);
+            }
+        }
+
+        function toggleStreakCell(idx) {
+            streakCellsState[idx] = !streakCellsState[idx];
+            const cells = document.querySelectorAll('.streak-cell');
+            
+            if (streakCellsState[idx]) {
+                cells[idx].classList.add('active');
+                addXP(10);
+                addNotificationLog(`Logged daily study session for simulated Day ${idx+1}`, "🔥");
+            } else {
+                cells[idx].classList.remove('active');
+                addNotificationLog(`Removed study log for simulated Day ${idx+1}`, "❌");
+            }
+
+            calculateStreaks();
+        }
+
+        function calculateStreaks() {
+            let current = 0;
+            let max = 0;
+            let temp = 0;
+
+            // Simple continuous streak calculation
+            for (let i = 0; i < 28; i++) {
+                if (streakCellsState[i]) {
+                    temp++;
+                    if (temp > max) max = temp;
+                } else {
+                    temp = 0;
+                }
+            }
+
+            // Find current streak ending at "today" (simulated Day 28)
+            let currIdx = 27;
+            while (currIdx >= 0 && streakCellsState[currIdx]) {
+                current++;
+                currIdx--;
+            }
+
+            streakCount = current;
+            longestStreak = max;
+
+            document.getElementById('sb-current-streak').innerText = `${streakCount} ${streakCount === 1 ? 'day' : 'days'}`;
+            document.getElementById('sb-max-streak').innerText = `${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`;
+            document.getElementById('hud-streak-val').innerText = `🔥 ${streakCount}`;
+
+            updateMultiplier();
+        }
+
+        function incrementStreakManual() {
+            // Find first inactive day and activate it
+            const idx = streakCellsState.indexOf(false);
+            if (idx !== -1) {
+                toggleStreakCell(idx);
+            }
+        }
+
+
+        // --- 7. SANDBOX WIDGET: POMODORO TIMER ---
+        let timerSecondsLeft = 25 * 60;
+        let timerDurationMinutes = 25;
+        let timerInterval = null;
+        let timerIsRunning = false;
+
+        const subjectChapters = {
+            Physics: ['Rotational Dynamics', 'Electrostatics', 'Thermodynamics', 'Waves & Sound'],
+            Chemistry: ['Chemical Kinetics', 'Ionic Equilibrium', 'Coordination Compounds', 'Organic Reactions'],
+            Maths: ['Matrices & Determinants', 'Definite Integration', 'Probability', '3D Geometry']
+        };
+
+        function updateTimerTopic() {
+            const sub = document.getElementById('timer-sub-select').value;
+            const chSelect = document.getElementById('timer-chapter-select');
+            chSelect.innerHTML = '';
+            
+            subjectChapters[sub].forEach(ch => {
+                const opt = document.createElement('option');
+                opt.value = ch;
+                opt.innerText = ch;
+                chSelect.appendChild(opt);
+            });
+
+            // Adjust timer theme color glow based on subject selected
+            const ind = document.getElementById('timer-radial-indicator');
+            if (sub === 'Physics') ind.style.stroke = 'var(--accent-primary)';
+            if (sub === 'Chemistry') ind.style.stroke = 'var(--accent-tertiary)';
+            if (sub === 'Maths') ind.style.stroke = 'var(--accent-secondary)';
+        }
+
+        function setTimerDuration(mins) {
+            if (timerIsRunning) toggleTimer();
+            timerDurationMinutes = mins;
+            timerSecondsLeft = mins * 60;
+            updateTimerDisplay();
+
+            const btns = document.querySelectorAll('.shortcut-btn');
+            btns.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.includes(mins)) btn.classList.add('active');
+            });
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('timer-btn-toggle');
+            const statusText = document.getElementById('timer-status-text');
+            
+            if (timerIsRunning) {
+                // Pause
+                clearInterval(timerInterval);
+                timerIsRunning = false;
+                btn.innerHTML = '▶ Start Session';
+                btn.classList.remove('running');
+                statusText.innerText = 'Paused';
+            } else {
+                // Start
+                timerIsRunning = true;
+                btn.innerHTML = '⏸ Pause Session';
+                btn.classList.add('running');
+                statusText.innerText = 'Focusing...';
+                
+                const speedMult = document.getElementById('timer-fast-checkbox').checked ? 100 : 1;
+                timerInterval = setInterval(() => {
+                    timerSecondsLeft--;
+                    updateTimerDisplay();
+                    if (timerSecondsLeft <= 0) {
+                        completeTimer();
+                    }
+                }, 1000 / speedMult);
+            }
+        }
+
+        function resetTimer() {
+            if (timerIsRunning) toggleTimer();
+            timerSecondsLeft = timerDurationMinutes * 60;
+            updateTimerDisplay();
+            document.getElementById('timer-status-text').innerText = 'Ready';
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timerSecondsLeft / 60);
+            const s = timerSecondsLeft % 60;
+            document.getElementById('timer-clock-text').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            
+            const totalSecs = timerDurationMinutes * 60;
+            const pct = totalSecs > 0 ? ((totalSecs - timerSecondsLeft) / totalSecs) * 276.4 : 0;
+            document.getElementById('timer-radial-indicator').style.strokeDashoffset = 276.4 - pct;
+        }
+
+        function completeTimer() {
+            clearInterval(timerInterval);
+            timerIsRunning = false;
+            
+            const btn = document.getElementById('timer-btn-toggle');
+            btn.innerHTML = '▶ Start Session';
+            btn.classList.remove('running');
+            document.getElementById('timer-status-text').innerText = 'Finished!';
+
+            const sub = document.getElementById('timer-sub-select').value;
+            const ch = document.getElementById('timer-chapter-select').value;
+            const points = timerDurationMinutes * 2;
+
+            // Earn XP
+            addXP(points);
+            addNotificationLog(`⏱️ Focus session complete: 25m on ${ch} (${sub})`, "⏱️");
+            
+            // Notification Beep Sound
+            playBeepSound();
+            
+            alert(`🎉 Great job! You successfully completed your ${timerDurationMinutes}-minute focus block on ${ch}. You earned ${Math.round(points * xpMultiplier)} XP!`);
+            resetTimer();
+        }
+
+        function playBeepSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 tone
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1.0);
+            } catch (e) {
+                console.error("Audio Context beep failed:", e);
+            }
+        }
+
+
+        // --- 8. SANDBOX WIDGET: SPACED REPETITION ---
+        const spacedRepDeck = [
+            { id: 1, title: 'Laws of Motion', subject: 'Physics', color: 'var(--accent-primary)', reviews: 1 },
+            { id: 2, title: 'Ionic Equilibrium', subject: 'Chemistry', color: 'var(--accent-tertiary)', reviews: 3 },
+            { id: 3, title: 'Definite Integration', subject: 'Maths', color: 'var(--accent-secondary)', reviews: 2 },
+            { id: 4, title: 'Chemical Kinetics', subject: 'Chemistry', color: 'var(--accent-tertiary)', reviews: 0 },
+            { id: 5, title: 'Three Dimensional Geometry', subject: 'Maths', color: 'var(--accent-secondary)', reviews: 4 }
+        ];
+        let currentCardIdx = 0;
+
+        function initSpacedRepetitionDeck() {
+            renderActiveRevisionCard();
+        }
+
+        function renderActiveRevisionCard() {
+            const card = spacedRepDeck[currentCardIdx];
+            document.getElementById('rev-subject').innerText = card.subject;
+            document.getElementById('rev-subject').style.backgroundColor = card.color;
+            document.getElementById('rev-title').innerText = card.title;
+            document.getElementById('rev-history').innerHTML = `Reviews completed: <span>${card.reviews}</span>`;
+        }
+
+        function submitRecallStrength(rating) {
+            const card = spacedRepDeck[currentCardIdx];
+            let xp = 0;
+            let name = "";
+            let days = 0;
+
+            if (rating === 1) { xp = 5; name = "Again"; days = 1; }
+            else if (rating === 2) { xp = 10; name = "Hard"; days = 3; }
+            else if (rating === 3) { xp = 15; name = "Good"; days = 7; }
+            else if (rating === 4) { xp = 20; name = "Easy"; days = 14; }
+
+            // Earn XP
+            addXP(xp);
+            
+            // Log review session
+            addNotificationLog(`🧠 Spaced Recall rating [${name}] submitted for ${card.title}.`, "🧠");
+            
+            // Schedule alert hint
+            const nextDate = new Date();
+            nextDate.setDate(nextDate.getDate() + days);
+            const dateStr = nextDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            
+            card.reviews++;
+            
+            alert(`Recall registered! chapter "${card.title}" has been scheduled for next revision on ${dateStr} (${days} days interval).`);
+
+            // Next Card
+            currentCardIdx = (currentCardIdx + 1) % spacedRepDeck.length;
+            renderActiveRevisionCard();
+        }
+
+
+        // --- 9. SANDBOX WIDGET: MODULE QUESTION TRACKER ---
+        const questionStates = Array(30).fill('none'); // 'none', 'completed', 'difficult', 'later'
+        
+        function initQuestionGrid() {
+            const grid = document.getElementById('module-questions-container');
+            if (!grid || grid.children.length > 0) return;
+
+            grid.innerHTML = '';
+            for (let i = 0; i < 30; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'module-q-cell';
+                cell.innerText = i + 1;
+                cell.onclick = () => toggleQuestionCell(i);
+                grid.appendChild(cell);
+            }
+        }
+
+        function toggleQuestionCell(idx) {
+            const cells = document.querySelectorAll('.module-q-cell');
+            const state = questionStates[idx];
+            let nextState = 'none';
+
+            if (state === 'none') nextState = 'completed';
+            else if (state === 'completed') nextState = 'difficult';
+            else if (state === 'difficult') nextState = 'later';
+            else if (state === 'later') nextState = 'none';
+
+            questionStates[idx] = nextState;
+
+            // Clear classes
+            cells[idx].classList.remove('completed', 'difficult', 'later');
+
+            if (nextState !== 'none') {
+                cells[idx].classList.add(nextState);
+            }
+
+            calculateModuleStats();
+        }
+
+        function calculateModuleStats() {
+            const total = 30;
+            let completed = 0;
+            let difficult = 0;
+            let later = 0;
+
+            questionStates.forEach(st => {
+                if (st === 'completed') completed++;
+                else if (st === 'difficult') difficult++;
+                else if (st === 'later') later++;
+            });
+
+            const completionPct = Math.round((completed / total) * 100);
+            const totalAttempted = completed + difficult + later;
+            const accuracyPct = totalAttempted > 0 ? Math.round((completed / totalAttempted) * 100) : 0;
+
+            document.getElementById('mod-completion-val').innerText = `${completionPct}%`;
+            document.getElementById('mod-accuracy-val').innerText = `${accuracyPct}%`;
+        }
+
+        function syncModuleDatabase() {
+            // Simulate sync loading state
+            const btn = document.querySelector('.sync-btn');
+            btn.innerText = "☁ Syncing to cloud...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                btn.innerText = "☁ Sync Progress to MongoDB";
+                btn.disabled = false;
+                
+                // Show modal overlay
+                const modal = document.getElementById('sandbox-sync-modal');
+                const text = document.getElementById('sync-modal-text');
+                
+                let completed = 0;
+                questionStates.forEach(s => { if (s === 'completed') completed++; });
+                
+                text.innerText = `Synchronized 30 question difficulty states with MongoDB under Sync ID vny_sec_sandbox. Target Chapter: Rotational Dynamics. Completion: ${document.getElementById('mod-completion-val').innerText}, Accuracy: ${document.getElementById('mod-accuracy-val').innerText}.`;
+                
+                modal.classList.add('open');
+                
+                addXP(30);
+                addNotificationLog(`☁ Synced questions metrics to MongoDB database.`, "☁");
+            }, 1000);
+        }
+
+        function closeSyncModal() {
+            document.getElementById('sandbox-sync-modal').classList.remove('open');
+        }
+
+
+        // --- 10. SANDBOX WIDGET: AI STUDY COACH CHAT ---
+        const botResponses = {
+            mock: {
+                title: "🎯 Mock Test Diagnostics",
+                body: "Analysis of your last 3 mocks: Physics score is rising (82/120) but Chemistry (48/120) shows negative error trends in Organic reactions.",
+                points: ["Review 'Hydrocarbons' mechanisms tonight.", "Solve Exercise 2 in Chemistry module.", "Set a Pomodoro for Chemistry to bridge focus gaps."]
+            },
+            weakness: {
+                title: "📊 Syllabus Weakness Scan",
+                body: "Weakness Detected: Chemistry syllabus is only 22% complete, while Maths is 65%. Your daily routine needs to shift.",
+                points: ["Allocate 3 hours tomorrow for Organic Chemistry lectures.", "Postpone active mock tests until syllabus reaches 45%.", "Clear 'Ionic Equilibrium' from revision list."]
+            },
+            strategy: {
+                title: "⚡ Today's Study Strategy",
+                body: "Productivity Plan: You have 3 pending checklist workflows. Organize study blocks with Pomodoro focus cycles.",
+                points: ["Block 1: 09:00 - 10:30 (Maths Lecture).", "Block 2: 11:00 - 12:30 (Physics DPP questions).", "Block 3: 15:00 - 16:30 (Chemistry revision deck)."]
+            },
+            motivation: {
+                title: "🔥 Stoic Motivation Boost",
+                body: "'Difficulties strengthen the mind, as labor does the body.' - Seneca. Your streak of 5 days is a testament to your grit.",
+                points: ["The work you do in silence will speak volumes on exam day.", "Consistency beats intelligence every single day. Keep moving."]
+            }
+        };
+
+        function triggerAICoachAction(actionId) {
+            const container = document.getElementById('chat-messages-container');
+            const labels = {
+                mock: "Analyze my recent mock tests.",
+                weakness: "Scan syllabus for weaknesses.",
+                strategy: "What is my strategy for today's checklist?",
+                motivation: "I need a motivation boost."
+            };
+
+            // User Message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-msg user';
+            userMsg.innerText = labels[actionId];
+            container.appendChild(userMsg);
+            container.scrollTop = container.scrollHeight;
+
+            // Typing Indicator
+            const typingMsg = document.createElement('div');
+            typingMsg.className = 'chat-msg bot typing';
+            typingMsg.innerHTML = `🤖 Thinking <span class="pulse-slow">...</span>`;
+            container.appendChild(typingMsg);
+            container.scrollTop = container.scrollHeight;
+
+            setTimeout(() => {
+                // Remove typing indicator
+                typingMsg.remove();
+                
+                const data = botResponses[actionId];
+                const botMsg = document.createElement('div');
+                botMsg.className = 'chat-msg bot';
+                
+                let pointsHtml = '';
+                if (data.points && data.points.length > 0) {
+                    pointsHtml = `<ul style="margin-top: 0.5rem; padding-left: 1rem; list-style: disc;">` + 
+                        data.points.map(pt => `<li>${pt}</li>`).join('') + 
+                        `</ul>`;
+                }
+
+                botMsg.innerHTML = `
+                    <strong>${data.title}</strong><br/>
+                    <span style="font-style: italic; color: #d1d5db;">"${data.body}"</span>
+                    ${pointsHtml}
+                `;
+                
+                container.appendChild(botMsg);
+                container.scrollTop = container.scrollHeight;
+
+                addXP(10);
+                addNotificationLog(`🤖 AI Coach Query: ${data.title} generated.`, "🤖");
+            }, 1200);
+        }
+    </script>
+</body>
+</html>
