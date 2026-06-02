@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.1.0-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -17,13 +17,13 @@
 
 ---
 
-![Vinyas Dashboard](public/bg1.png)
+![Vinyas Dashboard](public/bg3.png)
 
 ## 🌟 Overview
 
 **Vinyas** is a state-of-the-art educational tracker designed for students mastering custom exam targets. Vinyas bridges the gap between passive learning and active tracking by automatically logging video lecture hours, Daily Practice Problem (DPP) scores, and textbook progress from external learning platforms (such as PhysicsWallah) via a custom-built Chrome Extension.
 
-Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, daily planner workflows, an integrated diagnostics bug reporter, and automated encrypted email backups, Vinyas empowers students to optimize their prep with visual analytics, streaks, achievements, and intelligent AI assistance.
+Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, daily planner workflows, an integrated diagnostics & feedback wizard, and automated encrypted email backups, Vinyas empowers students to optimize their prep with visual analytics, streaks, achievements, and intelligent AI assistance.
 
 > **Live Demo**: [vinyas-one.vercel.app](https://vinyas-one.vercel.app)
 
@@ -31,8 +31,12 @@ Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition 
 
 ## ✨ Features
 
-### 🔗 Chrome Extension Interceptor
-A lightweight Manifest V3 browser extension that seamlessly intercepts learning statistics—video watch sessions, textbook exercise layouts, and DPP accuracy—from PW platforms, syncing them in real-time to the MongoDB database. Features **1-Click Auto-Pair** with your dashboard for instant setup.
+### 🧩 Chrome Extension Companion
+A lightweight Manifest V3 browser extension that seamlessly pairs with your dashboard. Features:
+* **Interactive Tracker Widget Overlay**: A floating, draggable, and bounded widget injected directly into textbook exercise and quiz pages to log question difficulty states (`Easy`, `Medium`, `Hard`, `Difficult`) and syncs progress in real-time.
+* **Leave & Submit Actions**: Widget leave button saves progress to the database and native exit is triggered programmatically. Submit proxy triggers native submit triggers.
+* **Trimmed URL Checker & Auto-Indexing**: Automatically detects unconfigured chapters, prompts to redirect to trimmed list pages to auto-scrape question counts, saves to database, and redirects back to active quiz in under 2 seconds.
+* **1-Click Auto-Pair**: Detects Sync IDs and links dashboard automatically, with beautiful glassmorphic popups alerting on account connection and disconnection states.
 
 ### 🏆 Gamified Dashboard
 Features an XP-based leveling system, automatic study **streak tracking** with a visual calendar heatmap, a **Pomodoro focus timer**, **spaced-repetition revision scheduler**, customized daily goals, and unlockable achievements to keep students motivated.
@@ -46,8 +50,8 @@ Generates a comprehensive exam syllabus instantly from **server-hosted templates
 ### 🤖 Intelligent AI Gateway
 Features a **load-balanced API routing** system cycling through up to **20 Google Gemini API keys** with multi-level failover tiers to **Cerebras (GPT-OSS-120B)** and **Groq (Llama-3.3-70B)** in case of rate limits. Includes per-user rate limiting (15 req/min) and Sync ID authentication.
 
-### 🐞 Diagnostics & Bug Reporter
-Exposes a secure diagnostics panel and bug reporting tool. In case of issues, students can upload a description along with a screenshot (under 2MB). The system automatically packages OS specs, Sync IDs, and recent local logs into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay without ever storing the image or raw details on Vercel's server disk or inside MongoDB.
+### 🐞 Diagnostics & Suggest Feature
+Exposes a secure diagnostics panel, bug reporter, and feature suggestion hub. In case of issues or ideas, students can upload a description along with one or more screenshots (under 2MB each). The system packages system diagnostics, Sync IDs, and local core events into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay. Features a gold/amber-themed Suggest Feature modal alongside the rose-themed Bug Reporter modal.
 
 ### 🛡️ Encrypted Auto-Backups
 A robust **client-side encrypted** (AES-256-GCM + PBKDF2) automated weekly backup system via Vercel Cron that safely emails your entire syllabus database bundle to your inbox every Sunday. The mailed `.json` file is secure even if your email is compromised—decryption requires your private Sync ID.
@@ -70,11 +74,8 @@ A fast overlay search system to instantly locate any chapter across all subjects
 ### 🎨 Premium UI/UX
 Designed using curated HSL dark-mode palettes, smooth gradients, subtle micro-animations, glassmorphism panels, **Outfit** font family, custom **Phosphor Icons**, and a premium Toast Notification interface with full-screen animated achievement celebrations.
 
-### ⚙️ Session Settings
+### ⚙️ Settings Panel
 Control your sync profile with a rotating gear Settings menu supporting: **Export/Import** data (client-side encrypted JSON bundles), **Backup Settings** configuration, session **Logout** (which triggers local and browser extension storage cleanup), and permanent account **Delete**.
-
-### 🔧 Developer Sandbox
-A localhost-only **DevTools Overlay** panel for simulating DPP/Module submissions, testing inactivity alerts/purges, triggering achievement toast notifications, testing encrypted email dispatch, toggling log redaction bypass, and performing database operations.
 
 ---
 
@@ -84,7 +85,7 @@ Vinyas operates as a premium React Single-Page Application (SPA) compiled with V
 
 ```mermaid
 graph TD
-    CE[Chrome Extension Vinyas Tracker] -->|Telemetry POST logs| API_Act[API Gateway: /api/activity]
+    CE[Chrome Extension Vinyas Tracker] -->|Telemetry POST events| API_Act[API Gateway: /api/activity]
     WA[React Frontend SPA Web App] -->|Initial Hydration GET| API_Data[API Route: /api/data]
     WA -->|Debounced Sync Mutations| API_Data
     WA -->|Live Feed Polls| API_Act
@@ -130,7 +131,7 @@ Vinyas/
 │   ├── test-backup-mail.js        # Manual backup email trigger
 │   ├── telemetry.js               # Diagnostics telemetry endpoint
 │   ├── logout.js                  # Session logout activity logger
-│   ├── test-inactivity.js         # Developer inactivity simulation
+│   ├── dev-nuke.js                # Localhost developer database nuke tool
 │   ├── extension-metadata.js      # Fetch Chrome extension & APK metadata
 │   ├── db.js                      # MongoDB connection pooling
 │   ├── timezone.js                # IST timezone utility
@@ -139,7 +140,7 @@ Vinyas/
 │       ├── email.js               # SMTP email dispatch utilities
 │       └── syllabus.js            # Syllabus data processing helpers
 ├── src/                           # React frontend application
-│   ├── components/                # 24 modular UI components
+│   ├── components/                # 25 modular UI components
 │   │   ├── Header.jsx             # Navigation, brand, diagnostics dropdown
 │   │   ├── GamifiedDashboard.jsx  # XP, streaks, goals, activity feed
 │   │   ├── SubjectTable.jsx       # Interactive syllabus progress matrix
@@ -163,17 +164,23 @@ Vinyas/
 │   │   ├── SearchOverlay.jsx      # Global chapter search
 │   │   ├── FireSlider.jsx         # Animated fire intensity slider
 │   │   ├── ToastContext.jsx       # Toast notification provider
+│   │   ├── ThemeModal.jsx         # Custom background, opacity & blur settings
 │   │   └── DevToolsOverlay.jsx    # Developer testing sandbox
 │   ├── services/                  # Client-side service layer
 │   │   ├── crypto.js              # AES-256-GCM encryption (Web Crypto API)
 │   │   ├── gemini.js              # AI client with attempt header parsing
 │   │   ├── logger.js              # In-memory event logging bus
 │   │   └── notifications.js       # Browser notification integration
-│   ├── hooks/
-│   │   └── useAchievements.js     # Achievement state management hook
+│   ├── hooks/                     # Custom React Hooks
+│   │   ├── useAchievements.js     # Achievement state management hook
+│   │   ├── useActivityProcessor.js # Processes activity log queuing, matching & UI updates
+│   │   ├── useDatabaseSync.js     # Automatic background DB save/load orchestrator
+│   │   ├── useExtensionConnection.js # Detects and binds Chrome extension connection states
+│   │   └── useThemeSettings.js    # Manages custom background, blur, and opacity theme preferences
 │   ├── shared/                    # Shared frontend utilities
 │   │   ├── normalize.js           # Data normalization helpers
-│   │   └── time.js                # Time formatting utilities
+│   │   ├── time.js                # Time formatting utilities
+│   │   └── utils.js               # Common mathematical & data structuring helpers
 │   ├── data/
 │   │   ├── constants.jsx          # Initial syllabus, logo, chapter schema
 │   │   ├── ai_instructions.js     # AI system prompt definitions
@@ -190,7 +197,9 @@ Vinyas/
 │   ├── popup.js                   # Extension popup logic & pairing controls
 │   └── icon.svg                   # Extension icon
 ├── public/                        # Static assets served by Vite
-│   ├── frontpage.png              # Dashboard screenshot for README
+│   ├── bg1.png                    # Dashboard screenshot for README
+│   ├── bg2.png                    # Tracker overlay widget screenshot
+│   ├── bg3.png                    # Feedback & Suggest Feature screenshot
 │   ├── Vinyas.apk                 # Android companion app
 │   ├── Vinyas_Extension.zip       # Packaged extension download bundle
 │   ├── favicon.ico                # Browser favicon
@@ -211,50 +220,51 @@ Vinyas/
 ## ⚡ Getting Started
 
 ### Prerequisites
-*   **Node.js** v18+
-*   **MongoDB** instance (Atlas or local)
-*   At least one **Google Gemini API Key** (optional: Cerebras or Groq keys for fallback)
+* **Node.js** v18+
+* **MongoDB** instance (Atlas or local)
+* At least one **Google Gemini API Key** (optional: Cerebras or Groq keys for fallback)
 
 ### Local Installation
 
-1.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/KISHLAY-AT-CODE/Vinyas.git
-    cd Vinyas
-    ```
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/KISHLAY-AT-CODE/Vinyas.git
+   cd Vinyas
+   ```
 
-2.  **Install Dependencies**:
-    ```bash
-    npm install
-    ```
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-3.  **Environment Setup**:
-    Create a `.env` file in the root directory:
-    ```env
-    MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/vinyas?retryWrites=true&w=majority
-    TELEMETRY_PASSWORD=your_secure_diagnostics_password
+3. **Environment Setup**:
+   Create a `.env` file in the root directory:
+   ```env
+   MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/vinyas?retryWrites=true&w=majority
+   TELEMETRY_PASSWORD=your_secure_diagnostics_password
 
-    # Gemini API Keys (supports up to 20 for load balancing)
-    GEMINI_API_KEY_1=your_gemini_api_key_here
-    GEMINI_API_KEY_2=your_second_key_here
+   # Gemini API Keys (supports up to 20 for load balancing)
+   GEMINI_API_KEY_1=your_gemini_api_key_here
+   GEMINI_API_KEY_2=your_second_key_here
 
-    # Optional Fallback AI Providers
-    GENERAL_API_KEY=gsk_your_groq_key_here
-    CEREBRAS_API_KEY=csk_your_cerebras_key_here
+   # Optional Fallback AI Providers
+   GENERAL_API_KEY=gsk_your_groq_key_here
+   CEREBRAS_API_KEY=csk_your_cerebras_key_here
 
-    # Email Backup Service (optional)
-    SMTP_USER=your_smtp_email@gmail.com
-    SMTP_PASS=your_app_password
-    ```
+   # Email Backup & Feedback Service (optional)
+   SMTP_USER=your_smtp_email@gmail.com
+   SMTP_PASS=your_app_password
+   DEV_EMAIL=developer_recipient_email@gmail.com
+   ```
 
-4.  **Run Development Server**:
-    ```bash
-    npm run dev
-    # Or to run with Vercel serverless functions locally:
-    npm run vercel-dev
-    ```
+4. **Run Development Server**:
+   ```bash
+   npm run dev
+   # Or to run with Vercel serverless functions locally:
+   npm run vercel-dev
+   ```
 
-5.  **Open in Browser**: Navigate to `http://localhost:5173` and create your Sync ID to get started.
+5. **Open in Browser**: Navigate to `http://localhost:5173` and create your Sync ID to get started.
 
 ---
 
@@ -264,12 +274,12 @@ Vinyas/
 
 ### Quick Setup Steps
 
-1.  **Download** the extension ZIP bundle from the `/extension` page on your dashboard, or find `Vinyas_Extension/` in this repository.
-2.  Open Chrome → navigate to `chrome://extensions/`.
-3.  Enable **Developer mode** (top-right toggle).
-4.  Click **Load unpacked** → select the extracted `Vinyas_Extension/` folder.
-5.  **Pin** the extension to your Chrome toolbar via the puzzle icon.
-6.  **1-Click Auto-Pair**: Open your active Vinyas dashboard tab, click the **Vinyas Tracker** extension icon, and hit **"Auto-Pair"**. The extension automatically detects your Sync ID and server URL.
+1. **Download** the extension ZIP bundle from the `/extension` page on your dashboard, or find `Vinyas_Extension/` in this repository.
+2. Open Chrome → navigate to `chrome://extensions/`.
+3. Enable **Developer mode** (top-right toggle).
+4. Click **Load unpacked** → select the extracted `Vinyas_Extension/` folder.
+5. **Pin** the extension to your Chrome toolbar via the puzzle icon.
+6. **1-Click Auto-Pair**: Open your active Vinyas dashboard tab, click the **Vinyas Tracker** extension icon, and hit **"Auto-Pair"**. The extension automatically detects your Sync ID and server URL.
 
 ### How It Works
 
@@ -277,7 +287,7 @@ Once paired, the extension silently monitors your study activity on PW platforms
 
 | What it Captures | How it Syncs |
 |---|---|
-| 📝 DPP quiz scores, accuracy, completion | Auto-posted to `/api/activity` on submission |
+| 📝 Quiz scores, accuracy, completion | Auto-posted to `/api/activity` on submission |
 | 👑 Module/exercise completion metrics | Auto-posted with chapter matching |
 | 🎥 Video lecture watch progress | Tracked via content script interception |
 | 📚 Textbook exercise layouts | Extracts per-exercise question counts |
@@ -290,12 +300,12 @@ All captured data is **fuzzy-matched** to your syllabus chapters and auto-applie
 
 Vinyas is designed with student privacy as a core priority:
 
-*   **Cryptographic Sync IDs**: Generated using `crypto.getRandomValues()` with `vny_sec_` prefix (32 hex characters).
-*   **AES-256-GCM Encryption**: All exported backups and email attachments are encrypted client-side using PBKDF2-derived keys (100,000 iterations). The server never sees plaintext backup data.
-*   **Per-User Rate Limiting**: AI endpoints enforce 15 requests/minute per Sync ID.
-*   **Sync ID Validation**: API routes verify secure prefix or database registration before processing.
-*   **Diagnostics Redaction**: Live console logs automatically obfuscate Sync IDs and sensitive model data. Bypass available only in localhost DevTools.
-*   **Content Security Policy**: Strict CSP headers in `index.html` restrict script and connection origins.
+* **Cryptographic Sync IDs**: Generated using `crypto.getRandomValues()` with `vny_sec_` prefix (32 hex characters).
+* **AES-256-GCM Encryption**: All exported backups and email attachments are encrypted client-side using PBKDF2-derived keys (100,000 iterations). The server never sees plaintext backup data.
+* **Per-User Rate Limiting**: AI endpoints enforce 15 requests/minute per Sync ID.
+* **Sync ID Validation**: API routes verify secure prefix or database registration before processing.
+* **Diagnostics Redaction**: Sensitive model details and identifiers are automatically obfuscated. Bypass available only in localhost DevTools.
+* **Content Security Policy**: Strict CSP headers restrict script and connection origins.
 
 ---
 
@@ -311,13 +321,13 @@ Achievements trigger premium **full-screen animated celebrations** with particle
 
 Configure automated backups from **Settings → Backup Settings**:
 
-1.  Enter your destination email address.
-2.  Toggle **Weekly Auto-Backups** on.
-3.  Every **Sunday at midnight UTC**, Vercel Cron automatically:
-    - Fetches your latest profile from MongoDB
-    - Encrypts the payload with AES-256-GCM using your Sync ID
-    - Emails the encrypted `.json` bundle via SMTP
-4.  To restore: Import the file via the **Import** button and supply your Sync ID for decryption.
+1. Enter your destination email address.
+2. Toggle **Weekly Auto-Backups** on.
+3. Every **Sunday at midnight UTC**, Vercel Cron automatically:
+   - Fetches your latest profile from MongoDB
+   - Encrypts the payload with AES-256-GCM using your Sync ID
+   - Emails the encrypted `.json` bundle via SMTP
+4. To restore: Import the file via the **Import** button and supply your Sync ID for decryption.
 
 ---
 
@@ -339,6 +349,12 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
+### v2.1.0 (June 2, 2026)
+- 💡 **Suggest Feature Modal**: Propose feature ideas or feedback directly to the developer, routed via secure SMTP email.
+- 📸 **Multi-Screenshot Attachment**: Added support for uploading up to 5 screenshots simultaneously in both Bug Reports and Suggest Feature modals.
+- ✨ **Simplified Alerts**: Removed confusing technical terms ("logs", "console") from user-facing popup alerts for a simpler, friendly interface.
+- 🧹 **Cleaned Diagnostics**: Removed unused log clearing options from the diagnostic settings dropdown.
+
 ### v2.0.0 (June 1, 2026) - Major Update
 - 🎯 **Integrated Interactive Widget Overlay**: Beautiful glassmorphic overlay matches your active chapter practice pages directly, allowing you to register question states seamlessly without doing split screen.
 - 👑 **Draggable & Bounded Widget Layout**: Drag and reposition the floating question tracker anywhere on your viewport, bounded safely inside browser borders.
@@ -350,12 +366,13 @@ Ensure all environment variables are configured in your Vercel project settings.
 - 🔗 **Smarter Chapter Reading Links**: Chapter rows render Phosphorus icons directing you to synced book chapter pages in a single click, or prompting a map utility if unlinked.
 - ⚡ **Real-Time Tab Synchronization Bridge**: Background worker dynamically broadcasts live overlay status updates to all open Vinyas dashboard tabs, eliminating stale overwrite race conditions.
 - 📦 **Aligned Key Generation**: Aligned key generation formulas between content script scanners and backend processors to ensure consistent question mappings.
-- 🛡️ **Security Telemetry Validation**: Cryptographically secure prefix validations in all telemetry routes.
+- 🛡 **Security Telemetry Validation**: Cryptographically secure prefix validations in all telemetry routes.
+- 💡 **Suggest Feature Wizard**: Introduced Suggest Feature feedback path with an amber theme, direct SMTP forwarding to developer, and multi-screenshot uploads.
+- 📸 **Multi-Screenshot Support**: Upgraded telemetry uploads to support attaching multiple images for bug reports and feature suggestions.
 
 ### v1.2.5 (May 28, 2026)
 - ⚡ **Syllabus Scroll Optimization**: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.
 - 💾 **Real-Time LocalStorage Sync**: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.
-- 🛡️ **Save Mismatch Auto-Recovery**: Compares questions progress on save and automatically restores correct status from LocalStorage in case of DB sync mismatch.
 - 📊 **Dynamic Setup Information**: Extension setup page fetches and displays Chrome Extension and Android APK versions and file sizes dynamically from the server.
 - 📜 **Scrollable Setup Layout**: Fixed layout constraints on the extension page to allow vertical scrolling on all viewports.
 - 🔗 **Smarter Extension Integration**: Chrome Extension automatically bypasses already synced chapters and suppresses prompts when unconfigured.

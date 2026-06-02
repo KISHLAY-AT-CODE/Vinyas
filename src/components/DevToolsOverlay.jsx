@@ -23,7 +23,7 @@ const FALLBACK_ACHIEVEMENTS = [
     { id: 'dead_man_walking', title: 'Dead Man Walking', description: 'Submitted 2 consecutive DPPs with less than 60% accuracy.', icon: '🧟', unlocked: false }
 ];
 
-const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollActivities, setRetryTrigger, data, requestConfirm, email, onSendTestBackupMail, triggerPageLoading }) => {
+const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollActivities, setRetryTrigger, data, requestConfirm, email, onSendTestBackupMail, triggerPageLoading, onNukeDatabase }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [bypassRedaction, setBypassRedaction] = useState(() => localStorage.getItem('bypassRedaction') === 'true');
     
@@ -228,6 +228,41 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
                     }
                 } catch (err) {
                     showStatus('error', 'API connection error during nuke');
+                    console.error(err);
+                }
+            }
+        );
+    };
+
+    // Nuke Entire Database Wiping
+    const handleNukeDatabase = async () => {
+        requestConfirm(
+            "Nuke Entire Vinyas Database",
+            "WARNING: Are you sure you want to permanently clear the entire Vinyas database (wipes all user profiles, activities, and rate limits)? This action cannot be undone!",
+            async () => {
+                try {
+                    if (onNukeDatabase) {
+                        const resData = await onNukeDatabase();
+                        showStatus('success', `Database wiped successfully! Wiped ${resData.details?.usersDeleted || 0} profiles.`);
+                        if (pollActivities) await pollActivities();
+                        if (setRetryTrigger) setRetryTrigger(prev => prev + 1);
+                    } else {
+                        const response = await fetch('/api/dev-nuke', {
+                            method: 'POST'
+                        });
+
+                        if (response.ok) {
+                            const resData = await response.json();
+                            showStatus('success', `Database wiped successfully! Wiped ${resData.details?.usersDeleted || 0} profiles.`);
+                            if (pollActivities) await pollActivities();
+                            if (setRetryTrigger) setRetryTrigger(prev => prev + 1);
+                        } else {
+                            const errData = await response.json().catch(() => ({}));
+                            showStatus('error', errData.error || 'Failed to wipe entire database.');
+                        }
+                    }
+                } catch (err) {
+                    showStatus('error', err.message || 'API connection error during full nuke');
                     console.error(err);
                 }
             }
@@ -559,9 +594,15 @@ const DevToolsOverlay = ({ syncId, allAchievements, setActiveAchievement, pollAc
                                 </p>
                                 <button
                                     onClick={handleNukeActivities}
-                                    className="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/30 text-rose-400 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5"
+                                    className="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/30 text-rose-400 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 mb-2 cursor-pointer"
                                 >
                                     <i className="ph-bold ph-skull text-sm"></i> Nuke Sync ID Activities
+                                </button>
+                                <button
+                                    onClick={handleNukeDatabase}
+                                    className="w-full py-2.5 bg-gradient-to-r from-red-650 to-rose-650 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <i className="ph-bold ph-trash-simple text-sm"></i> Nuke Entire Database
                                 </button>
                             </div>
 

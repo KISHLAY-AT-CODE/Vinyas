@@ -93,3 +93,5 @@ src/components/DevToolsOverlay.jsx
 zip_extension.py
 summary.txt
 version_changelog.txt
+git_push.py
+bump_version.py

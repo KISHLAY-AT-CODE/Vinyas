@@ -27,8 +27,11 @@ export default async function handler(req, res) {
         
         if (diffDays >= 6) {
           // Delete account on 6th day
-          await collection.deleteOne({ syncId: user.syncId });
-          console.log(`[Vinyas Inactivity] Deleted inactive account for syncId: ${user.syncId} after ${diffDays} calendar days in IST.`);
+          const syncId = user.syncId;
+          await collection.deleteMany({ syncId });
+          await db.collection('rate_limits').deleteMany({ _id: syncId });
+          await db.collection('telemetry').deleteMany({ syncId });
+          console.log(`[Vinyas Inactivity] Deleted inactive account and all associated rate limits and telemetry for syncId: ${syncId} after ${diffDays} calendar days in IST.`);
         } else if (diffDays >= 5) {
           // More than 5 days (5th day onwards) - send deletion alert email if email provided and not sent
           if (user.email && !user.alertSent) {

@@ -29,6 +29,153 @@ function escapeHTML(str) {
     );
 }
 
+function normalizeChapterName(name) {
+    if (!name) return "";
+    const normalized = name
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .map(word => {
+            if (word.length > 3 && word.endsWith('s')) {
+                return word.slice(0, -1);
+            }
+            return word;
+        })
+        .filter(Boolean)
+        .join(' ');
+
+    const CHAPTER_SYNONYMS = {
+        "atomic structure": "structure of atom",
+        "structure of atoms": "structure of atom",
+        "structure of atom": "structure of atom",
+        "periodic table": "classification of elements and periodicity in properties",
+        "periodicity in properties": "classification of elements and periodicity in properties",
+        "periodicity in propertie": "classification of elements and periodicity in properties",
+        "periodic classification": "classification of elements and periodicity in properties",
+        "states of matter": "states of matter",
+        "chemical bonding": "chemical bonding and molecular structure",
+        "bonding": "chemical bonding and molecular structure",
+        "thermodynamics": "chemical thermodynamics",
+        "equilibrium": "equilibrium",
+        "redox": "redox reactions",
+        "solutions": "solutions",
+        "electrochemistry": "electrochemistry",
+        "kinetics": "chemical kinetics",
+        "surface chemistry": "surface chemistry",
+        "coordination": "coordination compounds",
+        "haloalkanes": "haloalkanes and haloarenes",
+        "haloarenes": "haloalkanes and haloarenes",
+        "alcohol": "alcohols phenols and ethers",
+        "phenol": "alcohols phenols and ethers",
+        "ether": "alcohols phenols and ethers",
+        "carbonyl": "aldehydes ketones and carboxylic acids",
+        "aldehyde": "aldehydes ketones and carboxylic acids",
+        "ketone": "aldehydes ketones and carboxylic acids",
+        "carboxylic acid": "aldehydes ketones and carboxylic acids",
+        "amines": "amines",
+        "biomolecules": "biomolecules",
+        "polymers": "polymers",
+        "chemistry in everyday life": "chemistry in everyday life",
+        "goc": "organic chemistry some basic principles and techniques",
+        "general organic chemistry": "organic chemistry some basic principles and techniques",
+        "organic chemistry basic principles": "organic chemistry some basic principles and techniques"
+    };
+
+    return CHAPTER_SYNONYMS[normalized] || normalized;
+}
+
+function findChapterMatchesInSyllabus(subjects, searchName) {
+    if (!subjects || !searchName) return [];
+    
+    const normSearch = normalizeChapterName(searchName);
+    if (!normSearch) return [];
+    
+    const exactMatches = [];
+    subjects.forEach((sub, sIdx) => {
+        sub.chapters?.forEach((ch, cIdx) => {
+            const namesToCheck = [ch.name];
+            if (Array.isArray(ch.altNames)) namesToCheck.push(...ch.altNames);
+            for (const key of Object.keys(ch)) {
+                if (key.toLowerCase().startsWith('altname') && typeof ch[key] === 'string') {
+                    namesToCheck.push(ch[key]);
+                }
+            }
+            for (const name of namesToCheck) {
+                if (normalizeChapterName(name) === normSearch) {
+                    exactMatches.push({ sIdx, cIdx, subject: sub, chapter: ch });
+                    break;
+                }
+            }
+        });
+    });
+    if (exactMatches.length > 0) return exactMatches;
+    
+    const candidates = [];
+    subjects.forEach((sub, sIdx) => {
+        sub.chapters?.forEach((ch, cIdx) => {
+            const namesToCheck = [ch.name];
+            if (Array.isArray(ch.altNames)) namesToCheck.push(...ch.altNames);
+            for (const key of Object.keys(ch)) {
+                if (key.toLowerCase().startsWith('altname') && typeof ch[key] === 'string') {
+                    namesToCheck.push(ch[key]);
+                }
+            }
+            for (const name of namesToCheck) {
+                const chNorm = normalizeChapterName(name);
+                if (chNorm.length > 2 && (chNorm.includes(normSearch) || normSearch.includes(chNorm))) {
+                    candidates.push({ sIdx, cIdx, subject: sub, chapter: ch, length: chNorm.length });
+                    break;
+                }
+            }
+        });
+    });
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => b.length - a.length);
+        const maxLen = candidates[0].length;
+        return candidates.filter(c => c.length === maxLen).map(c => ({ sIdx: c.sIdx, cIdx: c.cIdx, subject: c.subject, chapter: c.chapter }));
+    }
+    
+    return [];
+}
+
+function extractChapterFromDppTitle(title) {
+    if (!title) return null;
+    let cleaned = title.trim();
+
+    if (/[:\-–—]\s*dpp/i.test(cleaned)) {
+        const parts = cleaned.split(/[:\-–—]\s*dpp/i);
+        if (parts.length > 1 && parts[0].trim().length > 0) {
+            cleaned = parts[0].trim();
+        }
+    }
+    cleaned = cleaned.replace(/^DPP\s*[-–—:]?\s*/i, '').trim();
+    cleaned = cleaned.replace(/\s*[-–—:]?\s*DPP\s*\d+.*$/i, '').trim();
+    cleaned = cleaned.replace(/\s*[#(]?\d+[)]?\s*$/, '').trim();
+    cleaned = cleaned.replace(/\s+(?:MCQ\s+)?Quiz$/i, '').trim();
+    cleaned = cleaned.replace(/\s*[-–—:]\s*$/, '').trim();
+
+    return cleaned || null;
+}
+
+function extractChapterFromModuleUrl(url) {
+    if (!url) return null;
+    const match = url.match(/chapterTitle=([^&]+)/);
+    if (match) {
+        let raw = match[1].replace(/\+/g, ' ');
+        try {
+            raw = decodeURIComponent(raw);
+        } catch (e) {}
+        return raw.trim();
+    }
+    return null;
+}
+
+let activeWidgetSubject = null;
+let activeWidgetChapter = null;
+let activeQuestionStates = {};
+let refreshWidgetQuestionUI = null;
+
 chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
     if (result.vinyasSyncId) syncId = result.vinyasSyncId;
     if (result.vinyasApiUrl) apiUrl = result.vinyasApiUrl;
@@ -412,17 +559,73 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
         console.log('[Vinyas Tracker] User cancelled/dismissed submission.');
     });
 
-    shadow.getElementById('btn-send').addEventListener('click', () => {
-        const payload = { ...activityData };
-        if (alreadyExists) {
-            payload.forceUpdate = true;
-        }
-        logActivity('DPP_SCORE', payload);
-        // Brief success feedback
+    shadow.getElementById('btn-send').addEventListener('click', async () => {
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
+        btn.textContent = '⏳ Checking...';
         btn.style.pointerEvents = 'none';
-        setTimeout(() => host.remove(), 800);
+
+        let chapterSearch = null;
+        if (activityData.quizType === 'DPP') {
+            chapterSearch = extractChapterFromDppTitle(activityData.title);
+        } else if (activityData.quizType === 'MODULE') {
+            chapterSearch = extractChapterFromModuleUrl(activityData.url);
+        }
+
+        if (!chapterSearch) {
+            const payload = { ...activityData };
+            if (alreadyExists) {
+                payload.forceUpdate = true;
+            }
+            logActivity('DPP_SCORE', payload);
+            btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
+            setTimeout(() => host.remove(), 800);
+            return;
+        }
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: "fetchSyllabus",
+                data: { syncId, apiUrl }
+            });
+
+            if (response && response.success && response.data) {
+                const subjects = response.data.data || [];
+                const matches = findChapterMatchesInSyllabus(subjects, chapterSearch);
+
+                if (matches.length === 1) {
+                    const payload = { ...activityData };
+                    if (alreadyExists) {
+                        payload.forceUpdate = true;
+                    }
+                    logActivity('DPP_SCORE', payload);
+                    btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
+                    setTimeout(() => host.remove(), 800);
+                } else {
+                    host.remove();
+                    showResolveMismatchOverlay(chapterSearch, subjects, syncId, apiUrl, {
+                        type: 'DPP_SCORE',
+                        details: activityData
+                    });
+                }
+            } else {
+                const payload = { ...activityData };
+                if (alreadyExists) {
+                    payload.forceUpdate = true;
+                }
+                logActivity('DPP_SCORE', payload);
+                btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
+                setTimeout(() => host.remove(), 800);
+            }
+        } catch (e) {
+            console.error("[Vinyas Tracker] Error checking syllabus match for DPP:", e);
+            const payload = { ...activityData };
+            if (alreadyExists) {
+                payload.forceUpdate = true;
+            }
+            logActivity('DPP_SCORE', payload);
+            btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
+            setTimeout(() => host.remove(), 800);
+        }
     });
 
     shadow.getElementById('backdrop').addEventListener('click', (e) => {
@@ -510,6 +713,7 @@ function checkStudyGoals() {
 // 4. PW BOOKS QUESTIONS TRACKING
 // ----------------------------------------------------
 let lastLoggedBooksUrl = "";
+let lastLoggedPracticeV2Url = "";
 
 function showBooksConfirmOverlay(booksData) {
     const existing = document.getElementById('vinyas-overlay-host');
@@ -626,7 +830,14 @@ function parseBooksQuestionsFromDOM() {
     try {
         const url = window.location.href;
         const isBooksDomain = url.includes("books.pw.live") || url.includes("books.physicswallah.live");
-        if (!isBooksDomain || !url.includes("/practice")) return null;
+        if (!isBooksDomain) return null;
+
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname.toLowerCase();
+        if (!pathname.includes("/practice")) return null;
+        if (!pathname.endsWith("/practice") && !pathname.endsWith("/practice/")) {
+            return null;
+        }
 
         const cardsGrid = document.querySelector('div[class*="cardsGrid"]');
         if (!cardsGrid) return null;
@@ -649,7 +860,7 @@ function parseBooksQuestionsFromDOM() {
             }
         }
 
-        if (!chapterName) return null;
+        if (!chapterName || chapterName.toLowerCase() === "pw books") return null;
 
         const exercises = {};
         const displayNames = {};
@@ -730,10 +941,278 @@ function checkPwBooksQuestions() {
     }
 }
 
+function parsePracticeV2QuestionsFromDOM() {
+    try {
+        const url = window.location.href;
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname.toLowerCase();
+        const practiceV2Pattern = /^\/practice-v2\/dpp\/[a-f0-9]{24}\/?$/i;
+        if (!practiceV2Pattern.test(pathname)) return null;
+        if (url.includes('?')) return null; // Only parse trimmed index pages
+        
+        // Find all text elements that contain "exercise" (case-insensitive)
+        const candidates = Array.from(document.querySelectorAll('div, span, p, h3, h4, button')).filter(el => {
+            if (el.children.length > 0) return false;
+            const text = el.innerText?.trim() || '';
+            return /exercise[- ]*\d+/i.test(text);
+        });
+        
+        if (candidates.length === 0) return null;
+        
+        const exercises = {};
+        const displayNames = {};
+        
+        candidates.forEach(el => {
+            const titleText = el.innerText.trim();
+            const match = titleText.match(/exercise[- ]*(\d+)/i);
+            if (!match) return;
+            const exNum = match[1];
+            const exKey = `Exercise ${exNum}`;
+            
+            // Try to find the question count near this title
+            // We search in the parent container for text like "X Questions" or "Questions: X"
+            let qCount = 0;
+            let parent = el.parentElement;
+            let depth = 0;
+            while (parent && parent !== document.body && depth < 5) {
+                const text = parent.innerText || '';
+                const qMatch = text.match(/(\d+)\s*questions/i) || text.match(/questions\s*:\s*(\d+)/i);
+                if (qMatch) {
+                    qCount = parseInt(qMatch[1], 10);
+                    break;
+                }
+                parent = parent.parentElement;
+                depth++;
+            }
+            
+            if (qCount > 0) {
+                exercises[exKey] = qCount;
+                displayNames[exKey] = titleText;
+            }
+        });
+        
+        if (Object.keys(exercises).length > 0) {
+            // Extract chapter name from query/params or page title
+            const urlParams = new URLSearchParams(window.location.search);
+            let chapterName = urlParams.get('chapterTitle') || '';
+            if (!chapterName) {
+                const header = document.querySelector('h1, h2, div[class*="header"], div[class*="subHeader"]');
+                if (header) chapterName = header.innerText?.trim() || '';
+            }
+            
+            return {
+                chapterName: chapterName || 'Unknown Chapter',
+                url,
+                exercises,
+                displayNames
+            };
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error parsing practice-v2 DOM:", e);
+    }
+    return null;
+}
+
+function checkPwPracticeV2Questions() {
+    try {
+        const url = window.location.href;
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname.toLowerCase();
+        const practiceV2Pattern = /^\/practice-v2\/dpp\/[a-f0-9]{24}\/?$/i;
+        if (!practiceV2Pattern.test(pathname)) return;
+        if (url.includes('?')) return; // Ignore pages with query parameters (which are quizzes)
+        if (lastLoggedPracticeV2Url === url) return;
+
+        const practiceData = parsePracticeV2QuestionsFromDOM();
+        if (practiceData) {
+            console.log("[Vinyas Tracker] Scraped practice-v2 exercise config successfully:", practiceData);
+            
+            // If there's a pending redirect target, map to that chapter name
+            const targetChapterName = sessionStorage.getItem('vinyasTargetChapterName');
+            const originalQuizUrl = sessionStorage.getItem('vinyasOriginalQuizUrl');
+            
+            const chapterName = targetChapterName || practiceData.chapterName;
+
+            if (syncId && apiUrl) {
+                // Sync data to MongoDB immediately
+                chrome.runtime.sendMessage({
+                    action: "logActivity",
+                    data: {
+                        syncId,
+                        apiUrl,
+                        type: "PW_BOOKS_QUESTIONS",
+                        details: {
+                            chapterName,
+                            exercises: practiceData.exercises,
+                            displayNames: practiceData.displayNames,
+                            url
+                        }
+                    }
+                }, (response) => {
+                    console.log("[Vinyas Tracker] Synced practice-v2 exercises to database:", response);
+                    
+                    if (originalQuizUrl) {
+                        console.log("[Vinyas Tracker] Auto-sync completed. Redirecting back to quiz:", originalQuizUrl);
+                        sessionStorage.removeItem('vinyasOriginalQuizUrl');
+                        sessionStorage.removeItem('vinyasTargetChapterName');
+                        window.location.href = originalQuizUrl;
+                    }
+                });
+            }
+            
+            lastLoggedPracticeV2Url = url;
+        }
+    } catch (err) {
+        console.error("[Vinyas Tracker] Error checking PW practice-v2 questions:", err);
+    }
+}
+
+function showRedirectIndexPrompt(chapter, syncId, apiUrl) {
+    const existing = document.getElementById('vinyas-tracker-widget-host');
+    if (existing) existing.remove();
+
+    const host = document.createElement('div');
+    host.id = 'vinyas-tracker-widget-host';
+    host.style.cssText = `position:fixed;top:16px;left:${window.innerWidth / 2 - 315}px;width:630px;height:46px;z-index:2147483647;pointer-events:none;`;
+    document.body.appendChild(host);
+
+    const shadow = host.attachShadow({ mode: 'closed' });
+    const logoUrl = chrome.runtime.getURL('favicon.ico');
+
+    const css = `
+        * { margin:0; padding:0; box-sizing:border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 16px 0 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(249, 115, 22, 0.35);
+            border-radius: 23px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(249, 115, 22, 0.08);
+            pointer-events: all;
+            color: #f8fafc;
+            user-select: none;
+            width: 630px;
+            height: 46px;
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .left-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+        .logo-img {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+        }
+        .buttons-row {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            border: none;
+            outline: none;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-dismiss {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+        }
+        .btn-dismiss:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f1f5f9;
+        }
+        .btn-action {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+        }
+        .btn-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.35);
+        }
+    `;
+
+    shadow.innerHTML = `
+        <style>${css}</style>
+        <div class="pill">
+            <div class="left-content">
+                <img class="logo-img" src="${logoUrl}" alt="Vinyas Logo" />
+                <span>Chapter config required to enable interactive tracking.</span>
+            </div>
+            <div class="buttons-row">
+                <button class="btn btn-dismiss" id="btn-dismiss">Skip</button>
+                <button class="btn btn-action" id="btn-redirect">Index Chapter</button>
+            </div>
+        </div>
+    `;
+
+    shadow.getElementById('btn-dismiss').addEventListener('click', () => {
+        host.remove();
+        trackerFailed = true;
+        showPwSubmitButton();
+        console.log('[Vinyas Tracker] User skipped chapter indexing prompt.');
+    });
+
+    shadow.getElementById('btn-redirect').addEventListener('click', () => {
+        try {
+            sessionStorage.setItem('vinyasOriginalQuizUrl', window.location.href);
+            sessionStorage.setItem('vinyasTargetChapterName', chapter.name);
+            let trimmedUrl = window.location.origin + window.location.pathname;
+            if (trimmedUrl.includes('/practice-v2/dpp/')) {
+                const match = trimmedUrl.match(/^(.+?\/practice-v2\/dpp\/[a-f0-9]{24})/i);
+                if (match) {
+                    trimmedUrl = match[1];
+                }
+            }
+            console.log(`[Vinyas Tracker] Redirecting to trimmed URL for auto-indexing: ${trimmedUrl}`);
+            window.location.href = trimmedUrl;
+        } catch (err) {
+            console.error('[Vinyas Tracker] Redirect handler error:', err);
+        }
+    });
+}
+
 // ----------------------------------------------------
 // MESSAGE LISTENER (For Popup Trigger)
 // ----------------------------------------------------
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "syllabusUpdated") {
+        const subjects = request.data || [];
+        if (activeWidgetChapter) {
+            const matches = findChapterMatchesInSyllabus(subjects, activeWidgetChapter.name);
+            if (matches.length === 1) {
+                const newChapter = matches[0].chapter;
+                activeWidgetChapter.moduleQuestionStates = newChapter.moduleQuestionStates || {};
+                activeQuestionStates = newChapter.moduleQuestionStates || {};
+                if (typeof refreshWidgetQuestionUI === 'function') {
+                    refreshWidgetQuestionUI();
+                }
+            }
+        }
+        sendResponse({ success: true });
+        return true;
+    }
+
     if (request.action === "detectDppResults") {
         const activityData = parseDppResultsFromDOM();
         if (activityData) {
@@ -992,11 +1471,33 @@ function showSyncAssignmentOverlay(detectedChapter, detectedAssignment, pdfUrl, 
 
             if (response && response.success) {
                 if (response.unresolved) {
+                    btn.textContent = '⏳ Loading Resolver...';
+                    try {
+                        const syllabusRes = await chrome.runtime.sendMessage({
+                            action: "fetchSyllabus",
+                            data: { syncId, apiUrl }
+                        });
+                        if (syllabusRes && syllabusRes.success && syllabusRes.data) {
+                            host.remove();
+                            showResolveMismatchOverlay(editedChapter, syllabusRes.data.data || [], syncId, apiUrl, {
+                                type: 'ASSIGNMENT_SUBMISSION',
+                                details: {
+                                    chapterName: editedChapter,
+                                    assignmentName: editedAssignment,
+                                    url: pdfUrl
+                                }
+                            });
+                            return;
+                        }
+                    } catch (e) {
+                        console.error("[Vinyas Tracker] Error loading resolver for assignment:", e);
+                    }
                     btn.textContent = '✅ Queued (Unresolved)';
+                    setTimeout(() => host.remove(), 1200);
                 } else {
                     btn.textContent = '✅ Synced!';
+                    setTimeout(() => host.remove(), 1200);
                 }
-                setTimeout(() => host.remove(), 1200);
             } else {
                 btn.textContent = '❌ Failed!';
                 btn.style.pointerEvents = 'auto';
@@ -1021,13 +1522,15 @@ function parseBookNameFromDOM() {
     try {
         const titleHeader = document.querySelector('div[class*="bookTitleWrapper"] h3, div[class*="bookDetails"] h3, h3[class*="heading3"]');
         if (titleHeader && titleHeader.innerText) {
-            return titleHeader.innerText.trim();
+            const text = titleHeader.innerText.trim();
+            if (text.toLowerCase() !== "pw books") return text;
         }
         // Fallback
         const h3s = Array.from(document.querySelectorAll('h3'));
         for (const h3 of h3s) {
             if (h3.className && (h3.className.includes('heading3') || h3.className.includes('Title') || h3.className.includes('title'))) {
-                return h3.innerText.trim();
+                const text = h3.innerText.trim();
+                if (text.toLowerCase() !== "pw books") return text;
             }
         }
     } catch (e) {
@@ -1083,15 +1586,89 @@ let lastCheckedChapterUrl = '';
 
 function parseChapterNameFromDOM() {
     try {
-        const header = document.querySelector('div[class*="_subHeading_"], div[class*="subHeading"]');
-        if (header && header.innerText) {
-            return header.innerText.trim();
+        // 1. Try to find the back button and get its next sibling, which is the chapter title container
+        const backBtn = document.querySelector('button[aria-label="Back"], button[class*="back" i], a[class*="back" i]');
+        if (backBtn) {
+            const sibling = backBtn.nextElementSibling;
+            if (sibling && sibling.innerText) {
+                const text = sibling.innerText.trim();
+                const lowerText = text.toLowerCase();
+                // Validate that the sibling is actually the chapter title (not generic)
+                if (text && 
+                    lowerText !== "pw books" && 
+                    lowerText !== "books" && 
+                    lowerText !== "pw" &&
+                    lowerText.length > 1) {
+                    return text.replace(/^[←\s\-\u2190]+/, '').trim();
+                }
+            }
         }
-        // Fallback
+
+        // 2. Fallback: list of selectors we can query to find the actual chapter header
+        const selectors = [
+            'div[class*="_subHeading_"]',
+            'div[class*="subHeading"]',
+            'div[class*="subHeader"] div',
+            'div[class*="header"] div',
+            'h1',
+            'h2',
+            'h3'
+        ];
+
+        for (const selector of selectors) {
+            const elements = Array.from(document.querySelectorAll(selector));
+            for (const el of elements) {
+                if (el && el.innerText) {
+                    const text = el.innerText.trim();
+                    const lowerText = text.toLowerCase();
+                    // Ignore empty, generic logo branding, navigation links, etc.
+                    if (text && 
+                        lowerText !== "pw books" && 
+                        lowerText !== "books" && 
+                        lowerText !== "pw" &&
+                        !lowerText.includes("my books") &&
+                        !lowerText.includes("home") &&
+                        !lowerText.includes("practice") &&
+                        lowerText.length > 1) {
+                        
+                        // Clean leading arrows/dashes
+                        return text.replace(/^[←\s\-\u2190]+/, '').trim();
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback to root elements with subHeading in class
         const rootElements = Array.from(document.querySelectorAll('div[class*="_root_"]'));
         for (const el of rootElements) {
-            if (el.className && el.className.includes('subHeading')) {
-                return el.innerText.trim();
+            if (el.className && el.className.includes('subHeading') && el.innerText) {
+                const text = el.innerText.trim();
+                const lowerText = text.toLowerCase();
+                if (text && 
+                    lowerText !== "pw books" && 
+                    lowerText !== "books" && 
+                    lowerText !== "pw" &&
+                    lowerText.length > 1) {
+                    return text.replace(/^[←\s\-\u2190]+/, '').trim();
+                }
+            }
+        }
+
+        // 4. Fallback to document.title if DOM parsing didn't yield a valid name
+        if (document.title) {
+            let title = document.title;
+            // Remove common suffixes/prefixes like "- PW Books", "| PW Books", "PW Books"
+            title = title.replace(/[-|•·]\s*PW\s*Books/i, '')
+                         .replace(/PW\s*Books\s*[-|•·]/i, '')
+                         .replace(/PW\s*Books/i, '')
+                         .trim();
+            const lowerTitle = title.toLowerCase();
+            if (title && 
+                lowerTitle !== "pw books" && 
+                lowerTitle !== "books" && 
+                lowerTitle !== "pw" &&
+                lowerTitle.length > 1) {
+                return title;
             }
         }
     } catch (e) {
@@ -1233,34 +1810,81 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
         if (!editedChapter) return;
 
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = '⏳ Syncing...';
+        btn.textContent = '⏳ Checking...';
         btn.style.pointerEvents = 'none';
 
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: "logActivity",
-                data: {
-                    syncId,
-                    apiUrl,
-                    type: "BOOK_CHAPTER_SUBMISSION",
-                    details: {
-                        chapterName: editedChapter,
-                        chapterUrl: chapterUrl,
-                        bookUrl: bookUrl
-                    }
-                }
+            const syllabusRes = await chrome.runtime.sendMessage({
+                action: "fetchSyllabus",
+                data: { syncId, apiUrl }
             });
 
-            if (response && response.success) {
-                btn.textContent = '✅ Synced!';
-                setTimeout(() => host.remove(), 1200);
+            if (syllabusRes && syllabusRes.success && syllabusRes.data) {
+                const subjects = syllabusRes.data.data || [];
+                const matches = findChapterMatchesInSyllabus(subjects, editedChapter);
+
+                if (matches.length === 1) {
+                    btn.textContent = '⏳ Syncing...';
+                    const response = await chrome.runtime.sendMessage({
+                        action: "logActivity",
+                        data: {
+                            syncId,
+                            apiUrl,
+                            type: "BOOK_CHAPTER_SUBMISSION",
+                            details: {
+                                chapterName: editedChapter,
+                                chapterUrl: chapterUrl,
+                                bookUrl: bookUrl
+                            }
+                        }
+                    });
+
+                    if (response && response.success) {
+                        btn.textContent = '✅ Synced!';
+                        setTimeout(() => host.remove(), 1200);
+                    } else {
+                        btn.textContent = '❌ Failed!';
+                        btn.style.pointerEvents = 'auto';
+                        setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
+                    }
+                } else {
+                    host.remove();
+                    showResolveMismatchOverlay(editedChapter, subjects, syncId, apiUrl, {
+                        type: "BOOK_CHAPTER_SUBMISSION",
+                        details: {
+                            chapterName: editedChapter,
+                            chapterUrl: chapterUrl,
+                            bookUrl: bookUrl
+                        }
+                    });
+                }
             } else {
-                btn.textContent = '❌ Failed!';
-                btn.style.pointerEvents = 'auto';
-                setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
+                btn.textContent = '⏳ Syncing...';
+                const response = await chrome.runtime.sendMessage({
+                    action: "logActivity",
+                    data: {
+                        syncId,
+                        apiUrl,
+                        type: "BOOK_CHAPTER_SUBMISSION",
+                        details: {
+                            chapterName: editedChapter,
+                            chapterUrl: chapterUrl,
+                            bookUrl: bookUrl
+                        }
+                    }
+                });
+
+                if (response && response.success) {
+                    btn.textContent = '✅ Synced!';
+                    setTimeout(() => host.remove(), 1200);
+                } else {
+                    btn.textContent = '❌ Failed!';
+                    btn.style.pointerEvents = 'auto';
+                    setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
+                }
             }
         } catch (e) {
-            console.error("[Vinyas Tracker] Error syncing chapter:", e);
+            console.error("[Vinyas Tracker] Error checking match for book chapter:", e);
             btn.textContent = '❌ Error!';
             btn.style.pointerEvents = 'auto';
             setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
@@ -1269,6 +1893,320 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
 
     shadow.getElementById('backdrop').addEventListener('click', (e) => {
         if (e.target.id === 'backdrop') host.remove();
+    });
+}
+
+function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pendingActivity = null) {
+    const existing = document.getElementById('vinyas-overlay-host');
+    if (existing) existing.remove();
+
+    const host = document.createElement('div');
+    host.id = 'vinyas-overlay-host';
+    host.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;';
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'closed' });
+
+    const logoUrl = chrome.runtime.getURL('favicon.ico');
+
+    const defaultSubject = subjects[0]?.name || '';
+    const initialChapters = subjects[0]?.chapters || [];
+
+    const overlayTitle = pendingActivity ? "Resolve Mismatch & Sync" : "Resolve Chapter Mismatch";
+    const overlaySubtitle = pendingActivity ? "Syllabus mapping required to sync" : "Link this practice page to your syllabus";
+    const submitBtnLabel = pendingActivity ? "🔥 Resolve & Sync" : "🔥 Link Tracker";
+
+    shadow.innerHTML = `
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .backdrop {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(5, 8, 16, 0.65); backdrop-filter:blur(10px);
+            display:flex; align-items:flex-start; justify-content:flex-end;
+            padding:24px; pointer-events:all;
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+        .card {
+            background:rgba(15, 23, 42, 0.85); border:1px solid rgba(255,255,255,0.08); border-radius:24px;
+            width:360px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,0.65), 0 0 25px rgba(59,130,246,0.08);
+            animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            backdrop-filter: blur(16px);
+        }
+        .header {
+            padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:12px;
+        }
+        .logo { width:32px; height:32px; border-radius:10px; border:none; background:none; padding:0; display:block; }
+        .brand { font-size:14px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
+        .subtitle { font-size:9px; color:#64748b; font-weight:750; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+        .body { padding:18px 22px; }
+        
+        .mismatch-banner {
+            background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); border-radius:14px;
+            padding:12px 14px; margin-bottom:16px;
+        }
+        .mismatch-label { font-size:9px; font-weight:800; color:#f87171; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:block; }
+        .mismatch-val { font-size:12px; font-weight:700; color:#e2e8f0; word-break:break-all; }
+
+        .tabs { display:flex; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.04); border-radius:14px; padding:4px; margin-bottom:16px; }
+        .tab-btn { flex:1; padding:8px 0; border:none; background:none; color:#64748b; font-size:11px; font-weight:750; cursor:pointer; border-radius:10px; transition:all 0.2s; }
+        .tab-btn.active { background:rgba(255,255,255,0.06); color:#f8fafc; }
+
+        .input-group { margin-bottom:14px; }
+        .input-label { display:block; font-size:9px; font-weight:750; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+        .input-field {
+            width:100%; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08);
+            border-radius:12px; color:#e2e8f0; font-size:13px; font-weight:600; outline:none; transition:all 0.2s;
+        }
+        .input-field:focus { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
+        select.input-field { cursor:pointer; }
+        select.input-field option { background:#0f172a; color:#e2e8f0; }
+
+        .sub-toggle-group { display:flex; gap:8px; margin-bottom:12px; }
+        .sub-toggle-btn { flex:1; padding:6px 0; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.2); color:#64748b; font-size:10px; font-weight:750; cursor:pointer; border-radius:10px; transition:all 0.2s; }
+        .sub-toggle-btn.active { border-color:#3b82f6; background:rgba(59,130,246,0.1); color:#60a5fa; }
+
+        .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
+        .btn {
+            flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
+            font-weight:800; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-dismiss { background:rgba(255,255,255,0.03); color:#94a3b8; border:1px solid rgba(255,255,255,0.06); }
+        .btn-dismiss:hover { background:rgba(255,255,255,0.08); color:#f8fafc; border-color:rgba(255,255,255,0.12); }
+        .btn-send { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white;
+            box-shadow:0 4px 15px rgba(59,130,246,0.35); }
+        .btn-send:hover { box-shadow:0 4px 20px rgba(59,130,246,0.55); transform:translateY(-1px); }
+    </style>
+    <div class="backdrop" id="backdrop">
+        <div class="card">
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Vinyas Logo" />
+                <div>
+                    <div class="brand">Vinyas Tracker</div>
+                    <div class="subtitle">${escapeHTML(overlaySubtitle)}</div>
+                </div>
+            </div>
+            <div class="body">
+                <div class="mismatch-banner">
+                    <span class="mismatch-label">Mismatched Chapter Name</span>
+                    <span class="mismatch-val">${escapeHTML(chapterTitle)}</span>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" id="tab-link">Link to Subject</button>
+                    <button class="tab-btn" id="tab-create">Create New Subject</button>
+                </div>
+
+                <div id="section-link">
+                    <div class="input-group">
+                        <label class="input-label">Select Subject</label>
+                        <select class="input-field" id="select-subject">
+                            ${subjects.map(s => `<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Chapter Mode</label>
+                        <div class="sub-toggle-group">
+                            <button class="sub-toggle-btn active" id="toggle-mode-existing">Existing Chapter</button>
+                            <button class="sub-toggle-btn" id="toggle-mode-new">Create New Chapter</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group" id="group-existing-chapter">
+                        <label class="input-label">Select Chapter</label>
+                        <select class="input-field" id="select-chapter">
+                            ${initialChapters.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="input-group" id="group-new-chapter" style="display:none;">
+                        <label class="input-label">New Chapter Name</label>
+                        <input type="text" class="input-field" id="input-new-chapter" value="${escapeHTML(chapterTitle)}" placeholder="e.g. Kinematics" />
+                    </div>
+                </div>
+
+                <div id="section-create" style="display:none;">
+                    <div class="input-group">
+                        <label class="input-label">New Subject Name</label>
+                        <input type="text" class="input-field" id="input-new-subject" placeholder="e.g. BITSAT Physics" />
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Chapter Name</label>
+                        <input type="text" class="input-field" id="input-create-chapter" value="${escapeHTML(chapterTitle)}" placeholder="e.g. Kinematics" />
+                    </div>
+                </div>
+            </div>
+            <div class="footer">
+                <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
+                <button class="btn btn-send" id="btn-send">${escapeHTML(submitBtnLabel)}</button>
+            </div>
+        </div>
+    </div>`;
+
+    let activeTab = 'link'; // 'link' or 'create'
+    let chapterMode = 'existing'; // 'existing' or 'new'
+
+    const tabLink = shadow.getElementById('tab-link');
+    const tabCreate = shadow.getElementById('tab-create');
+    const sectionLink = shadow.getElementById('section-link');
+    const sectionCreate = shadow.getElementById('section-create');
+
+    const toggleModeExisting = shadow.getElementById('toggle-mode-existing');
+    const toggleModeNew = shadow.getElementById('toggle-mode-new');
+    const groupExistingChapter = shadow.getElementById('group-existing-chapter');
+    const groupNewChapter = shadow.getElementById('group-new-chapter');
+
+    const selectSubject = shadow.getElementById('select-subject');
+    const selectChapter = shadow.getElementById('select-chapter');
+    const inputNewChapter = shadow.getElementById('input-new-chapter');
+
+    const inputNewSubject = shadow.getElementById('input-new-subject');
+    const inputCreateChapter = shadow.getElementById('input-create-chapter');
+
+    const btnDismiss = shadow.getElementById('btn-dismiss');
+    const btnSend = shadow.getElementById('btn-send');
+
+    // Tab switcher
+    tabLink.addEventListener('click', () => {
+        activeTab = 'link';
+        tabLink.classList.add('active');
+        tabCreate.classList.remove('active');
+        sectionLink.style.display = 'block';
+        sectionCreate.style.display = 'none';
+    });
+
+    tabCreate.addEventListener('click', () => {
+        activeTab = 'create';
+        tabCreate.classList.add('active');
+        tabLink.classList.remove('active');
+        sectionLink.style.display = 'none';
+        sectionCreate.style.display = 'block';
+    });
+
+    // Chapter mode switcher
+    toggleModeExisting.addEventListener('click', () => {
+        chapterMode = 'existing';
+        toggleModeExisting.classList.add('active');
+        toggleModeNew.classList.remove('active');
+        groupExistingChapter.style.display = 'block';
+        groupNewChapter.style.display = 'none';
+    });
+
+    toggleModeNew.addEventListener('click', () => {
+        chapterMode = 'new';
+        toggleModeNew.classList.add('active');
+        toggleModeExisting.classList.remove('active');
+        groupExistingChapter.style.display = 'none';
+        groupNewChapter.style.display = 'block';
+    });
+
+    // Dynamic chapters list based on subject select
+    selectSubject.addEventListener('change', () => {
+        const subName = selectSubject.value;
+        const subObj = subjects.find(s => s.name === subName);
+        const chapters = subObj ? subObj.chapters || [] : [];
+        
+        selectChapter.innerHTML = '';
+        if (chapters.length === 0) {
+            toggleModeNew.click();
+            toggleModeExisting.style.display = 'none';
+        } else {
+            toggleModeExisting.style.display = 'block';
+            chapters.forEach(ch => {
+                const opt = document.createElement('option');
+                opt.value = ch.name;
+                opt.textContent = ch.name;
+                selectChapter.appendChild(opt);
+            });
+        }
+    });
+
+    btnDismiss.addEventListener('click', () => {
+        host.remove();
+        trackerFailed = true;
+        showPwSubmitButton();
+    });
+
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') {
+            host.remove();
+            trackerFailed = true;
+            showPwSubmitButton();
+        }
+    });
+
+    btnSend.addEventListener('click', async () => {
+        let payloadDetails = {
+            chapterTitle: chapterTitle
+        };
+
+        if (activeTab === 'link') {
+            const subjectName = selectSubject.value;
+            if (!subjectName) return;
+
+            if (chapterMode === 'existing') {
+                const chapterName = selectChapter.value;
+                if (!chapterName) return;
+                payloadDetails.mode = 'link_chapter';
+                payloadDetails.subjectName = subjectName;
+                payloadDetails.chapterName = chapterName;
+            } else {
+                const chapterName = inputNewChapter.value.trim();
+                if (!chapterName) return;
+                payloadDetails.mode = 'create_chapter';
+                payloadDetails.subjectName = subjectName;
+                payloadDetails.chapterName = chapterName;
+            }
+        } else {
+            const newSubjectName = inputNewSubject.value.trim();
+            const chapterName = inputCreateChapter.value.trim();
+            if (!newSubjectName || !chapterName) return;
+            payloadDetails.mode = 'create_subject';
+            payloadDetails.newSubjectName = newSubjectName;
+            payloadDetails.chapterName = chapterName;
+        }
+
+        if (pendingActivity) {
+            payloadDetails.pendingActivity = pendingActivity;
+        }
+
+        btnSend.textContent = '⏳ Resolving...';
+        btnSend.style.pointerEvents = 'none';
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: "logActivity",
+                data: {
+                    syncId,
+                    apiUrl,
+                    type: "RESOLVE_MAPPING",
+                    details: payloadDetails
+                }
+            });
+
+            if (response && response.success) {
+                btnSend.textContent = '✅ Resolved!';
+                setTimeout(() => {
+                    host.remove();
+                    if (!pendingActivity) {
+                        initInteractiveModuleTracker();
+                    } else {
+                        console.log("[Vinyas Tracker] Resolve and sync completed successfully.");
+                    }
+                }, 1200);
+            } else {
+                btnSend.textContent = '❌ Failed!';
+                btnSend.style.pointerEvents = 'auto';
+                setTimeout(() => { btnSend.textContent = submitBtnLabel; }, 2000);
+            }
+        } catch (e) {
+            console.error("[Vinyas Tracker] Error resolving mismatch:", e);
+            btnSend.textContent = '❌ Error!';
+            btnSend.style.pointerEvents = 'auto';
+            setTimeout(() => { btnSend.textContent = submitBtnLabel; }, 2000);
+        }
     });
 }
 
@@ -1423,6 +2361,7 @@ setInterval(() => {
         // 4. Parse PW book exercises ONLY on the practice portal sub-path
         if (url.includes("/practice") || url.includes("/books")) {
             checkPwBooksQuestions();
+            checkPwPracticeV2Questions();
         }
 
         // 5. Check if PDF is loaded
@@ -1442,7 +2381,11 @@ setInterval(() => {
         // 7. Check if PW practice module page is loaded
         if (url.toLowerCase().includes('/practice-v2/') && url.toLowerCase().includes('chaptertitle=')) {
             checkInteractiveModuleTracker();
-            hidePwSubmitButton();
+            if (!trackerFailed) {
+                hidePwSubmitButton();
+            } else {
+                showPwSubmitButton();
+            }
         } else {
             const existing = document.getElementById('vinyas-tracker-widget-host');
             if (existing) {
@@ -1456,6 +2399,7 @@ setInterval(() => {
 }, 2000);
 
 let lastCheckedTrackerUrl = '';
+let trackerFailed = false;
 
 function findPwSubmitButton() {
     const submitKeywords = ['submit', 'end test', 'submit test', 'finish', 'end'];
@@ -1483,6 +2427,55 @@ function findPwSubmitButton() {
     return foundSubmitBtn;
 }
 
+function findPwLeaveButton() {
+    const leaveKeywords = ['leave', 'exit', 'quit', 'go back', 'back', 'close'];
+    let foundLeaveBtn = null;
+    
+    const clickables = Array.from(document.querySelectorAll('button, a, div[role="button"], span[role="button"]'));
+    for (const kw of leaveKeywords) {
+        foundLeaveBtn = clickables.find(el => {
+            const text = el.innerText?.trim().toLowerCase() || '';
+            if (el.id && el.id.includes('vinyas')) return false;
+            return text === kw || text.includes(kw);
+        });
+        if (foundLeaveBtn) break;
+    }
+
+    if (!foundLeaveBtn) {
+        const backSelectors = [
+            'button[aria-label*="back" i]', 
+            'button[aria-label*="exit" i]', 
+            'button[aria-label*="close" i]', 
+            'a[aria-label*="back" i]',
+            '[class*="exit" i]',
+            '[class*="leave" i]',
+            '[class*="close" i]'
+        ];
+        for (const sel of backSelectors) {
+            const elements = Array.from(document.querySelectorAll(sel));
+            foundLeaveBtn = elements.find(el => {
+                const text = el.innerText?.trim().toLowerCase() || '';
+                if (el.id && el.id.includes('vinyas')) return false;
+                return el.getBoundingClientRect().width > 0;
+            });
+            if (foundLeaveBtn) break;
+        }
+    }
+
+    if (!foundLeaveBtn) {
+        const divs = Array.from(document.querySelectorAll('div, span'));
+        for (const kw of leaveKeywords) {
+            foundLeaveBtn = divs.find(el => {
+                const text = el.innerText?.trim().toLowerCase() || '';
+                if (el.id && el.id.includes('vinyas')) return false;
+                return text.length > 0 && text.length <= 15 && text.includes(kw);
+            });
+            if (foundLeaveBtn) break;
+        }
+    }
+    return foundLeaveBtn;
+}
+
 function hidePwSubmitButton() {
     try {
         const btn = findPwSubmitButton();
@@ -1495,11 +2488,24 @@ function hidePwSubmitButton() {
     }
 }
 
+function showPwSubmitButton() {
+    try {
+        const btn = findPwSubmitButton();
+        if (btn && btn.style.display === 'none') {
+            btn.style.removeProperty('display');
+            console.log("[Vinyas Tracker] Restored/Unhidden native PW submit button:", btn);
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error showing PW submit button:", e);
+    }
+}
+
 function checkInteractiveModuleTracker() {
     try {
         const url = window.location.href;
         if (lastCheckedTrackerUrl === url) return;
         lastCheckedTrackerUrl = url;
+        trackerFailed = false;
         initInteractiveModuleTracker();
     } catch (e) {
         console.error("[Vinyas Tracker] Error checking interactive module tracker:", e);
@@ -1593,6 +2599,8 @@ function initInteractiveModuleTracker() {
             console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping tracker widget.");
             const existing = document.getElementById('vinyas-tracker-widget-host');
             if (existing) existing.remove();
+            trackerFailed = true;
+            showPwSubmitButton();
             return;
         }
 
@@ -1602,29 +2610,23 @@ function initInteractiveModuleTracker() {
         }, (response) => {
             if (response && response.success && response.data) {
                 const subjects = response.data.data || [];
-                let matchedSubject = null;
-                let matchedChapter = null;
-
-                for (const sub of subjects) {
-                    const ch = sub.chapters?.find(c => c.name.trim().toLowerCase() === chapterTitle.trim().toLowerCase());
-                    if (ch) {
-                        matchedSubject = sub;
-                        matchedChapter = ch;
-                        break;
-                    }
-                }
-
-                if (matchedSubject && matchedChapter) {
-                    renderTrackerWidget(matchedSubject, matchedChapter, syncId, apiUrl);
+                const matches = findChapterMatchesInSyllabus(subjects, chapterTitle);
+                if (matches.length === 1) {
+                    renderTrackerWidget(matches[0].subject, matches[0].chapter, syncId, apiUrl);
                 } else {
-                    console.log(`[Vinyas Tracker] No matching syllabus chapter found for "${chapterTitle}"`);
+                    console.log(`[Vinyas Tracker] Mismatch or ambiguous syllabus chapter match for "${chapterTitle}"`);
                     const existing = document.getElementById('vinyas-tracker-widget-host');
                     if (existing) existing.remove();
+                    trackerFailed = true;
+                    showPwSubmitButton();
+                    showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl);
                 }
             } else {
                 console.error("[Vinyas Tracker] Failed to fetch syllabus data:", response?.error);
                 const existing = document.getElementById('vinyas-tracker-widget-host');
                 if (existing) existing.remove();
+                trackerFailed = true;
+                showPwSubmitButton();
             }
         });
     });
@@ -1636,7 +2638,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
 
     const host = document.createElement('div');
     host.id = 'vinyas-tracker-widget-host';
-    host.style.cssText = `position:fixed;top:16px;left:${window.innerWidth / 2 - 315}px;width:630px;height:46px;z-index:2147483647;pointer-events:none;`;
+    host.style.cssText = `position:fixed;top:16px;left:${window.innerWidth / 2 - 340}px;width:680px;height:46px;z-index:2147483647;pointer-events:none;`;
     document.body.appendChild(host);
 
     const shadow = host.attachShadow({ mode: 'closed' });
@@ -1644,13 +2646,76 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
 
     const customExerciseConfig = chapter.customExerciseConfig || {};
     const exerciseDisplayNames = chapter.exerciseDisplayNames || {};
-    let questionStates = chapter.moduleQuestionStates || {};
+    
+    activeWidgetSubject = subject;
+    activeWidgetChapter = chapter;
+    activeQuestionStates = chapter.moduleQuestionStates || {};
 
-    const exerciseKeys = Object.keys(customExerciseConfig);
+    let exerciseKeys = Object.keys(customExerciseConfig);
     if (exerciseKeys.length === 0) {
-        console.warn("[Vinyas Tracker] No custom exercise configuration found for chapter:", chapter.name);
-        host.remove();
-        return;
+        console.log("[Vinyas Tracker] No exercise config found. Attempting to dynamically scrape exercise details...");
+        
+        let scrapedExKey = 'Exercise 1';
+        let scrapedExDisplayName = 'Exercise 1';
+        let scrapedQCount = 0;
+        let scraped = false;
+
+        // 1. Scrape active exercise name from DOM
+        const activeExElement = Array.from(document.querySelectorAll('span, div, h1, h2, h3, p')).find(el => {
+            const text = el.innerText?.trim() || '';
+            return text.toLowerCase().includes('exercise-') || text.toLowerCase().includes('exercise ');
+        });
+        if (activeExElement) {
+            const scrapedExName = activeExElement.innerText.trim();
+            const matchScraped = scrapedExName.match(/exercise[- ]*(\d+)/i);
+            const scrapedNum = matchScraped ? matchScraped[1] : '';
+            if (scrapedNum) {
+                scrapedExKey = `Exercise ${scrapedNum}`;
+                scrapedExDisplayName = scrapedExName.split('\n')[0].trim();
+                scraped = true;
+            }
+        }
+
+        // 2. Scrape total questions count from DOM (grid digit buttons)
+        const leafDigits = Array.from(document.querySelectorAll('div, button, span'))
+            .filter(el => el.children.length === 0 && /^\d+$/.test(el.innerText?.trim() || ''))
+            .map(el => parseInt(el.innerText.trim(), 10));
+        if (leafDigits.length > 0) {
+            const maxQ = Math.max(...leafDigits);
+            if (maxQ > 0 && maxQ <= 150) {
+                scrapedQCount = maxQ;
+                scraped = true;
+            }
+        }
+
+        if (scraped && scrapedQCount > 0) {
+            console.log(`[Vinyas Tracker] Successfully scraped: "${scrapedExKey}" with ${scrapedQCount} questions.`);
+            
+            // Populate local config
+            customExerciseConfig[scrapedExKey] = scrapedQCount;
+            exerciseDisplayNames[scrapedExKey] = scrapedExDisplayName;
+            exerciseKeys = [scrapedExKey];
+            
+            // Sync new configuration to database
+            logActivity('PW_BOOKS_QUESTIONS', {
+                chapterName: chapter.name,
+                exercises: customExerciseConfig,
+                displayNames: exerciseDisplayNames,
+                url: window.location.href
+            });
+        } else {
+            console.log("[Vinyas Tracker] Failed to scrape layout from active page. Checking if redirect index prompt can be shown.");
+            if (window.location.search) {
+                showRedirectIndexPrompt(chapter, syncId, apiUrl);
+            } else {
+                console.warn("[Vinyas Tracker] No custom exercise configuration found for chapter:", chapter.name);
+                lastCheckedTrackerUrl = '';
+                host.remove();
+                trackerFailed = true;
+                showPwSubmitButton();
+            }
+            return;
+        }
     }
 
     let activeExercise = exerciseKeys[0];
@@ -1698,7 +2763,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
             pointer-events: all;
             color: #f8fafc;
             user-select: none;
-            width: 630px;
+            width: 680px;
             height: 46px;
             animation: fadeIn 0.3s ease-out;
         }
@@ -1826,6 +2891,29 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
         .status-difficult:hover { background: rgba(239, 68, 68, 0.25); }
         .status-later { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24; }
         .status-later:hover { background: rgba(245, 158, 11, 0.25); }
+        .leave-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .leave-btn:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.35);
+            color: #f87171;
+            transform: scale(1.03);
+        }
+        .leave-btn:active {
+            transform: scale(0.97);
+        }
         .submit-btn {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             border: 1px solid rgba(239, 68, 68, 0.4);
@@ -1891,6 +2979,10 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
                 <span>To Do</span>
             </button>
             <div class="divider"></div>
+            <button class="leave-btn" id="btn-leave-vinyas" title="Save Progress and Leave">
+                <span>Leave</span>
+            </button>
+            <div class="divider"></div>
             <button class="submit-btn" id="btn-submit-pw" title="Submit PW Quiz/Practice">
                 <span>Submit</span>
             </button>
@@ -1902,6 +2994,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
     const btnNext = shadow.getElementById('btn-next');
     const labelQuestion = shadow.getElementById('label-question');
     const btnStatus = shadow.getElementById('btn-status');
+    const btnLeaveVinyas = shadow.getElementById('btn-leave-vinyas');
     const btnSubmitPw = shadow.getElementById('btn-submit-pw');
     const dragHandle = shadow.getElementById('drag-handle');
 
@@ -1972,7 +3065,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
 
     const getActiveQuestionState = () => {
         const key = getQuestionKey(activeExercise, activeQuestion);
-        return questionStates[key] || 'none';
+        return activeQuestionStates[key] || 'none';
     };
 
     const updateQuestionUI = () => {
@@ -1982,6 +3075,7 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
     };
 
     updateQuestionUI();
+    refreshWidgetQuestionUI = updateQuestionUI;
 
     selectExercise.addEventListener('change', (e) => {
         activeExercise = e.target.value;
@@ -2016,9 +3110,9 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
 
         const key = getQuestionKey(activeExercise, activeQuestion);
         if (newState === 'none') {
-            delete questionStates[key];
+            delete activeQuestionStates[key];
         } else {
-            questionStates[key] = newState;
+            activeQuestionStates[key] = newState;
         }
 
         updateStatusButtonUI(newState);
@@ -2036,6 +3130,42 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
                     questionNumber: activeQuestion,
                     state: newState
                 }
+            }
+        });
+    });
+
+    btnLeaveVinyas.addEventListener('click', () => {
+        const currentState = getActiveQuestionState();
+        
+        const span = btnLeaveVinyas.querySelector('span');
+        if (span) span.textContent = "Saving...";
+        btnLeaveVinyas.style.pointerEvents = "none";
+
+        chrome.runtime.sendMessage({
+            action: "logActivity",
+            data: {
+                syncId,
+                apiUrl,
+                type: "INTERACTIVE_QUESTION_UPDATE",
+                details: {
+                    subjectName: subject.name,
+                    chapterName: chapter.name,
+                    exerciseName: activeExercise,
+                    questionNumber: activeQuestion,
+                    state: currentState
+                }
+            }
+        }, () => {
+            if (span) span.textContent = "Leave";
+            btnLeaveVinyas.style.pointerEvents = "";
+
+            const foundLeaveBtn = findPwLeaveButton();
+            if (foundLeaveBtn) {
+                console.log("[Vinyas Tracker] Clicking native PW leave/exit button:", foundLeaveBtn);
+                foundLeaveBtn.click();
+            } else {
+                console.warn("[Vinyas Tracker] Native PW leave/exit button not found. Using history.back() as fallback.");
+                window.history.back();
             }
         });
     });

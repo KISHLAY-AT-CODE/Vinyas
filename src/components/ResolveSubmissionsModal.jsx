@@ -6,6 +6,7 @@ const ResolveSubmissionsModal = ({
     unresolvedSubmissions, 
     data, 
     onAddChapter, 
+    onCreateSubjectAndChapter,
     onLinkChapter, 
     onDismiss,
     onLinkBookToSubject,
@@ -31,7 +32,7 @@ const ResolveSubmissionsModal = ({
                     Resolve Submissions
                 </h2>
                 <p className="text-slate-400 mb-6 text-sm">
-                    The following DPP/Module submissions from PW did not automatically match any chapter in your syllabus.
+                    The following DPP/Module/Assignment submissions from PW did not automatically match any chapter in your syllabus.
                 </p>
 
                 {unresolvedSubmissions.length === 0 ? (
@@ -46,6 +47,7 @@ const ResolveSubmissionsModal = ({
                                 sub={sub} 
                                 data={data} 
                                 onAddChapter={onAddChapter}
+                                onCreateSubjectAndChapter={onCreateSubjectAndChapter}
                                 filterMode={sub.section}
                                 onLinkChapter={onLinkChapter}
                                 onDismiss={onDismiss}
@@ -67,6 +69,7 @@ const UnresolvedItem = ({
     sub, 
     data, 
     onAddChapter, 
+    onCreateSubjectAndChapter,
     onLinkChapter, 
     onDismiss, 
     onLinkBookToSubject, 
@@ -75,15 +78,31 @@ const UnresolvedItem = ({
     onLinkBookChapter,
     onCreateSubjectAndLinkBookChapter
 }) => {
-    const [mode, setMode] = useState(null); // 'add' or 'link'
-    const [selectedSubject, setSelectedSubject] = useState(data[0]?.name || '');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [mode, setMode] = useState(null); // 'link' or 'create' or null
+    const [targetSubject, setTargetSubject] = useState(data[0]?.name || '');
+    const [chapterMode, setChapterMode] = useState('existing'); // 'existing' or 'new'
+    const [selectedChapter, setSelectedChapter] = useState('');
+    const [newChapterName, setNewChapterName] = useState(sub.chapterSearch || '');
+    const [newSubjectName, setNewSubjectName] = useState('');
+
+    const targetSubjectObj = data.find(d => d.name === targetSubject);
+    const chaptersOfTarget = targetSubjectObj?.chapters || [];
 
     useEffect(() => {
-        if (data && data.length > 0 && !selectedSubject) {
-            setSelectedSubject(data[0].name);
+        if (data && data.length > 0 && !targetSubject) {
+            setTargetSubject(data[0].name);
         }
-    }, [data, selectedSubject]);
+    }, [data, targetSubject]);
+
+    // Auto-initialize selectedChapter when targetSubject changes
+    useEffect(() => {
+        if (chaptersOfTarget.length > 0) {
+            setSelectedChapter(chaptersOfTarget[0].name);
+        } else {
+            setSelectedChapter('');
+            setChapterMode('new'); // force new chapter if there are none
+        }
+    }, [targetSubject, chaptersOfTarget]);
 
     const getBookName = (bookUrl) => {
         for (const subItem of data) {
@@ -103,36 +122,9 @@ const UnresolvedItem = ({
         }
     };
 
-    const searchResults = searchQuery.trim() ? data.flatMap((subject, sIdx) => 
-        subject.chapters
-            .map((chapter, cIdx) => ({ sIdx, cIdx, chapterName: chapter.name, subjectName: subject.name, color: subject.color }))
-            .filter(res => res.chapterName.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).slice(0, 5) : [];
-
     if (sub.section === 'book_chapter') {
-        const [bcMode, setBcMode] = useState(null); // 'link' or 'create'
-        const [targetSubject, setTargetSubject] = useState(data[0]?.name || '');
-        const [chapterMode, setChapterMode] = useState('existing'); // 'existing' or 'new'
-        const [selectedChapter, setSelectedChapter] = useState('');
-        const [newChapterName, setNewChapterName] = useState(sub.chapterSearch || '');
-        const [newSubjectName, setNewSubjectName] = useState('');
-
         const bookUrl = sub.act.details?.bookUrl;
         const bookNameResolved = getBookName(bookUrl);
-
-        // Get chapters of the target subject
-        const targetSubjectObj = data.find(d => d.name === targetSubject);
-        const chaptersOfTarget = targetSubjectObj?.chapters || [];
-
-        // Auto-initialize selectedChapter when targetSubject changes
-        useEffect(() => {
-            if (chaptersOfTarget.length > 0) {
-                setSelectedChapter(chaptersOfTarget[0].name);
-            } else {
-                setSelectedChapter('');
-                setChapterMode('new'); // force new chapter if there are none
-            }
-        }, [targetSubject, chaptersOfTarget]);
 
         return (
             <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 animate-fade-in">
@@ -144,10 +136,10 @@ const UnresolvedItem = ({
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => setBcMode(bcMode === 'link' ? null : 'link')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${bcMode === 'link' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
+                        <button onClick={() => setMode(mode === 'link' ? null : 'link')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'link' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                             Link to Subject
                         </button>
-                        <button onClick={() => setBcMode(bcMode === 'create' ? null : 'create')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${bcMode === 'create' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
+                        <button onClick={() => setMode(mode === 'create' ? null : 'create')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'create' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                             Create New Subject
                         </button>
                         <button onClick={() => onDismiss(sub.act.id)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-red-400 hover:bg-red-900/30 hover:border-red-800 transition-colors">
@@ -156,7 +148,7 @@ const UnresolvedItem = ({
                     </div>
                 </div>
 
-                {bcMode === 'link' && (
+                {mode === 'link' && (
                     <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 flex flex-col gap-4 animate-fade-in">
                         <div className="flex flex-wrap gap-4 items-center">
                             <div className="flex flex-col gap-1">
@@ -231,7 +223,7 @@ const UnresolvedItem = ({
                     </div>
                 )}
 
-                {bcMode === 'create' && (
+                {mode === 'create' && (
                     <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 flex flex-col gap-4 animate-fade-in">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
@@ -275,10 +267,6 @@ const UnresolvedItem = ({
     }
 
     if (sub.section === 'book') {
-        const [bookMode, setBookMode] = useState(null); // 'link' or 'create'
-        const [targetSubject, setTargetSubject] = useState(data[0]?.name || '');
-        const [newSubjectName, setNewSubjectName] = useState('');
-
         return (
             <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 animate-fade-in">
                 <div className="flex justify-between items-start mb-3">
@@ -289,10 +277,10 @@ const UnresolvedItem = ({
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => setBookMode(bookMode === 'link' ? null : 'link')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${bookMode === 'link' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
+                        <button onClick={() => setMode(mode === 'link' ? null : 'link')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'link' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                             Link to Subject
                         </button>
-                        <button onClick={() => setBookMode(bookMode === 'create' ? null : 'create')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${bookMode === 'create' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
+                        <button onClick={() => setMode(mode === 'create' ? null : 'create')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'create' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                             Create New Subject
                         </button>
                         <button onClick={() => onDismiss(sub.act.id)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-red-400 hover:bg-red-900/30 hover:border-red-800 transition-colors">
@@ -301,9 +289,9 @@ const UnresolvedItem = ({
                     </div>
                 </div>
 
-                {bookMode === 'link' && (
+                {mode === 'link' && (
                     <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700 flex items-center gap-3 animate-fade-in">
-                        <span className="text-sm text-slate-450 font-bold uppercase tracking-wider text-xs">Link to Subject:</span>
+                        <span className="text-sm text-slate-400 font-bold uppercase tracking-wider text-xs">Link to Subject:</span>
                         <select 
                             value={targetSubject} 
                             onChange={(e) => setTargetSubject(e.target.value)}
@@ -320,7 +308,7 @@ const UnresolvedItem = ({
                     </div>
                 )}
 
-                {bookMode === 'create' && (
+                {mode === 'create' && (
                     <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700 flex flex-col gap-3 animate-fade-in">
                         <span className="text-xs text-slate-450 font-bold uppercase tracking-wider">Create and Link to New Subject:</span>
                         <div className="flex gap-3 items-center">
@@ -349,7 +337,7 @@ const UnresolvedItem = ({
     }
 
     return (
-        <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 animate-fade-in">
             <div className="flex justify-between items-start mb-3">
                 <div>
                     <h3 className="text-white font-bold">{sub.chapterSearch}</h3>
@@ -376,11 +364,11 @@ const UnresolvedItem = ({
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => setMode(mode === 'add' ? null : 'add')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'add' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
-                        Add New
-                    </button>
                     <button onClick={() => setMode(mode === 'link' ? null : 'link')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'link' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
-                        Link Existing
+                        Link to Subject
+                    </button>
+                    <button onClick={() => setMode(mode === 'create' ? null : 'create')} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${mode === 'create' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
+                        Create New Subject
                     </button>
                     <button onClick={() => onDismiss(sub.act.id)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-red-400 hover:bg-red-900/30 hover:border-red-800 transition-colors">
                         Ignore
@@ -398,51 +386,124 @@ const UnresolvedItem = ({
                 </div>
             )}
 
-            {mode === 'add' && (
-                <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700 flex items-center gap-3 animate-fade-in">
-                    <span className="text-sm text-slate-400">Subject:</span>
-                    <select 
-                        value={selectedSubject} 
-                        onChange={(e) => setSelectedSubject(e.target.value)}
-                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 outline-none focus:border-emerald-500"
-                    >
-                        {data.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
-                    </select>
-                    <button 
-                        onClick={() => onAddChapter(sub, selectedSubject)}
-                        className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors"
-                    >
-                        Confirm & Add
-                    </button>
+            {mode === 'link' && (
+                <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 flex flex-col gap-4 animate-fade-in">
+                    <div className="flex flex-wrap gap-4 items-center">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Subject:</label>
+                            <select 
+                                value={targetSubject} 
+                                onChange={(e) => setTargetSubject(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2 outline-none focus:border-indigo-500 font-semibold"
+                            >
+                                {data.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Chapter Mode:</label>
+                            <div className="flex gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                                {chaptersOfTarget.length > 0 && (
+                                    <button 
+                                        onClick={() => setChapterMode('existing')} 
+                                        className={`text-[10px] font-bold px-2 py-1 rounded-md transition-colors ${chapterMode === 'existing' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        Existing
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => setChapterMode('new')} 
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md transition-colors ${chapterMode === 'new' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    New Chapter
+                                </button>
+                            </div>
+                        </div>
+
+                        {chapterMode === 'existing' && chaptersOfTarget.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Chapter:</label>
+                                <select 
+                                    value={selectedChapter} 
+                                    onChange={(e) => setSelectedChapter(e.target.value)}
+                                    className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2 outline-none focus:border-indigo-500 font-semibold"
+                                >
+                                    {chaptersOfTarget.map(ch => <option key={ch.name} value={ch.name}>{ch.name}</option>)}
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">New Chapter Name:</label>
+                                <input 
+                                    type="text" 
+                                    value={newChapterName}
+                                    onChange={(e) => setNewChapterName(e.target.value)}
+                                    placeholder="e.g. Kinematics"
+                                    className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2 outline-none focus:border-indigo-500 font-semibold"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end mt-2">
+                        <button 
+                            onClick={() => {
+                                const finalChName = chapterMode === 'existing' ? selectedChapter : newChapterName.trim();
+                                if (finalChName) {
+                                    if (chapterMode === 'existing') {
+                                        const sIdx = data.findIndex(s => s.name === targetSubject);
+                                        const cIdx = data[sIdx].chapters.findIndex(c => c.name === selectedChapter);
+                                        onLinkChapter(sub, sIdx, cIdx);
+                                    } else {
+                                        onAddChapter(sub, targetSubject, finalChName);
+                                    }
+                                }
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        >
+                            Confirm Link
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {mode === 'link' && (
-                <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700 animate-fade-in relative">
-                    <input 
-                        type="text" 
-                        placeholder="Search existing chapters..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 outline-none focus:border-indigo-500 mb-2"
-                    />
-                    {searchResults.length > 0 && (
-                        <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden mt-2">
-                            {searchResults.map(res => (
-                                <button 
-                                    key={`${res.sIdx}-${res.cIdx}`}
-                                    onClick={() => onLinkChapter(sub, res.sIdx, res.cIdx)}
-                                    className="w-full text-left px-3 py-2 hover:bg-slate-800 border-b border-slate-800/50 last:border-0 flex justify-between items-center transition-colors"
-                                >
-                                    <span className="text-sm text-slate-200">{res.chapterName}</span>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white ${res.color}`}>{res.subjectName}</span>
-                                </button>
-                            ))}
+            {mode === 'create' && (
+                <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 flex flex-col gap-4 animate-fade-in">
+                    <div className="flex flex-wrap gap-4">
+                        <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">New Subject Name:</label>
+                            <input 
+                                type="text" 
+                                value={newSubjectName}
+                                onChange={(e) => setNewSubjectName(e.target.value)}
+                                placeholder="e.g. Physics"
+                                className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500 font-semibold"
+                            />
                         </div>
-                    )}
-                    {searchQuery.trim() && searchResults.length === 0 && (
-                        <div className="text-xs text-slate-500 px-2 mt-2">No matching chapters found.</div>
-                    )}
+                        <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Chapter Name:</label>
+                            <input 
+                                type="text" 
+                                value={newChapterName}
+                                onChange={(e) => setNewChapterName(e.target.value)}
+                                placeholder="e.g. Kinematics"
+                                className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500 font-semibold"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end mt-2">
+                        <button 
+                            onClick={() => {
+                                if (newSubjectName.trim() && newChapterName.trim()) {
+                                    onCreateSubjectAndChapter(sub, newSubjectName.trim(), newChapterName.trim());
+                                }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        >
+                            Create & Link
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

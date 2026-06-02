@@ -199,14 +199,7 @@ const ModuleQuestionTrackerModal = ({
         });
 
         if (result && result.success) {
-            if (result.isUsingBackup) {
-                showToast("⚠️ Mismatch! Restored and saved chapter question states from LocalStorage backup.", "warning");
-                if (result.restoredQuestionStates) {
-                    setLocalProgress(result.restoredQuestionStates);
-                }
-            } else {
-                showToast("✅ Progress verified and successfully saved to MongoDB database!", "success");
-            }
+            showToast("✅ Progress verified and successfully saved to MongoDB database!", "success");
             setTimeout(() => {
                 onClose();
             }, 2500);

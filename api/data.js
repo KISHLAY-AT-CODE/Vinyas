@@ -51,7 +51,8 @@ export default async function handler(req, res) {
         }
 
         // Reconstruct the full syllabus data before calculating achievements and sending to client
-        const baseTemplate = loadTemplate(userDoc.cohort);
+        const cohort = userDoc.cohort || 'JEE Mains';
+        const baseTemplate = loadTemplate(cohort);
         userDoc.data = deserializeSyllabus(userDoc.data, baseTemplate);
         
         userDoc.achievements = calculateAchievements(userDoc);
@@ -60,8 +61,12 @@ export default async function handler(req, res) {
         if (sessionToken) {
           userDoc.sessionToken = sessionToken;
         }
+      } else {
+        const defaultTemplate = loadTemplate('JEE Mains');
+        const defaultSyllabus = deserializeSyllabus(null, defaultTemplate);
+        return res.status(200).json({ exists: false, data: defaultSyllabus });
       }
-      return res.status(200).json(userDoc || { exists: false });
+      return res.status(200).json(userDoc);
     } 
     
     if (req.method === 'POST') {
@@ -99,14 +104,86 @@ export default async function handler(req, res) {
         });
       }
 
+      // Merge existing data (altNames, assignments, books, custom configs) from database to prevent overwriting by old client payloads
+      if (userDoc && userDoc.data && Array.isArray(data)) {
+        const baseTemplate = loadTemplate(cohort || 'JEE Mains');
+        const existingSyllabus = deserializeSyllabus(userDoc.data, baseTemplate);
+        
+        data.forEach(sub => {
+          if (!sub || typeof sub.name !== 'string') return;
+          const exSub = existingSyllabus.find(s => s && s.name.trim().toLowerCase() === sub.name.trim().toLowerCase());
+          if (exSub) {
+            // Merge books
+            if (Array.isArray(exSub.books)) {
+              if (!sub.books) sub.books = [];
+              exSub.books.forEach(exBook => {
+                let book = sub.books.find(b => b.url === exBook.url);
+                if (!book) {
+                  sub.books.push(exBook);
+                } else {
+                  if (exBook.chapters) {
+                    if (!book.chapters) book.chapters = {};
+                    Object.keys(exBook.chapters).forEach(chName => {
+                      if (!book.chapters[chName]) {
+                        book.chapters[chName] = exBook.chapters[chName];
+                      }
+                    });
+                  }
+                }
+              });
+            }
+
+            // Merge chapters progress metadata
+            if (Array.isArray(sub.chapters) && Array.isArray(exSub.chapters)) {
+              sub.chapters.forEach(ch => {
+                if (!ch || typeof ch.name !== 'string') return;
+                const exCh = exSub.chapters.find(c => c && c.name.trim().toLowerCase() === ch.name.trim().toLowerCase());
+                if (exCh) {
+                  // Merge altNames
+                  if (Array.isArray(exCh.altNames)) {
+                    if (!ch.altNames) ch.altNames = [];
+                    exCh.altNames.forEach(name => {
+                      if (!ch.altNames.includes(name)) {
+                        ch.altNames.push(name);
+                      }
+                    });
+                  }
+                  // Merge assignments
+                  if (Array.isArray(exCh.assignments)) {
+                    if (!ch.assignments) ch.assignments = [];
+                    exCh.assignments.forEach(exAss => {
+                      if (!ch.assignments.some(a => a.url === exAss.url)) {
+                        ch.assignments.push(exAss);
+                      }
+                    });
+                  }
+                  // Merge custom configs and exercise displays
+                  if (exCh.customExerciseConfig && !ch.customExerciseConfig) {
+                    ch.customExerciseConfig = exCh.customExerciseConfig;
+                  }
+                  if (exCh.exerciseDisplayNames && !ch.exerciseDisplayNames) {
+                    ch.exerciseDisplayNames = exCh.exerciseDisplayNames;
+                  }
+                  if (exCh.moduleQuestionStates && Object.keys(exCh.moduleQuestionStates || {}).length > 0) {
+                    if (ch.moduleQuestionStates === undefined || ch.moduleQuestionStates === null) {
+                      ch.moduleQuestionStates = exCh.moduleQuestionStates;
+                    }
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
+
       // Construct a temporary full userDoc to evaluate achievements (using the incoming full data)
       const tempUserDoc = {
-        data,
-        routines,
-        testLogs,
+        data: data || [],
+        routines: routines || [],
+        testLogs: testLogs || [],
         activities,
-        targetDate,
-        cohort,
+        targetDate: targetDate || null,
+        cohort: cohort || 'JEE Mains',
         achievements: docToUse.achievements || []
       };
 
@@ -114,20 +191,20 @@ export default async function handler(req, res) {
       const allAchievements = getAllAchievementsStatus(tempUserDoc);
 
       // Serialize the incoming full syllabus data (diff against the base template)
-      const baseTemplate = loadTemplate(cohort);
-      const serializedData = serializeSyllabus(data, baseTemplate);
+      const baseTemplate = loadTemplate(cohort || 'JEE Mains');
+      const serializedData = serializeSyllabus(data || [], baseTemplate);
 
       const updateDoc = {
         $set: {
           data: serializedData, // Save only the optimized diff structure
-          routines,
-          testLogs,
+          routines: routines || [],
+          testLogs: testLogs || [],
           achievements: calculatedAchievements,
-          targetDate,
-          cohort,
-          resolvedActivityIds,
-          email,
-          autoBackupEnabled,
+          targetDate: targetDate || null,
+          cohort: cohort || 'JEE Mains',
+          resolvedActivityIds: resolvedActivityIds || [],
+          email: email || '',
+          autoBackupEnabled: autoBackupEnabled || false,
           sessions,
           lastUpdated: getISTISOString()
         },
@@ -137,7 +214,7 @@ export default async function handler(req, res) {
         }
       };
 
-       if (lastSeenAppVersion !== undefined) {
+      if (lastSeenAppVersion !== undefined) {
         updateDoc.$set.lastSeenAppVersion = lastSeenAppVersion;
       }
       if (lastSeenExtVersion !== undefined) {
@@ -148,6 +225,15 @@ export default async function handler(req, res) {
       }
       if (themeSettings !== undefined) {
         updateDoc.$set.themeSettings = themeSettings;
+      }
+
+      // Sanitize the $set object to remove any keys that are undefined to prevent BSON errors
+      if (updateDoc.$set) {
+        Object.keys(updateDoc.$set).forEach(key => {
+          if (updateDoc.$set[key] === undefined) {
+            delete updateDoc.$set[key];
+          }
+        });
       }
 
       if (userDoc && userDoc.logoutTimestamp) {

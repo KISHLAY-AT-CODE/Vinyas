@@ -172,6 +172,7 @@ const Header = ({
     pollActivities,
     requestConfirm,
     onOpenBugReport,
+    onOpenSuggestFeature,
     onUpdateThemeSettings,
     isSidebarVisible,
     onToggleSidebar
@@ -468,24 +469,7 @@ const Header = ({
         }
     };
 
-    // 5. Helper to clear local logs with app confirmation
-    const handleClearLogs = () => {
-        if (requestConfirm) {
-            requestConfirm(
-                "Clear Local Logs",
-                "Are you sure you want to clear all local application & AI logs? Extension activities from the database will not be affected.",
-                () => {
-                    clearLocalLogs();
-                    setLocalLogs([]);
-                    showToast("Local logs cleared successfully.", "success");
-                }
-            );
-        } else {
-            clearLocalLogs();
-            setLocalLogs([]);
-            showToast("Local logs cleared successfully.", "success");
-        }
-    };
+
     const [datePopupOpen, setDatePopupOpen] = React.useState(false);
     const [isHeaderCollapsed, setIsHeaderCollapsed] = React.useState(() => {
         return localStorage.getItem('vinyas_header_collapsed') === 'true';
@@ -730,26 +714,6 @@ const Header = ({
                                                 Vinyas Diagnostics
                                             </div>
                                             
-                                            {/* Refresh Logs */}
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    pollActivities && pollActivities();
-                                                }}
-                                                disabled={isPollingActivities}
-                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition-colors flex items-center justify-between disabled:opacity-50"
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <i className={`ph-bold ph-arrows-clockwise ${isPollingActivities ? 'animate-spin text-blue-400' : 'text-slate-400'}`}></i>
-                                                    <span>Refresh Logs</span>
-                                                </span>
-                                                {isPollingActivities && (
-                                                    <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-black">
-                                                        POLLING
-                                                    </span>
-                                                )}
-                                            </button>
-
                                             {/* Snapshot */}
                                             <button 
                                                 onClick={(e) => {
@@ -782,6 +746,19 @@ const Header = ({
                                                 )}
                                             </button>
 
+                                            {/* Suggest Feature */}
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onOpenSuggestFeature && onOpenSuggestFeature();
+                                                    setIsBugMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-950/20 border border-transparent hover:border-amber-900/30 transition-all flex items-center gap-2"
+                                            >
+                                                <i className="ph-bold ph-lightbulb text-amber-500"></i>
+                                                <span>Suggest Feature</span>
+                                            </button>
+
                                             {/* Report Bug */}
                                             <button 
                                                 onClick={(e) => {
@@ -793,18 +770,6 @@ const Header = ({
                                             >
                                                 <i className="ph-bold ph-warning-circle text-rose-500"></i>
                                                 <span>Report Bug</span>
-                                            </button>
-
-                                            {/* Clear Logs */}
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleClearLogs();
-                                                }}
-                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 border border-transparent hover:border-rose-900/30 transition-all flex items-center gap-2"
-                                            >
-                                                <i className="ph-bold ph-trash text-slate-500"></i>
-                                                <span>Clear Logs</span>
                                             </button>
                                         </div>
                                     )}

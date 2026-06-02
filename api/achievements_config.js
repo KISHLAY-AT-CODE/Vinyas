@@ -5,10 +5,11 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Began progress on your syllabus by completing some part of a chapter or DPP.',
     icon: '🚀',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const syllabus = userDoc.data || [];
       return syllabus.some(sub => 
-        (sub.chapters || []).some(ch => 
-          (ch.module && ch.module.comp > 0) || (ch.dpp && ch.dpp.comp > 0)
+        sub && Array.isArray(sub.chapters) && sub.chapters.some(ch => 
+          ch && ((ch.module && ch.module.comp > 0) || (ch.dpp && ch.dpp.comp > 0))
         )
       );
     }
@@ -19,6 +20,7 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Logged your first mock test or practice log in the planner.',
     icon: '🎯',
     check: (userDoc) => {
+      if (!userDoc) return false;
       return Array.isArray(userDoc.testLogs) && userDoc.testLogs.length >= 1;
     }
   },
@@ -28,6 +30,7 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Logged 5 or more mock tests or practice logs.',
     icon: '🏆',
     check: (userDoc) => {
+      if (!userDoc) return false;
       return Array.isArray(userDoc.testLogs) && userDoc.testLogs.length >= 5;
     }
   },
@@ -37,10 +40,12 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Studied late at night between 12 AM and 4 AM IST.',
     icon: '🦉',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const activities = userDoc.activities || [];
       return activities.some(act => {
-        if (!act.timestamp) return false;
+        if (!act || !act.timestamp) return false;
         const date = new Date(act.timestamp);
+        if (isNaN(date.getTime())) return false;
         const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
         const hour = parseInt(new Intl.DateTimeFormat('en-US', options).format(date), 10);
         return hour >= 0 && hour < 4;
@@ -53,10 +58,12 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Studied early in the morning between 5 AM and 8 AM IST.',
     icon: '🌅',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const activities = userDoc.activities || [];
       return activities.some(act => {
-        if (!act.timestamp) return false;
+        if (!act || !act.timestamp) return false;
         const date = new Date(act.timestamp);
+        if (isNaN(date.getTime())) return false;
         const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
         const hour = parseInt(new Intl.DateTimeFormat('en-US', options).format(date), 10);
         return hour >= 5 && hour < 8;
@@ -69,12 +76,15 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Achieved 100% completion on at least 3 DPPs.',
     icon: '🎯',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const syllabus = userDoc.data || [];
       let count = 0;
       syllabus.forEach(sub => {
-        (sub.chapters || []).forEach(ch => {
-          if (ch.dpp && ch.dpp.comp === 100) count++;
-        });
+        if (sub && Array.isArray(sub.chapters)) {
+          sub.chapters.forEach(ch => {
+            if (ch && ch.dpp && ch.dpp.comp === 100) count++;
+          });
+        }
       });
       return count >= 3;
     }
@@ -85,9 +95,10 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Achieved 100% completion on any interactive chapter module tracker.',
     icon: '👑',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const syllabus = userDoc.data || [];
       return syllabus.some(sub => 
-        (sub.chapters || []).some(ch => ch.module && ch.module.comp === 100)
+        sub && Array.isArray(sub.chapters) && sub.chapters.some(ch => ch && ch.module && ch.module.comp === 100)
       );
     }
   },
@@ -97,10 +108,11 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Achieved 90%+ accuracy on any module or DPP.',
     icon: '🔥',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const syllabus = userDoc.data || [];
       return syllabus.some(sub => 
-        (sub.chapters || []).some(ch => 
-          (ch.module && ch.module.acc >= 90) || (ch.dpp && ch.dpp.acc >= 90)
+        sub && Array.isArray(sub.chapters) && sub.chapters.some(ch => 
+          ch && ((ch.module && ch.module.acc >= 90) || (ch.dpp && ch.dpp.acc >= 90))
         )
       );
     }
@@ -111,7 +123,8 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Completed 5 or more daily routines or plans.',
     icon: '📅',
     check: (userDoc) => {
-      return Array.isArray(userDoc.routines) && userDoc.routines.filter(r => r.done).length >= 5;
+      if (!userDoc) return false;
+      return Array.isArray(userDoc.routines) && userDoc.routines.filter(r => r && r.done).length >= 5;
     }
   },
   {
@@ -120,8 +133,10 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Submitted 3 DPPs or modules with above 85% accuracy in a single day.',
     icon: '💀',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const activities = userDoc.activities || [];
       const dppScores = activities.filter(act => 
+        act &&
         act.type === 'DPP_SCORE' && 
         act.details && 
         act.details.accuracy > 85
@@ -135,8 +150,9 @@ export const ACHIEVEMENTS_LIST = [
       });
       const counts = {};
       dppScores.forEach(act => {
-        if (!act.timestamp) return;
+        if (!act || !act.timestamp) return;
         const date = new Date(act.timestamp);
+        if (isNaN(date.getTime())) return;
         const [{ value: m },,{ value: d },,{ value: y }] = formatter.formatToParts(date);
         const dateStr = `${y}-${m}-${d}`;
         counts[dateStr] = (counts[dateStr] || 0) + 1;
@@ -151,6 +167,7 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Fewer than 2 DPP or module uploads logged by 11 PM today.',
     icon: '🛌',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const now = new Date();
       const options = { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' };
       const istHour = parseInt(new Intl.DateTimeFormat('en-US', options).format(now), 10);
@@ -167,9 +184,11 @@ export const ACHIEVEMENTS_LIST = [
       const todayIST = `${y}-${m}-${d}`;
       
       const todayUploads = activities.filter(act => {
+        if (!act) return false;
         if (act.type !== 'DPP_SCORE' && act.type !== 'PW_BOOKS_QUESTIONS') return false;
         if (!act.timestamp) return false;
         const actDate = new Date(act.timestamp);
+        if (isNaN(actDate.getTime())) return false;
         const [{ value: am },,{ value: ad },,{ value: ay }] = formatter.formatToParts(actDate);
         const actDateIST = `${ay}-${am}-${ad}`;
         return actDateIST === todayIST;
@@ -184,14 +203,16 @@ export const ACHIEVEMENTS_LIST = [
     description: "Sleeping a bit much aren't you?",
     icon: '😴',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const activities = userDoc.activities || [];
       if (activities.length === 0) return false;
 
       // Group activities by date string in IST to find the first activity of each day
       const days = {};
       activities.forEach(act => {
-        if (!act.timestamp) return;
+        if (!act || !act.timestamp) return;
         const date = new Date(act.timestamp);
+        if (isNaN(date.getTime())) return;
         
         // Format to IST date string
         const dateOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
@@ -226,8 +247,10 @@ export const ACHIEVEMENTS_LIST = [
     description: 'Submitted 2 consecutive DPPs with less than 60% accuracy.',
     icon: '🧟',
     check: (userDoc) => {
+      if (!userDoc) return false;
       const activities = userDoc.activities || [];
       const dppSubs = activities.filter(act => 
+        act &&
         act.type === 'DPP_SCORE' && 
         act.details && 
         (act.details.quizType === 'DPP' || !act.details.quizType) &&
@@ -269,7 +292,7 @@ export function getAllAchievementsStatus(userDoc) {
       unlockedAt = existing.unlockedAt || existing.date || getISTDateString(new Date());
     } else {
       try {
-        if (ach.check(userDoc)) {
+        if (userDoc && ach.check(userDoc)) {
           unlocked = true;
           unlockedAt = getISTDateString(new Date());
         }

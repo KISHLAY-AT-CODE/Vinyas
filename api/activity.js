@@ -116,7 +116,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'User profile does not exist to add assignment' });
         }
 
-        const baseTemplate = loadTemplate(existingDoc.cohort);
+        const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
         let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
 
         const normSearchName = normalizeChapterName(chapterName);
@@ -180,7 +180,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'User profile does not exist to update interactive question status' });
         }
 
-        const baseTemplate = loadTemplate(existingDoc.cohort);
+        const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
         let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
 
         let matchedSubjectIdx = -1;
@@ -318,6 +318,215 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true });
         } else {
           return res.status(404).json({ error: 'Chapter/Subject not found in syllabus' });
+        }
+      }
+
+      if (type === 'RESOLVE_MAPPING') {
+        const { mode, subjectName, chapterName, chapterTitle, newSubjectName, pendingActivity } = details || {};
+        if (!mode) {
+          return res.status(400).json({ error: 'Missing mode' });
+        }
+
+        if (!existingDoc) {
+          return res.status(400).json({ error: 'User profile does not exist to resolve mapping' });
+        }
+
+        const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
+        let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
+        
+        let success = false;
+        let matchedSubjectIdx = -1;
+        let matchedChapterIdx = -1;
+
+        if (mode === 'link_chapter') {
+          if (!subjectName || !chapterName || !chapterTitle) {
+            return res.status(400).json({ error: 'Missing subjectName, chapterName, or chapterTitle' });
+          }
+          
+          const sIdx = syllabusData.findIndex(s => s.name.trim().toLowerCase() === subjectName.trim().toLowerCase());
+          if (sIdx !== -1) {
+            const cIdx = syllabusData[sIdx].chapters.findIndex(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase());
+            if (cIdx !== -1) {
+              const ch = syllabusData[sIdx].chapters[cIdx];
+              if (!ch.altNames) ch.altNames = [];
+              if (!ch.altNames.includes(chapterTitle)) {
+                ch.altNames.push(chapterTitle);
+              }
+              matchedSubjectIdx = sIdx;
+              matchedChapterIdx = cIdx;
+              success = true;
+            }
+          }
+        } else if (mode === 'create_chapter') {
+          if (!subjectName || !chapterName || !chapterTitle) {
+            return res.status(400).json({ error: 'Missing subjectName, chapterName, or chapterTitle' });
+          }
+          
+          const sIdx = syllabusData.findIndex(s => s.name.trim().toLowerCase() === subjectName.trim().toLowerCase());
+          if (sIdx !== -1) {
+            const newCh = {
+              name: chapterName,
+              status: 'None',
+              lectures: 0,
+              log: '',
+              dpp: { acc: 0, comp: 0 },
+              module: { acc: 0, comp: 0 },
+              dppLogs: {},
+              moduleLogs: {},
+              customExerciseConfig: null,
+              exerciseDisplayNames: null,
+              moduleQuestionStates: {},
+              focusTime: 0,
+              reviewsDone: 0,
+              nextReview: null,
+              lastReviewRating: null,
+              assignments: [],
+              altNames: [chapterTitle]
+            };
+            
+            syllabusData[sIdx].chapters.push(newCh);
+            matchedSubjectIdx = sIdx;
+            matchedChapterIdx = syllabusData[sIdx].chapters.length - 1;
+            success = true;
+          }
+        } else if (mode === 'create_subject') {
+          if (!newSubjectName || !chapterName || !chapterTitle) {
+            return res.status(400).json({ error: 'Missing newSubjectName, chapterName, or chapterTitle' });
+          }
+          
+          const newCh = {
+            name: chapterName,
+            status: 'None',
+            lectures: 0,
+            log: '',
+            dpp: { acc: 0, comp: 0 },
+            module: { acc: 0, comp: 0 },
+            dppLogs: {},
+            moduleLogs: {},
+            customExerciseConfig: null,
+            exerciseDisplayNames: null,
+            moduleQuestionStates: {},
+            focusTime: 0,
+            reviewsDone: 0,
+            nextReview: null,
+            lastReviewRating: null,
+            assignments: [],
+            altNames: [chapterTitle]
+          };
+          
+          const newSub = {
+            name: newSubjectName,
+            color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                   newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                   newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
+                   newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+            books: [],
+            chapters: [newCh]
+          };
+          
+          syllabusData.push(newSub);
+          matchedSubjectIdx = syllabusData.length - 1;
+          matchedChapterIdx = 0;
+          success = true;
+        }
+
+        if (success && matchedSubjectIdx !== -1 && matchedChapterIdx !== -1) {
+          // If pendingActivity is provided, process and apply it to this newly resolved chapter!
+          if (pendingActivity) {
+            const actType = pendingActivity.type;
+            const actDetails = pendingActivity.details || {};
+            const ch = syllabusData[matchedSubjectIdx].chapters[matchedChapterIdx];
+            
+            if (actType === 'DPP_SCORE') {
+              const section = actDetails.quizType === 'DPP' ? 'dpp' : 'module';
+              if (section === 'dpp') {
+                if (!ch.dppLogs) ch.dppLogs = {};
+                const freshActId = Date.now().toString() + '_dpp';
+                ch.dppLogs[freshActId] = {
+                  comp: Math.round(actDetails.completion || 0),
+                  acc: Math.round(actDetails.accuracy || 0)
+                };
+                const values = Object.values(ch.dppLogs);
+                const avgComp = values.reduce((sum, v) => sum + v.comp, 0) / values.length;
+                const avgAcc = values.reduce((sum, v) => sum + v.acc, 0) / values.length;
+                ch.dpp = { comp: Math.round(avgComp), acc: Math.round(avgAcc) };
+
+                // Log entry
+                const dateStr = getISTISOString().split('T')[0];
+                const logEntry = `[${dateStr} - DPP: ${actDetails.title}]\nCompletion: ${actDetails.completion}%, Accuracy: ${actDetails.accuracy}%`;
+                ch.log = ch.log ? `${ch.log}\n\n${logEntry}` : logEntry;
+              } else {
+                ch.module = {
+                  comp: Math.max(ch.module?.comp || 0, Math.round(actDetails.completion || 0)),
+                  acc: Math.max(ch.module?.acc || 0, Math.round(actDetails.accuracy || 0))
+                };
+              }
+            } else if (actType === 'ASSIGNMENT_SUBMISSION' || actType === 'ADD_ASSIGNMENT') {
+              if (!ch.assignments) ch.assignments = [];
+              if (!ch.assignments.some(a => a.url === actDetails.url)) {
+                ch.assignments.push({ name: actDetails.assignmentName, url: actDetails.url });
+              }
+            } else if (actType === 'BOOK_CHAPTER_SUBMISSION') {
+              // Add book chapter url to books list in subject
+              const sub = syllabusData[matchedSubjectIdx];
+              if (!sub.books) sub.books = [];
+              
+              let bookIdx = sub.books.findIndex(b => b.url === actDetails.bookUrl);
+              if (bookIdx === -1) {
+                sub.books.push({
+                  name: sub.bookName || "Module Book",
+                  url: actDetails.bookUrl,
+                  chapters: {}
+                });
+                bookIdx = sub.books.length - 1;
+              }
+              if (!sub.books[bookIdx].chapters) sub.books[bookIdx].chapters = {};
+              sub.books[bookIdx].chapters[ch.name] = actDetails.chapterUrl;
+            }
+          }
+
+          const serializedData = serializeSyllabus(syllabusData, baseTemplate);
+          const freshId = Date.now().toString();
+          const activityLog = {
+            id: freshId,
+            type,
+            details,
+            timestamp: getISTISOString()
+          };
+
+          const additionalActivities = [];
+          if (pendingActivity) {
+            additionalActivities.push({
+              id: (Date.now() + 1).toString(),
+              type: pendingActivity.type,
+              details: pendingActivity.details,
+              timestamp: getISTISOString()
+            });
+          }
+
+          const updatePayload = {
+            $set: { data: serializedData, lastUpdated: getISTISOString() }
+          };
+
+          const allNewActivities = [activityLog, ...additionalActivities];
+          updatePayload.$push = {
+            activities: {
+              $each: allNewActivities,
+              $sort: { timestamp: -1 },
+              $slice: 50
+            }
+          };
+
+          const newResolvedIds = [activityLog.id, ...additionalActivities.map(a => a.id)];
+          updatePayload.$addToSet = {
+            resolvedActivityIds: { $each: newResolvedIds }
+          };
+
+          await collection.updateOne({ syncId }, updatePayload);
+
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(400).json({ error: 'Failed to apply resolution mapping' });
         }
       }
 
@@ -590,14 +799,35 @@ export default async function handler(req, res) {
       if (!rawSyncIdTrimmed) return res.status(400).json({ error: 'syncId cannot be empty' });
 
       const userDoc = await resolveUser(db, rawSyncIdTrimmed);
-      if (!userDoc) return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
-      const syncId = userDoc.syncId;
+      const isSecure = rawSyncIdTrimmed.startsWith('vny_sec_') || rawSyncIdTrimmed.startsWith('vny_sess_');
 
       if (fullDelete === 'true') {
-        // Permanently Delete Account
-        await collection.deleteOne({ syncId });
+        if (!userDoc && !isSecure) {
+          return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
+        }
+
+        // Build list of all possible sync ID representations to nuke
+        const deleteIds = new Set();
+        deleteIds.add(rawSyncIdTrimmed);
+
+        const hashed = hashSyncId(rawSyncIdTrimmed);
+        if (hashed) deleteIds.add(hashed);
+
+        if (userDoc && userDoc.syncId) {
+          deleteIds.add(userDoc.syncId);
+        }
+
+        const deleteIdsArray = Array.from(deleteIds);
+
+        // Permanently Delete Account from all collections
+        await collection.deleteMany({ syncId: { $in: deleteIdsArray } });
+        await db.collection('rate_limits').deleteMany({ _id: { $in: deleteIdsArray } });
+        await db.collection('telemetry').deleteMany({ syncId: { $in: deleteIdsArray } });
+
         return res.status(200).json({ success: true, deletedAccount: true });
       } else {
+        if (!userDoc) return res.status(401).json({ error: 'Unauthorized: Invalid session or sync ID' });
+        const syncId = userDoc.syncId;
         // DEV ONLY: Nuke all activities only, keeping syllabus and routines intact
         await collection.updateOne({ syncId }, { $set: { activities: [] } });
         return res.status(200).json({ success: true, clearedActivities: true });

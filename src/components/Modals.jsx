@@ -22,11 +22,12 @@ const Modals = ({
     saveLog,
     setLogModalOpen,
     currentLevel,
-    
     changeLogOpen,
     setChangeLogOpen,
     bugReportOpen,
     setBugReportOpen,
+    suggestFeatureOpen,
+    setSuggestFeatureOpen,
     syncId
 }) => {
     const { showToast } = useToast();
@@ -36,32 +37,44 @@ const Modals = ({
     const [bugSeverity, setBugSeverity] = useState('Medium');
     const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
     const [isSubmittingBug, setIsSubmittingBug] = useState(false);
-    const [screenshot, setScreenshot] = useState('');
-    const [screenshotName, setScreenshotName] = useState('');
-    const [screenshotPreview, setScreenshotPreview] = useState('');
+    const [bugScreenshots, setBugScreenshots] = useState([]);
 
-    const handleScreenshotChange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // Suggest Feature States
+    const [suggestDesc, setSuggestDesc] = useState('');
+    const [isSubmittingSuggest, setIsSubmittingSuggest] = useState(false);
+    const [includeSuggestDiagnostics, setIncludeSuggestDiagnostics] = useState(true);
+    const [suggestScreenshots, setSuggestScreenshots] = useState([]);
 
-        if (file.size > 2 * 1024 * 1024) {
-            showToast("Screenshot must be under 2MB.", "error");
-            return;
-        }
+    const handleAddScreenshots = (e, setScreenshots) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        setScreenshotName(file.name);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setScreenshot(reader.result);
-            setScreenshotPreview(reader.result);
-        };
-        reader.readAsDataURL(file);
+        files.forEach(file => {
+            if (file.size > 2 * 1024 * 1024) {
+                showToast(`Screenshot "${file.name}" exceeds 2MB limit.`, "error");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setScreenshots(prev => {
+                    if (prev.some(item => item.name === file.name)) {
+                        return prev;
+                    }
+                    return [...prev, {
+                        name: file.name,
+                        data: reader.result,
+                        preview: reader.result
+                    }];
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
     };
 
-    const handleRemoveScreenshot = () => {
-        setScreenshot('');
-        setScreenshotName('');
-        setScreenshotPreview('');
+    const handleRemoveScreenshotItem = (index, setScreenshots) => {
+        setScreenshots(prev => prev.filter((_, i) => i !== index));
     };
 
     const releaseNotes = [
@@ -80,7 +93,6 @@ const Modals = ({
             changes: [
                 '⚡ Syllabus Scroll Optimization: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.',
                 '💾 Real-Time LocalStorage Sync: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.',
-                '🛡️ Save Mismatch Auto-Recovery: Compares questions progress on save and automatically restores correct status from LocalStorage in case of DB sync mismatch.',
                 '📊 Dynamic Setup Information: Extension setup page fetches and displays Chrome Extension and Android APK versions and file sizes dynamically from the server.',
                 '📜 Scrollable Setup Layout: Fixed layout constraints on the extension page to allow vertical scrolling on all viewports.',
                 '🔗 Smarter Extension Integration: Chrome Extension automatically bypasses already synced chapters and suppresses prompts when unconfigured.'
@@ -204,17 +216,15 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                     encryptedTelemetry: serializedPayload,
                     bugSeverity,
                     bugDesc,
-                    screenshot
+                    screenshots: bugScreenshots.map(s => s.data)
                 })
             });
 
             if (response.ok) {
-                showToast("Bug report and diagnostics successfully uploaded to diagnostics queue!", "success");
+                showToast("Bug report successfully submitted!", "success");
                 setBugReportOpen(false);
                 setBugDesc('');
-                setScreenshot('');
-                setScreenshotName('');
-                setScreenshotPreview('');
+                setBugScreenshots([]);
             } else {
                 throw new Error("API returned status " + response.status);
             }
@@ -223,6 +233,65 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
             showToast("Failed to submit report digitally. Please try again later!", "error");
         } finally {
             setIsSubmittingBug(false);
+        }
+    };
+
+    const handleSubmitSuggestion = async () => {
+        if (!suggestDesc.trim()) {
+            showToast("Please enter a description of the feature suggestion.", "error");
+            return;
+        }
+
+        const diagnosticsText = `
+[Vinyas Feature Suggestion Report]
+Timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)
+Sync ID: ${syncId}
+OS Platform: Windows (x86_64)
+User Description: ${suggestDesc}
+
+Recent Core Logs:
+${includeSuggestDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'Excluded by user'}
+        `;
+
+        try {
+            setIsSubmittingSuggest(true);
+            if (!syncId) {
+                showToast("Sync ID is required to submit feedback.", "error");
+                return;
+            }
+            if (!syncId.startsWith('vny_sec_')) {
+                showToast("A cryptographically secure Sync ID (vny_sec_...) is required to submit feedback.", "warning");
+                return;
+            }
+
+            const encryptedTelemetry = await aesEncrypt(syncId, diagnosticsText);
+            const serializedPayload = JSON.stringify(encryptedTelemetry);
+
+            const response = await fetch('/api/telemetry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    syncId,
+                    encryptedTelemetry: serializedPayload,
+                    bugDesc: suggestDesc,
+                    screenshots: suggestScreenshots.map(s => s.data),
+                    isFeatureSuggestion: true
+                })
+            });
+
+            if (response.ok) {
+                showToast("Feature suggestion successfully submitted!", "success");
+                setSuggestFeatureOpen(false);
+                setSuggestDesc('');
+                setSuggestScreenshots([]);
+            } else {
+                throw new Error("API returned status " + response.status);
+            }
+        } catch (error) {
+            console.error("Failed to submit feature suggestion:", error);
+            showToast("Failed to submit feature suggestion. Please try again later!", "error");
+        } finally {
+            setIsSubmittingSuggest(false);
         }
     };
 
@@ -462,40 +531,43 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
 
                             {/* Screenshot Upload */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Attach Screenshot (Optional)</label>
-                                <div className="flex items-center gap-3">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        onChange={handleScreenshotChange}
-                                        className="hidden"
-                                        id="bug-screenshot-upload"
-                                    />
-                                    <label 
-                                        htmlFor="bug-screenshot-upload"
-                                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-900/80 border border-slate-700 hover:border-slate-600 text-slate-350 hover:text-white rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 active:scale-95"
-                                    >
-                                        <i className="ph-bold ph-image text-sm"></i>
-                                        {screenshotName ? 'Change Image' : 'Choose Image'}
-                                    </label>
-                                    {screenshotName && (
-                                        <div className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-750 px-3 py-2 rounded-xl text-xs text-slate-350">
-                                            <span className="truncate max-w-[150px] font-semibold">{screenshotName}</span>
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    Attach Screenshots (Optional, max 5)
+                                </label>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {bugScreenshots.length < 5 && (
+                                        <>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                multiple
+                                                onChange={(e) => handleAddScreenshots(e, setBugScreenshots)}
+                                                className="hidden"
+                                                id="bug-screenshot-upload-multi"
+                                            />
+                                            <label 
+                                                htmlFor="bug-screenshot-upload-multi"
+                                                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-900/80 border border-slate-700 hover:border-slate-600 text-slate-350 hover:text-white rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 border-dashed"
+                                            >
+                                                <i className="ph-bold ph-plus text-sm"></i>
+                                                <span>Add Screenshots</span>
+                                            </label>
+                                        </>
+                                    )}
+                                    {bugScreenshots.map((item, idx) => (
+                                        <div key={idx} className="relative group w-16 h-16 rounded-xl border border-slate-750 overflow-hidden bg-slate-950 flex items-center justify-center">
+                                            <img src={item.preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                                             <button 
-                                                onClick={handleRemoveScreenshot}
-                                                className="text-rose-400 hover:text-rose-300 transition-colors"
+                                                type="button"
+                                                onClick={() => handleRemoveScreenshotItem(idx, setBugScreenshots)}
+                                                className="absolute inset-0 bg-rose-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-rose-450 hover:text-rose-300"
                                                 title="Remove Image"
                                             >
-                                                <i className="ph-bold ph-trash"></i>
+                                                <i className="ph-bold ph-trash text-lg"></i>
                                             </button>
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
-                                {screenshotPreview && (
-                                    <div className="mt-2 border border-slate-750 rounded-2xl overflow-hidden max-h-32 bg-slate-950 flex items-center justify-center">
-                                        <img src={screenshotPreview} alt="Screenshot Preview" className="max-h-32 object-contain" />
-                                    </div>
-                                )}
                             </div>
 
                             {/* Diagnostics toggle */}
@@ -507,8 +579,8 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                                     className="w-4 h-4 rounded bg-slate-900 border-slate-750 text-rose-500 focus:ring-0 focus:ring-offset-0"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-slate-300">Include Diagnostic Logs</span>
-                                    <span className="text-[10px] text-slate-500">Appends platform spec and last 15 local core kernel logs automatically</span>
+                                    <span className="text-xs font-bold text-slate-300">Include Diagnostics</span>
+                                    <span className="text-[10px] text-slate-500">Appends platform spec and last 15 local core events automatically</span>
                                 </div>
                             </label>
                         </div>
@@ -526,10 +598,123 @@ ${includeDiagnostics ? JSON.stringify(getLocalLogs().slice(0, 15), null, 2) : 'E
                                 onClick={() => handleSubmitBug()}
                                 disabled={isSubmittingBug}
                                 className="flex-[2] py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-2xl shadow-lg shadow-rose-950/20 transition-all text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
-                                title="Encrypt and upload diagnostics directly to diagnostics queue"
+                                title="Submit diagnostics report"
                             >
                                 <i className={`ph-bold ${isSubmittingBug ? 'ph-spinner animate-spin' : 'ph-paper-plane-tilt'} text-sm`}></i>
                                 {isSubmittingBug ? 'Submitting...' : 'Submit Report Digitally'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Suggest Feature Modal */}
+            {suggestFeatureOpen && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-955/80 backdrop-blur-md modal-animate">
+                    <div className="bg-slate-800/95 border border-slate-700 rounded-[2rem] shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
+                        
+                        {/* Header */}
+                        <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/30 relative">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                            <div>
+                                <h3 className="text-xs font-bold text-amber-450 uppercase tracking-widest mb-1">Developer Feedback</h3>
+                                <h2 className="text-xl font-black text-white flex items-center gap-2">
+                                    <i className="ph-fill ph-lightbulb text-amber-500"></i> Suggest New Feature
+                                </h2>
+                            </div>
+                            <button onClick={() => setSuggestFeatureOpen(false)} className="text-slate-400 hover:text-white bg-slate-700/55 p-2 rounded-full transition-colors">
+                                <i className="ph-bold ph-x text-lg"></i>
+                            </button>
+                        </div>
+
+                        {/* Form Body */}
+                        <div className="p-6 space-y-5 bg-slate-900/10">
+                            
+                            {/* Description */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Feature Suggestion Details</label>
+                                <textarea 
+                                    autoFocus
+                                    value={suggestDesc}
+                                    onChange={e => setSuggestDesc(e.target.value)}
+                                    placeholder="Describe the feature or improvement you'd like to see in Vinyas. Be as specific as possible!"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-slate-200 h-32 outline-none focus:border-amber-500/60 transition-colors resize-none text-xs leading-relaxed"
+                                ></textarea>
+                            </div>
+
+                            {/* Multi-Screenshot Upload */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    Attach Screenshots / Mockups (Optional, max 5)
+                                </label>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {suggestScreenshots.length < 5 && (
+                                        <>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                multiple
+                                                onChange={(e) => handleAddScreenshots(e, setSuggestScreenshots)}
+                                                className="hidden"
+                                                id="suggest-screenshot-upload-multi"
+                                            />
+                                            <label 
+                                                htmlFor="suggest-screenshot-upload-multi"
+                                                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-900/80 border border-slate-700 hover:border-slate-600 text-slate-350 hover:text-white rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 border-dashed"
+                                            >
+                                                <i className="ph-bold ph-plus text-sm"></i>
+                                                <span>Add Screenshots</span>
+                                            </label>
+                                        </>
+                                    )}
+                                    {suggestScreenshots.map((item, idx) => (
+                                        <div key={idx} className="relative group w-16 h-16 rounded-xl border border-slate-750 overflow-hidden bg-slate-950 flex items-center justify-center">
+                                            <img src={item.preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleRemoveScreenshotItem(idx, setSuggestScreenshots)}
+                                                className="absolute inset-0 bg-rose-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-rose-450 hover:text-rose-300"
+                                                title="Remove Image"
+                                            >
+                                                <i className="ph-bold ph-trash text-lg"></i>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Diagnostics toggle */}
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input 
+                                    type="checkbox"
+                                    checked={includeSuggestDiagnostics}
+                                    onChange={e => setIncludeSuggestDiagnostics(e.target.checked)}
+                                    className="w-4 h-4 rounded bg-slate-900 border-slate-750 text-amber-500 focus:ring-0 focus:ring-offset-0"
+                                />
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-slate-300">Include Diagnostics</span>
+                                    <span className="text-[10px] text-slate-500">Appends platform spec and last 15 local core events automatically</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        {/* Footer buttons */}
+                        <div className="p-6 border-t border-slate-700/50 bg-slate-800 sticky bottom-0 z-10 flex gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => setSuggestFeatureOpen(false)}
+                                className="flex-1 py-3 bg-slate-700 hover:bg-slate-650 text-slate-300 font-bold rounded-2xl transition-all text-xs cursor-pointer text-center"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => handleSubmitSuggestion()}
+                                disabled={isSubmittingSuggest}
+                                className="flex-[2] py-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black rounded-2xl shadow-lg shadow-amber-950/20 transition-all text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+                                title="Submit feedback suggestion"
+                            >
+                                <i className={`ph-bold ${isSubmittingSuggest ? 'ph-spinner animate-spin' : 'ph-paper-plane-tilt'} text-sm`}></i>
+                                {isSubmittingSuggest ? 'Submitting...' : 'Submit Suggestion'}
                             </button>
                         </div>
                     </div>

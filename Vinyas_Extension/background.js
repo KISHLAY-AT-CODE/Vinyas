@@ -332,16 +332,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
     }
 
+    if (message.action === "dashboardSyllabusUpdate") {
+        const syllabusData = message.data;
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                const url = tab.url || '';
+                const isPwPage = url.includes("books.pw.live") || url.includes("books.physicswallah.live") || url.includes("pw.live");
+                if (isPwPage) {
+                    chrome.tabs.sendMessage(tab.id, {
+                        action: "syllabusUpdated",
+                        data: syllabusData
+                    }, () => {
+                        if (chrome.runtime.lastError) {}
+                    });
+                }
+            });
+        });
+        sendResponse({ success: true });
+        return true;
+    }
+
     if (message.action === "autoSyncDashboardConfig") {
         const { syncId, apiUrl } = message.data;
         if (syncId && apiUrl) {
             if (isValidApiUrl(apiUrl)) {
-                chrome.storage.local.set({
-                    vinyasSyncId: syncId,
-                    vinyasApiUrl: apiUrl
-                }, () => {
-                    console.log("[Vinyas Tracker Background] Auto-synced config from dashboard in background: Sync ID and API URL updated.");
-                    sendResponse({ success: true });
+                chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
+                    const prevSyncId = result.vinyasSyncId || '';
+                    const prevApiUrl = result.vinyasApiUrl || '';
+                    const isDifferent = prevSyncId !== syncId || prevApiUrl !== apiUrl;
+
+                    if (isDifferent) {
+                        chrome.storage.local.set({
+                            vinyasSyncId: syncId,
+                            vinyasApiUrl: apiUrl
+                        }, () => {
+                            console.log("[Vinyas Tracker Background] Auto-synced config from dashboard: Sync ID and API URL updated.");
+                            try {
+                                if (typeof chrome.action.openPopup === 'function') {
+                                    chrome.action.openPopup();
+                                }
+                            } catch (e) {
+                                console.error("[Vinyas Tracker Background] Failed to open popup programmatically:", e);
+                            }
+                            sendResponse({ success: true, changed: true });
+                        });
+                    } else {
+                        sendResponse({ success: true, changed: false });
+                    }
                 });
             } else {
                 console.error("[Vinyas Tracker Background] Blocked invalid/unsafe auto-sync API URL:", apiUrl);
@@ -354,9 +391,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === "clearExtensionStorage") {
-        chrome.storage.local.clear(() => {
-            console.log("[Vinyas Tracker Background] Extension local storage cleared successfully.");
-            sendResponse({ success: true });
+        chrome.storage.local.get(['vinyasSyncId'], (result) => {
+            const hadSyncId = !!result.vinyasSyncId;
+            if (hadSyncId) {
+                chrome.storage.local.clear(() => {
+                    console.log("[Vinyas Tracker Background] Extension local storage cleared successfully.");
+                    try {
+                        if (typeof chrome.action.openPopup === 'function') {
+                            chrome.action.openPopup();
+                        }
+                    } catch (e) {
+                        console.error("[Vinyas Tracker Background] Failed to open popup programmatically on disconnect:", e);
+                    }
+                    sendResponse({ success: true, cleared: true });
+                });
+            } else {
+                chrome.storage.local.clear(() => {
+                    sendResponse({ success: true, cleared: false });
+                });
+            }
         });
         return true;
     }
