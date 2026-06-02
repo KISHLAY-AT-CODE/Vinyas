@@ -350,6 +350,7 @@ Ensure all environment variables are configured in your Vercel project settings.
 ## 📅 Changelog
 
 ### v2.1.1 (June 2, 2026)
+- 🏁 **Project Milestone**: Vinyas is officially closing its feature development at v2.1.1! From here on out, only bug fixes and new achievements will be added.
 - 🐛 **Critical Bug Fix**: Fixed a major issue where interactive question states (Difficult/Later) would reset back to Completed when reloading the app.
 - 🎯 **Dynamic Extension**: The extension now intelligently adapts to any module practice without getting stuck or showing incorrect question counts.
 - 🧹 **Interface Polish**: Removed the redundant Leave button from the native page and unused diagnostic tools for a cleaner experience.

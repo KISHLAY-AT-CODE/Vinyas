@@ -5,6 +5,7 @@ export const WHATS_NEW_CHANGELOG = {
   version: '2.1.1',
   date: 'June 2, 2026',
   coreChanges: [
+    '🏁 Project Milestone: Vinyas is officially closing its feature development at v2.1.1! From here on out, only bug fixes and new achievements will be added.',
     '💡 Suggest Feature: You can now suggest new features and improvements to the developer directly from the diagnostics menu.',
     '📸 Multiple Screenshots: Added support to upload and attach up to 5 screenshots when reporting bugs or suggestions.'
   ],
