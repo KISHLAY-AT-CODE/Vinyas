@@ -38,6 +38,7 @@ export const useDatabaseSync = ({
     const [lastSeenExtVersion, setLastSeenExtVersion] = useState(null);
     const [resolvedActivityIds, setResolvedActivityIds] = useState([]);
     const [activities, setActivities] = useState([]);
+    const [deletedAssignmentUrls, setDeletedAssignmentUrls] = useState([]);
 
     const resetAppState = useCallback(() => {
         localStorage.clear();
@@ -159,6 +160,12 @@ export const useDatabaseSync = ({
                         setAutoBackupEnabled(serverData.autoBackupEnabled);
                     } else {
                         setAutoBackupEnabled(false);
+                    }
+
+                    if (serverData.deletedAssignmentUrls) {
+                        setDeletedAssignmentUrls(serverData.deletedAssignmentUrls);
+                    } else {
+                        setDeletedAssignmentUrls([]);
                     }
 
                     if (serverData.lastSeenAppVersion) {
@@ -304,7 +311,8 @@ export const useDatabaseSync = ({
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
                 lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
                 userName: stateRef.current.userName,
-                themeSettings: stateRef.current.themeSettings
+                themeSettings: stateRef.current.themeSettings,
+                deletedAssignmentUrls: stateRef.current.deletedAssignmentUrls || []
             };
             await saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -332,7 +340,8 @@ export const useDatabaseSync = ({
                 lastSeenAppVersion: stateRef.current.lastSeenAppVersion,
                 lastSeenExtVersion: stateRef.current.lastSeenExtVersion,
                 userName: stateRef.current.userName,
-                themeSettings: themeSettings || stateRef.current.themeSettings
+                themeSettings: themeSettings || stateRef.current.themeSettings,
+                deletedAssignmentUrls: stateRef.current.deletedAssignmentUrls || []
             };
             const promise = saveCompleteSyllabus(currentPayload);
             const resolve = saveResolveRef.current;
@@ -372,7 +381,8 @@ export const useDatabaseSync = ({
             lastSeenAppVersion: VINYAS_APP_VERSION,
             lastSeenExtVersion: installedExtVersion,
             userName: stateRef.current.userName,
-            themeSettings: stateRef.current.themeSettings
+            themeSettings: stateRef.current.themeSettings,
+            deletedAssignmentUrls: stateRef.current.deletedAssignmentUrls || []
         };
         await saveCompleteSyllabus(payload);
 
@@ -1074,6 +1084,7 @@ export const useDatabaseSync = ({
         lastSeenExtVersion, setLastSeenExtVersion,
         resolvedActivityIds, setResolvedActivityIds,
         activities, setActivities,
+        deletedAssignmentUrls, setDeletedAssignmentUrls,
         
         // Functions
         resetAppState,

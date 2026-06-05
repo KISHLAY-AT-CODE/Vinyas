@@ -80,12 +80,26 @@ const ModuleQuestionTrackerModal = ({
     const [localProgress, setLocalProgress] = useState({});
     const [toast, setToast] = useState(null);
 
-    // Initialize local copy when modal opens or prop changes
+    const exerciseKeys = useMemo(() => {
+        return exercisesConfig ? Object.keys(exercisesConfig) : [];
+    }, [exercisesConfig]);
+
+    const [activeExercise, setActiveExercise] = useState('');
+    const [activeQuestion, setActiveQuestion] = useState(1);
+
+    useEffect(() => {
+        if (isOpen && exerciseKeys.length > 0) {
+            setActiveExercise(exerciseKeys[0]);
+            setActiveQuestion(1);
+        }
+    }, [isOpen, exerciseKeys]);
+
+    // Initialize local copy when modal opens
     useEffect(() => {
         if (isOpen) {
             setLocalProgress(questionStates || {});
         }
-    }, [isOpen, questionStates]);
+    }, [isOpen]);
 
     // Toast Timer helper
     const showToast = (message, type = 'success') => {
@@ -338,61 +352,61 @@ const ModuleQuestionTrackerModal = ({
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300 opacity-100">
-                        {Object.entries(exercisesConfig).map(([exName, qCount]) => {
-                            // Calculate completed questions for this exercise
-                            let doneInExercise = 0;
-                            for (let q = 1; q <= qCount; q++) {
-                                if (localProgress[getQuestionKey(exName, q)] === 'completed') doneInExercise++;
-                            }
+                            {Object.entries(exercisesConfig).map(([exName, qCount]) => {
+                                // Calculate completed questions for this exercise
+                                let doneInExercise = 0;
+                                for (let q = 1; q <= qCount; q++) {
+                                    if (localProgress[getQuestionKey(exName, q)] === 'completed') doneInExercise++;
+                                }
 
-                            const displayName = (exerciseDisplayNames && exerciseDisplayNames[exName]) || exName;
+                                const displayName = (exerciseDisplayNames && exerciseDisplayNames[exName]) || exName;
 
-                            return (
-                                <div key={exName} className="bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-slate-600/80 transition-all flex flex-col h-full shadow-md">
-                                    <div className="flex justify-between items-center border-b border-slate-700/50 pb-3 mb-4">
-                                        <h3 className="font-bold text-slate-200">{displayName}</h3>
-                                        <span className="text-xs font-bold text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded-lg">
-                                            {doneInExercise} / {qCount} Completed
-                                        </span>
+                                return (
+                                    <div key={exName} className="bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-slate-600/80 transition-all flex flex-col h-full shadow-md">
+                                        <div className="flex justify-between items-center border-b border-slate-700/50 pb-3 mb-4">
+                                            <h3 className="font-bold text-slate-200">{displayName}</h3>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded-lg">
+                                                {doneInExercise} / {qCount} Completed
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Questions grid */}
+                                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
+                                            {Array.from({ length: qCount }, (_, idx) => {
+                                                const qNum = idx + 1;
+                                                const key = getQuestionKey(exName, qNum);
+                                                const state = localProgress[key];
+                                                
+                                                let btnClass = "bg-slate-900/60 hover:bg-slate-750 text-slate-400 border-slate-700";
+                                                let icon = `Q${qNum}`;
+
+                                                if (state === 'completed') {
+                                                    btnClass = "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-950/20";
+                                                    icon = `✓ ${qNum}`;
+                                                } else if (state === 'difficult') {
+                                                    btnClass = "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-950/20";
+                                                    icon = `! ${qNum}`;
+                                                } else if (state === 'later') {
+                                                    btnClass = "bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-950/20";
+                                                    icon = `⌛ ${qNum}`;
+                                                }
+
+                                                return (
+                                                    <button
+                                                        key={qNum}
+                                                        onClick={() => handleToggleQuestion(exName, qNum)}
+                                                        className={`py-2 rounded-xl text-xs font-bold border transition-all duration-100 flex items-center justify-center select-none active:scale-95 ${btnClass}`}
+                                                        title={`Toggle status for ${exName} Q${qNum}`}
+                                                    >
+                                                        {icon}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                    
-                                    {/* Questions grid */}
-                                    <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-                                        {Array.from({ length: qCount }, (_, idx) => {
-                                            const qNum = idx + 1;
-                                            const key = getQuestionKey(exName, qNum);
-                                            const state = localProgress[key];
-                                            
-                                            let btnClass = "bg-slate-900/60 hover:bg-slate-750 text-slate-400 border-slate-700";
-                                            let icon = `Q${qNum}`;
-
-                                            if (state === 'completed') {
-                                                btnClass = "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-950/20";
-                                                icon = `✓ ${qNum}`;
-                                            } else if (state === 'difficult') {
-                                                btnClass = "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-950/20";
-                                                icon = `! ${qNum}`;
-                                            } else if (state === 'later') {
-                                                btnClass = "bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-950/20";
-                                                icon = `⌛ ${qNum}`;
-                                            }
-
-                                            return (
-                                                <button
-                                                    key={qNum}
-                                                    onClick={() => handleToggleQuestion(exName, qNum)}
-                                                    className={`py-2 rounded-xl text-xs font-bold border transition-all duration-100 flex items-center justify-center select-none active:scale-95 ${btnClass}`}
-                                                    title={`Toggle status for ${exName} Q${qNum}`}
-                                                >
-                                                    {icon}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        </div>
+                                );
+                            })}
+                            </div>
                     )}
                 </div>
 

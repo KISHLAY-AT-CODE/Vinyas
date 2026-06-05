@@ -56,3 +56,42 @@ export const normalizeChapterName = (name) => {
 
     return CHAPTER_SYNONYMS[normalized] || normalized;
 };
+
+export const normalizeUrl = (urlStr) => {
+    if (!urlStr || typeof urlStr !== 'string') return '';
+    try {
+        let u = urlStr.trim().toLowerCase();
+        
+        // Normalize domains
+        u = u.replace('books.physicswallah.live', 'books.pw.live');
+        u = u.replace('www.physicswallah.live', 'pw.live');
+        u = u.replace('physicswallah.live', 'pw.live');
+        u = u.replace('www.pw.live', 'pw.live');
+        
+        if (!u.startsWith('http://') && !u.startsWith('https://')) {
+            u = 'https://' + u;
+        }
+        
+        const urlObj = new URL(u);
+        
+        // Remove dynamic query params
+        const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer'];
+        paramsToRemove.forEach(p => {
+            urlObj.searchParams.delete(p);
+        });
+        
+        // Sort query parameters
+        const keys = Array.from(urlObj.searchParams.keys()).sort();
+        const sortedParams = new URLSearchParams();
+        keys.forEach(k => {
+            sortedParams.set(k, urlObj.searchParams.get(k));
+        });
+        urlObj.search = sortedParams.toString();
+        urlObj.hash = '';
+        
+        return urlObj.toString();
+    } catch (e) {
+        return urlStr;
+    }
+};
+

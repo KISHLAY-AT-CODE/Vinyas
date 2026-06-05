@@ -116,6 +116,17 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'User profile does not exist to add assignment' });
         }
 
+        // If this URL was previously deleted, un-delete it (extension re-sync overrides deletion)
+        const normUrl = normalizeUrl(url);
+        if (existingDoc.deletedAssignmentUrls && Array.isArray(existingDoc.deletedAssignmentUrls)) {
+          if (existingDoc.deletedAssignmentUrls.some(u => normalizeUrl(u) === normUrl)) {
+            await collection.updateOne(
+              { syncId },
+              { $set: { deletedAssignmentUrls: existingDoc.deletedAssignmentUrls.filter(u => normalizeUrl(u) !== normUrl) } }
+            );
+          }
+        }
+
         const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
         let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
 
@@ -129,7 +140,7 @@ export default async function handler(req, res) {
                 ch.assignments = [];
               }
               // Avoid duplicates
-              if (!ch.assignments.some(a => a.url === url)) {
+              if (!ch.assignments.some(a => normalizeUrl(a.url) === normUrl)) {
                 ch.assignments.push({ name: assignmentName, url });
               }
               found = true;

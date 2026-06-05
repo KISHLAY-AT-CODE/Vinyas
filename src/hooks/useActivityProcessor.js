@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { logEvent } from '../services/logger';
-import { normalizeChapterName } from '../shared/normalize.js';
+import { normalizeChapterName, normalizeUrl } from '../shared/normalize.js';
 import { getISTDateString, getISTDateStringYYYYMMDD, getISTISOString, getISTTimeString } from '../shared/time.js';
 import { 
     extractChapterFromDppTitle, 
@@ -22,7 +22,8 @@ export const useActivityProcessor = ({
     syncId, isLoaded, cohort, email, autoBackupEnabled, userName,
     loadAchievements, resetAchievements, achievements,
     flushSave, showToast, requestConfirm,
-    setActiveSubjectIdx, activeSubjectIdx
+    setActiveSubjectIdx, activeSubjectIdx,
+    deletedAssignmentUrls = [], setDeletedAssignmentUrls
 }) => {
     // Unresolved submissions states and local settings
     const [dismissedGoalIds, setDismissedGoalIds] = useState(() => {
@@ -383,7 +384,13 @@ export const useActivityProcessor = ({
                                 }
                             } else if (actType === 'ASSIGNMENT_SUBMISSION' || actType === 'ADD_ASSIGNMENT') {
                                 if (!ch.assignments) ch.assignments = [];
-                                if (!ch.assignments.some(a => a.url === actDetails.url)) {
+                                const normActUrl = normalizeUrl(actDetails.url);
+                                // If this URL was previously deleted, un-delete it (extension re-sync overrides deletion)
+                                const isDeleted = (deletedAssignmentUrls || []).some(u => normalizeUrl(u) === normActUrl);
+                                if (isDeleted && setDeletedAssignmentUrls) {
+                                    setDeletedAssignmentUrls(prev => prev.filter(u => normalizeUrl(u) !== normActUrl));
+                                }
+                                if (!ch.assignments.some(a => normalizeUrl(a.url) === normActUrl)) {
                                     ch.assignments.push({ name: actDetails.assignmentName, url: actDetails.url });
                                 }
                             } else if (actType === 'BOOK_CHAPTER_SUBMISSION') {

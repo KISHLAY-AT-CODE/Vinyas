@@ -1,8 +1,20 @@
 {
   "name": "vinyas-tracker",
-  "private": true,
   "version": "2.1.1",
+  "private": false,
+  "description": "<p align=\"center\">   <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong><br>   <em>Experimental App Vibe coded in Antigravity.</em> </p>",
+  "homepage": "https://vinyas-one.vercel.app",
+  "bugs": {
+    "url": "https://github.com/KISHLAY-AT-CODE/Vinyas/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KISHLAY-AT-CODE/Vinyas.git"
+  },
+  "license": "ISC",
+  "author": "Kishlay",
   "type": "module",
+  "main": "postcss.config.js",
   "scripts": {
     "dev": "vite",
     "vercel-dev": "vercel dev",

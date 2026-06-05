@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { normalizeChapterName } from '../shared/normalize.js';
+import { normalizeChapterName, normalizeUrl } from '../shared/normalize.js';
 
 const extractChapterFromDppTitle = (title) => {
     if (!title) return null;
@@ -106,13 +106,136 @@ const ProgressModal = ({
     onSave,
     activities,
     onOpenTracker,
-    data = []
+    data = [],
+    sIdx,
+    cIdx,
+    requestConfirm,
+    showToast,
+    onUpdateAssignments,
+    onOpenAssignmentTracker,
+    deletedAssignmentUrls = [],
+    setDeletedAssignmentUrls
 }) => {
     // Local state for the modal
     const [activeTab, setActiveTab] = useState('dpp');
     const [comp, setComp] = useState(0);
     const [acc, setAcc] = useState(0);
     const [selectedActivity, setSelectedActivity] = useState(null);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [newAssignmentName, setNewAssignmentName] = useState('');
+    const [newAssignmentLink, setNewAssignmentLink] = useState('');
+    // Inline edit state: tracks which assignment URL is being edited and the draft name
+    const [editingAssignmentUrl, setEditingAssignmentUrl] = useState(null);
+    const [editDraftName, setEditDraftName] = useState('');
+
+    const handleSaveNewAssignment = () => {
+        if (!newAssignmentName.trim()) {
+            if (showToast) showToast("Please enter an assignment name.", "error");
+            return;
+        }
+        if (!newAssignmentLink.trim()) {
+            if (showToast) showToast("Please enter an assignment PDF link.", "error");
+            return;
+        }
+        try {
+            new URL(newAssignmentLink.trim());
+        } catch (e) {
+            if (showToast) showToast("Please enter a valid URL (e.g. https://...).", "error");
+            return;
+        }
+
+        const currentAssignments = chapterData?.assignments || [];
+        const newUrlNormalized = normalizeUrl(newAssignmentLink);
+        if (currentAssignments.some(a => normalizeUrl(a.url) === newUrlNormalized)) {
+            if (showToast) showToast("An assignment with this link already exists.", "error");
+            return;
+        }
+
+        if (setDeletedAssignmentUrls) {
+            setDeletedAssignmentUrls(prev => prev.filter(url => normalizeUrl(url) !== newUrlNormalized));
+        }
+
+        const updatedAssignments = [...currentAssignments, { 
+            name: newAssignmentName.trim(), 
+            url: newAssignmentLink.trim(),
+            questionCount: 0,
+            questionStates: {}
+        }];
+
+        if (onUpdateAssignments) {
+            onUpdateAssignments(updatedAssignments);
+        }
+
+        setNewAssignmentName('');
+        setNewAssignmentLink('');
+        setShowAddForm(false);
+        if (showToast) showToast("Manual assignment added successfully!", "success");
+    };
+
+    const handleAssignmentCardClick = (idx) => {
+        if (onOpenAssignmentTracker) {
+            onOpenAssignmentTracker(idx);
+            onClose();
+        }
+    };
+
+    const handleStartEdit = (assignment, e) => {
+        e.stopPropagation();
+        setEditingAssignmentUrl(normalizeUrl(assignment.url));
+        setEditDraftName(assignment.name);
+    };
+
+    const handleSaveEdit = (assignment, e) => {
+        if (e) e.stopPropagation();
+        if (!editDraftName.trim()) {
+            if (showToast) showToast("Assignment name cannot be empty.", "error");
+            return;
+        }
+        const currentAssignments = chapterData?.assignments || [];
+        const targetNormUrl = normalizeUrl(assignment.url);
+        const updatedAssignments = currentAssignments.map(a => {
+            if (normalizeUrl(a.url) === targetNormUrl) {
+                return { ...a, name: editDraftName.trim() };
+            }
+            return a;
+        });
+        if (onUpdateAssignments) {
+            onUpdateAssignments(updatedAssignments);
+        }
+        setEditingAssignmentUrl(null);
+        setEditDraftName('');
+        if (showToast) showToast("Assignment name updated!", "success");
+    };
+
+    const handleCancelEdit = (e) => {
+        if (e) e.stopPropagation();
+        setEditingAssignmentUrl(null);
+        setEditDraftName('');
+    };
+
+    const handleDeleteAssignment = (assignment, e) => {
+        e.stopPropagation();
+        if (requestConfirm) {
+            requestConfirm(
+                "Delete Assignment",
+                `Are you sure you want to delete the assignment "${assignment.name}"? This will permanently delete it and its question tracking data.`,
+                () => {
+                    // Delete by URL match instead of fragile index
+                    const targetNormUrl = normalizeUrl(assignment.url);
+                    const updatedAssignments = (chapterData?.assignments || []).filter(a => normalizeUrl(a.url) !== targetNormUrl);
+                    if (onUpdateAssignments) {
+                        onUpdateAssignments(updatedAssignments);
+                    }
+                    if (setDeletedAssignmentUrls) {
+                        setDeletedAssignmentUrls(prev => [...prev, targetNormUrl]);
+                    }
+                    if (showToast) {
+                        showToast("Assignment deleted successfully!", "success");
+                    }
+                }
+            );
+        }
+    };
 
     // Load initial values when tab or chapter changes
     useEffect(() => {
@@ -226,6 +349,17 @@ const ProgressModal = ({
         };
     }, [tabActivities]);
 
+    const nonDeletedAssignments = useMemo(() => {
+        if (!chapterData || !chapterData.assignments) return [];
+        return chapterData.assignments.map((assignment, originalIdx) => ({
+            ...assignment,
+            originalIdx
+        })).filter(a => {
+            const normalized = normalizeUrl(a.url);
+            return !(deletedAssignmentUrls || []).some(delUrl => normalizeUrl(delUrl) === normalized);
+        });
+    }, [chapterData, deletedAssignmentUrls]);
+
     const handleSave = () => {
         onSave(activeTab, { comp: parseInt(comp), acc: parseInt(acc) });
         onClose();
@@ -332,47 +466,157 @@ const ProgressModal = ({
 
                     {activeTab === 'assignments' && (
                         <div className="space-y-3 mb-6">
-                            {(!chapterData || !chapterData.assignments || chapterData.assignments.length === 0) ? (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Manual & Synced</span>
+                                <button 
+                                    onClick={() => setShowAddForm(!showAddForm)}
+                                    className="py-1.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20"
+                                >
+                                    <i className={`ph-bold ${showAddForm ? 'ph-minus' : 'ph-plus'} text-sm`}></i>
+                                    {showAddForm ? 'Cancel' : 'Add Assignment'}
+                                </button>
+                            </div>
+
+                            {showAddForm && (
+                                <div className="p-4 bg-slate-900/60 border border-slate-700/60 rounded-2xl space-y-3 shadow-lg animate-in slide-in-from-top-2 duration-200 mb-2">
+                                    <h4 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider">Add Manual Assignment</h4>
+                                    <div className="space-y-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Assignment Name (e.g. DPP 01)" 
+                                            value={newAssignmentName} 
+                                            onChange={(e) => setNewAssignmentName(e.target.value)} 
+                                            className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                        />
+                                        <input 
+                                            type="url" 
+                                            placeholder="Assignment PDF Link (https://...)" 
+                                            value={newAssignmentLink} 
+                                            onChange={(e) => setNewAssignmentLink(e.target.value)} 
+                                            className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                        <button 
+                                            onClick={() => setShowAddForm(false)} 
+                                            className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={handleSaveNewAssignment} 
+                                            className="py-1.5 px-3 bg-gradient-to-r from-emerald-650 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-extrabold rounded-lg transition-all"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {nonDeletedAssignments.length === 0 ? (
                                 <div className="text-center bg-slate-900/40 border border-slate-700/50 rounded-2xl p-8 flex flex-col items-center">
                                     <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-3 text-lg">
                                         📄
                                     </div>
                                     <h4 className="text-sm font-bold text-slate-300 mb-1">No Sync'd Assignments</h4>
                                     <p className="text-xs text-slate-400 max-w-[240px] leading-relaxed">
-                                        Sync assignments automatically by opening assignment PDFs on PW batches.
+                                        Sync assignments automatically by opening assignment PDFs on PW batches or add manually.
                                     </p>
                                 </div>
                             ) : (
                                 <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                                    {chapterData.assignments.map((assignment, idx) => (
+                                    {nonDeletedAssignments.map((assignment) => {
+                                        const isEditing = editingAssignmentUrl === normalizeUrl(assignment.url);
+                                        return (
                                         <div 
-                                            key={idx} 
-                                            className="p-4 bg-slate-950/40 border border-slate-700/50 rounded-2xl flex items-center justify-between gap-3 hover:bg-slate-900/60 hover:border-slate-600 transition-all backdrop-blur-md relative overflow-hidden"
+                                            key={assignment.url} 
+                                            onClick={() => !isEditing && handleAssignmentCardClick(assignment.originalIdx)}
+                                            className={`p-4 bg-slate-950/40 border border-slate-700/50 rounded-2xl flex items-center justify-between gap-3 hover:bg-slate-900/60 hover:border-slate-600 transition-all backdrop-blur-md relative overflow-hidden ${isEditing ? '' : 'cursor-pointer'}`}
+                                            title={isEditing ? '' : 'Click to open Interactive Assignment Question Tracker'}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0 text-orange-400 text-base">
                                                     📄
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="text-sm font-bold text-slate-200 truncate pr-2" title={assignment.name}>
-                                                        {assignment.name}
-                                                    </h4>
+                                                    {isEditing ? (
+                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                            <input
+                                                                type="text"
+                                                                value={editDraftName}
+                                                                onChange={(e) => setEditDraftName(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                                    if (e.key === 'Escape') handleCancelEdit(e);
+                                                                }}
+                                                                className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-sm font-bold text-slate-200 outline-none focus:border-emerald-500 transition-all w-[160px]"
+                                                                autoFocus
+                                                            />
+                                                            <button
+                                                                onClick={(e) => handleSaveEdit(assignment, e)}
+                                                                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-all"
+                                                                title="Save"
+                                                            >
+                                                                <i className="ph-bold ph-check text-sm"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="p-1.5 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg transition-all"
+                                                                title="Cancel"
+                                                            >
+                                                                <i className="ph-bold ph-x text-sm"></i>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <h4 className="text-sm font-bold text-slate-200 truncate pr-2" title={assignment.name}>
+                                                            {assignment.name}
+                                                        </h4>
+                                                    )}
                                                     <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
                                                         {assignment.url}
                                                     </p>
+                                                    {assignment.questionCount > 0 && (
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                                                                {Object.values(assignment.questionStates || {}).filter(s => s === 'completed').length} / {assignment.questionCount} Solved
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <a 
-                                                href={assignment.url} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="py-2 px-3 bg-gradient-to-r from-orange-600 to-red-650 hover:from-orange-500 hover:to-red-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-md shadow-orange-950/20"
-                                            >
-                                                <i className="ph-bold ph-arrow-square-out text-sm"></i>
-                                                Open
-                                            </a>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <a 
+                                                    href={assignment.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="py-2 px-3 bg-gradient-to-r from-orange-600 to-red-650 hover:from-orange-500 hover:to-red-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-md shadow-orange-950/20"
+                                                >
+                                                    <i className="ph-bold ph-arrow-square-out text-sm"></i>
+                                                    Open
+                                                </a>
+                                                {!isEditing && (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => handleStartEdit(assignment, e)}
+                                                        className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
+                                                        title="Edit assignment name"
+                                                    >
+                                                        <i className="ph-bold ph-pencil-simple text-sm"></i>
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => handleDeleteAssignment(assignment, e)}
+                                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
+                                                    title="Delete assignment"
+                                                >
+                                                    <i className="ph-bold ph-trash text-sm"></i>
+                                                </button>
+                                            </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

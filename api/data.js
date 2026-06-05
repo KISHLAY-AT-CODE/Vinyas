@@ -3,6 +3,7 @@ import { connectToDatabase } from './db.js';
 import { calculateAchievements, getAllAchievementsStatus } from './achievements_config.js';
 import { getISTISOString, getISTLogPrefix } from './timezone.js';
 import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
+import { normalizeUrl } from '../src/shared/normalize.js';
 import { resolveUser, hashSyncId } from './shared/auth.js';
 
 export default async function handler(req, res) {
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
     } 
     
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings } = req.body;
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings, deletedAssignmentUrls } = req.body;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
@@ -152,7 +153,12 @@ export default async function handler(req, res) {
                   if (Array.isArray(exCh.assignments)) {
                     if (!ch.assignments) ch.assignments = [];
                     exCh.assignments.forEach(exAss => {
-                      if (!ch.assignments.some(a => a.url === exAss.url)) {
+                      // Skip adding back if explicitly deleted by client
+                      const normExUrl = normalizeUrl(exAss.url);
+                      if (Array.isArray(deletedAssignmentUrls) && deletedAssignmentUrls.some(u => normalizeUrl(u) === normExUrl)) {
+                        return;
+                      }
+                      if (!ch.assignments.some(a => normalizeUrl(a.url) === normExUrl)) {
                         ch.assignments.push(exAss);
                       }
                     });
@@ -191,6 +197,24 @@ export default async function handler(req, res) {
 
       const calculatedAchievements = calculateAchievements(tempUserDoc);
       const allAchievements = getAllAchievementsStatus(tempUserDoc);
+      // Prune stale deletedAssignmentUrls: only keep URLs that exist in server-side existing data's assignments
+      // (since only those could be re-merged). This prevents the list from growing indefinitely.
+      let prunedDeletedUrls = deletedAssignmentUrls || [];
+      if (userDoc && userDoc.data && Array.isArray(prunedDeletedUrls) && prunedDeletedUrls.length > 0) {
+        const baseTemplateForPrune = loadTemplate(cohort || 'JEE Mains');
+        const existingSyllabusForPrune = deserializeSyllabus(userDoc.data, baseTemplateForPrune);
+        const allExistingAssignmentUrls = new Set();
+        existingSyllabusForPrune.forEach(sub => {
+          if (!sub || !Array.isArray(sub.chapters)) return;
+          sub.chapters.forEach(ch => {
+            if (!ch || !Array.isArray(ch.assignments)) return;
+            ch.assignments.forEach(a => {
+              if (a && a.url) allExistingAssignmentUrls.add(normalizeUrl(a.url));
+            });
+          });
+        });
+        prunedDeletedUrls = prunedDeletedUrls.filter(u => allExistingAssignmentUrls.has(normalizeUrl(u)));
+      }
 
       // Serialize the incoming full syllabus data (diff against the base template)
       const baseTemplate = loadTemplate(cohort || 'JEE Mains');
@@ -208,6 +232,7 @@ export default async function handler(req, res) {
           email: email || '',
           autoBackupEnabled: autoBackupEnabled || false,
           sessions,
+          deletedAssignmentUrls: prunedDeletedUrls,
           lastUpdated: getISTISOString()
         },
         $unset: {

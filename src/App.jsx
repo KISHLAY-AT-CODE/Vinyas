@@ -8,6 +8,7 @@ import Modals from './components/Modals';
 import SearchOverlay from './components/SearchOverlay';
 import ProgressModal from './components/ProgressModal';
 import ModuleQuestionTrackerModal from './components/ModuleQuestionTrackerModal';
+import AssignmentQuestionTrackerModal from './components/AssignmentQuestionTrackerModal';
 import MorningPlannerModal from './components/MorningPlannerModal';
 import NightlyWrapUpModal from './components/NightlyWrapUpModal';
 import AchievementToast from './components/AchievementToast';
@@ -90,6 +91,8 @@ const App = () => {
         });
     }, []);
 
+    const [activeAssignmentTracker, setActiveAssignmentTracker] = useState(null);
+
     // Page loading animation state (only for app boot & dev testing)
     const [isLoadingPage, setIsLoadingPage] = useState(false);
 
@@ -137,7 +140,9 @@ const App = () => {
         handleSendTestBackupMail,
         triggerSave,
         flushSave,
-        stateRef
+        stateRef,
+        deletedAssignmentUrls,
+        setDeletedAssignmentUrls
     } = useDatabaseSync({
         showToast,
         requestConfirm,
@@ -299,7 +304,8 @@ const App = () => {
         syncId, isLoaded, cohort, email, autoBackupEnabled, userName,
         loadAchievements, resetAchievements, achievements,
         flushSave, showToast, requestConfirm,
-        setActiveSubjectIdx, activeSubjectIdx
+        setActiveSubjectIdx, activeSubjectIdx,
+        deletedAssignmentUrls, setDeletedAssignmentUrls
     });
 
     // Auto-save useEffect to synchronize state and trigger DB updates
@@ -308,7 +314,7 @@ const App = () => {
             syncId, data, routines, testLogs, achievements,
             targetDate, cohort, resolvedActivityIds, email,
             autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion,
-            userName, themeSettings
+            userName, themeSettings, deletedAssignmentUrls
         };
         if (isLoaded && syncId) {
             triggerSave();
@@ -316,7 +322,7 @@ const App = () => {
     }, [data, routines, testLogs, achievements, targetDate, cohort,
         resolvedActivityIds, email, autoBackupEnabled,
         lastSeenAppVersion, lastSeenExtVersion, userName,
-        syncId, isLoaded, triggerSave, themeSettings]);
+        syncId, isLoaded, triggerSave, themeSettings, deletedAssignmentUrls]);
 
     useEffect(() => {
         if (isLoaded && data && data.length > 0) {
@@ -727,6 +733,93 @@ const App = () => {
         handleNestedUpdate(sIdx, cIdx, section, 'acc', acc);
     };
 
+    const handleUpdateAssignments = (sIdx, cIdx, updatedAssignments) => {
+        setData(prevData => prevData.map((sub, idx) => {
+            if (idx !== sIdx) return sub;
+            return {
+                ...sub,
+                chapters: sub.chapters.map((ch, chIdx) => {
+                    if (chIdx !== cIdx) return ch;
+                    return { ...ch, assignments: updatedAssignments };
+                })
+            };
+        }));
+    };
+
+    const handleSaveAssignmentProgress = async (sIdx, cIdx, assignmentIdx, { questionCount, questionStates }) => {
+        let finalCount = questionCount;
+        let finalStates = { ...questionStates };
+
+        const updatedData = data.map((sub, subIdx) => {
+            if (subIdx !== sIdx) return sub;
+            return {
+                ...sub,
+                chapters: sub.chapters.map((ch, chIdx) => {
+                    if (chIdx !== cIdx) return ch;
+                    return {
+                        ...ch,
+                        assignments: (ch.assignments || []).map((ass, assIdx) => {
+                            if (assIdx !== assignmentIdx) return ass;
+                            return {
+                                ...ass,
+                                questionCount: finalCount,
+                                questionStates: finalStates
+                            };
+                        })
+                    };
+                })
+            };
+        });
+
+        setData(updatedData);
+
+        // Build payload using stateRef for all fields EXCEPT data, which we use the freshly updated version
+        const currentState = stateRef.current;
+        const payload = {
+            syncId: currentState.syncId,
+            data: updatedData,
+            routines: currentState.routines,
+            testLogs: currentState.testLogs,
+            achievements: currentState.achievements,
+            targetDate: currentState.targetDate,
+            cohort: currentState.cohort,
+            resolvedActivityIds: currentState.resolvedActivityIds,
+            email: currentState.email,
+            autoBackupEnabled: currentState.autoBackupEnabled,
+            lastSeenAppVersion: currentState.lastSeenAppVersion,
+            lastSeenExtVersion: currentState.lastSeenExtVersion,
+            userName: currentState.userName,
+            themeSettings: currentState.themeSettings,
+            deletedAssignmentUrls: currentState.deletedAssignmentUrls || []
+        };
+
+        try {
+            const response = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save to database');
+            }
+
+            const resData = await response.json();
+            handleSaveResponse(resData);
+
+            logEvent('DB_SAVE_SUCCESS', { 
+                message: 'Successfully saved and synced assignment questions to MongoDB.',
+                chapter: data[sIdx]?.chapters[cIdx]?.name
+            }, 'success');
+            return { success: true };
+        } catch (err) {
+            console.error('Error saving assignment progress directly:', err);
+            logEvent('DB_SAVE_ERROR', { error: err.message }, 'error');
+            return { success: false, error: err.message };
+        }
+    };
+
+
     const handleLogNightlyTextAndImage = (sIdx, cIdx, template, textLog, resourceNumber) => {
         const resourceText = resourceNumber ? ` #${resourceNumber}` : '';
         if (template === 'mock') {
@@ -1129,6 +1222,21 @@ const App = () => {
                         currentModuleAcc: chapter.module?.acc || 0
                     });
                 }}
+                sIdx={activeProgressChapter?.sIdx}
+                cIdx={activeProgressChapter?.cIdx}
+                requestConfirm={requestConfirm}
+                showToast={showToast}
+                onUpdateAssignments={(updatedAssignments) => handleUpdateAssignments(activeProgressChapter.sIdx, activeProgressChapter.cIdx, updatedAssignments)}
+                onOpenAssignmentTracker={(assignmentIdx) => {
+                    if (!activeProgressChapter) return;
+                    setActiveAssignmentTracker({
+                        sIdx: activeProgressChapter.sIdx,
+                        cIdx: activeProgressChapter.cIdx,
+                        assignmentIdx
+                    });
+                }}
+                deletedAssignmentUrls={deletedAssignmentUrls}
+                setDeletedAssignmentUrls={setDeletedAssignmentUrls}
             />
 
             <ModuleQuestionTrackerModal 
@@ -1201,6 +1309,24 @@ const App = () => {
                         return { success: false, error: err.message };
                     }
                 }}
+            />
+
+            <AssignmentQuestionTrackerModal
+                isOpen={activeAssignmentTracker !== null}
+                onClose={() => setActiveAssignmentTracker(null)}
+                subjectName={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] ? data[activeAssignmentTracker.sIdx].name : ''}
+                chapterName={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] ? data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].name : ''}
+                assignmentName={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].name : ''}
+                assignmentUrl={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].url : ''}
+                questionCount={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionCount || 0) : 0}
+                questionStates={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionStates || {}) : {}}
+                onSaveProgress={(progress) => {
+                    if (!activeAssignmentTracker) return { success: false };
+                    const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
+                    return handleSaveAssignmentProgress(sIdx, cIdx, assignmentIdx, progress);
+                }}
+                showToast={showToast}
+                requestConfirm={requestConfirm}
             />
 
             <MorningPlannerModal 
