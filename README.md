@@ -435,6 +435,18 @@ Ensure all environment variables are configured in your Vercel project settings.
 ### v1.0.0 (April 20, 2026)
 - 🚀 **Initial Release**: The core syllabus tracker dashboard with gamification.
 - 🔄 **Chrome Extension**: Companion browser extension to automatically track your study activity.
+---
+
+## 🧠 What I Learned
+
+- Full-stack deployment and maintenance using Vercel.
+- MongoDB Atlas database management and free-tier optimization.
+- Product design and software architecture fundamentals.
+- Debugging and validating AI-generated code.
+- Prompt engineering for complex software projects.
+- Security awareness and vulnerability reduction.
+- Performance optimization under infrastructure constraints.
+- Human–AI collaborative software development workflows.
 
 ---
 
