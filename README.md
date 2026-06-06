@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong><br>
-  <em>Experimental App Vibe coded in Antigravity. The details below in the app is written by AI.</em>
+  <em>This is an experimental project built using Antigravity, an AI-first coding environment. Development involved extensive AI assistance, while project direction, testing, debugging, deployment, and optimization were handled manually. The README below is AI-generated, except for the Learning Section.</em>
 </p>
 
 <p align="center">
