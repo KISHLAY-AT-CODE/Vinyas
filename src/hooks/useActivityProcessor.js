@@ -35,11 +35,13 @@ export const useActivityProcessor = ({
     const [lastActivitiesFetchTime, setLastActivitiesFetchTime] = useState(null);
 
     // --- Background Activity Polling ---
-    const pollActivities = useCallback(async () => {
+    const pollActivities = useCallback(async (showSuccessToast = true, skipFlush = false) => {
         if (!syncId || !isLoaded) return;
         try {
             setIsPollingActivities(true);
-            await flushSave();
+            if (!skipFlush) {
+                await flushSave();
+            }
             const response = await fetch(`/api/data?syncId=${encodeURIComponent(syncId)}&_t=${Date.now()}`);
             if (response.ok) {
                 const serverData = await response.json();
@@ -81,7 +83,9 @@ export const useActivityProcessor = ({
                     }
                     
                     setLastActivitiesFetchTime(getISTTimeString(new Date()));
-                    showToast("Database successfully refreshed!", "success");
+                    if (showSuccessToast) {
+                        showToast("Database successfully refreshed!", "success");
+                    }
                 }
             }
         } catch (err) {
@@ -289,6 +293,41 @@ export const useActivityProcessor = ({
                         if (subjectName && chapterName && chapterTitle) {
                             const sIdx = nextData.findIndex(s => s.name.trim().toLowerCase() === subjectName.trim().toLowerCase());
                             if (sIdx !== -1) {
+                                const hasCh = nextData[sIdx].chapters.some(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase() || (c.altNames && c.altNames.includes(chapterTitle)));
+                                if (!hasCh) {
+                                    const newCh = {
+                                        name: chapterName,
+                                        status: 'None',
+                                        lectures: 0,
+                                        log: '',
+                                        dpp: { acc: 0, comp: 0 },
+                                        module: { acc: 0, comp: 0 },
+                                        dppLogs: {},
+                                        moduleLogs: {},
+                                        customExerciseConfig: null,
+                                        exerciseDisplayNames: null,
+                                        moduleQuestionStates: {},
+                                        focusTime: 0,
+                                        reviewsDone: 0,
+                                        nextReview: null,
+                                        lastReviewRating: null,
+                                        assignments: [],
+                                        altNames: [chapterTitle]
+                                    };
+                                    nextData[sIdx] = {
+                                        ...nextData[sIdx],
+                                        chapters: [...nextData[sIdx].chapters, newCh]
+                                    };
+                                }
+                                matchedSubjectIdx = sIdx;
+                                matchedChapterIdx = nextData[sIdx].chapters.findIndex(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase());
+                                updated = true;
+                            }
+                        }
+                    } else if (mode === 'create_subject') {
+                        if (newSubjectName && chapterName && chapterTitle) {
+                            let sIdx = nextData.findIndex(s => s.name.trim().toLowerCase() === newSubjectName.trim().toLowerCase());
+                            if (sIdx === -1) {
                                 const newCh = {
                                     name: chapterName,
                                     status: 'None',
@@ -308,48 +347,48 @@ export const useActivityProcessor = ({
                                     assignments: [],
                                     altNames: [chapterTitle]
                                 };
-                                nextData[sIdx] = {
-                                    ...nextData[sIdx],
-                                    chapters: [...nextData[sIdx].chapters, newCh]
+                                const newSub = {
+                                    name: newSubjectName,
+                                    color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                                           newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                                           newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
+                                           newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+                                    books: [],
+                                    chapters: [newCh]
                                 };
+                                nextData.push(newSub);
+                                matchedSubjectIdx = nextData.length - 1;
+                                matchedChapterIdx = 0;
+                            } else {
+                                const hasCh = nextData[sIdx].chapters.some(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase() || (c.altNames && c.altNames.includes(chapterTitle)));
+                                if (!hasCh) {
+                                    const newCh = {
+                                        name: chapterName,
+                                        status: 'None',
+                                        lectures: 0,
+                                        log: '',
+                                        dpp: { acc: 0, comp: 0 },
+                                        module: { acc: 0, comp: 0 },
+                                        dppLogs: {},
+                                        moduleLogs: {},
+                                        customExerciseConfig: null,
+                                        exerciseDisplayNames: null,
+                                        moduleQuestionStates: {},
+                                        focusTime: 0,
+                                        reviewsDone: 0,
+                                        nextReview: null,
+                                        lastReviewRating: null,
+                                        assignments: [],
+                                        altNames: [chapterTitle]
+                                    };
+                                    nextData[sIdx] = {
+                                        ...nextData[sIdx],
+                                        chapters: [...nextData[sIdx].chapters, newCh]
+                                    };
+                                }
                                 matchedSubjectIdx = sIdx;
-                                matchedChapterIdx = nextData[sIdx].chapters.length - 1;
-                                updated = true;
+                                matchedChapterIdx = nextData[sIdx].chapters.findIndex(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase());
                             }
-                        }
-                    } else if (mode === 'create_subject') {
-                        if (newSubjectName && chapterName && chapterTitle) {
-                            const newCh = {
-                                name: chapterName,
-                                status: 'None',
-                                lectures: 0,
-                                log: '',
-                                dpp: { acc: 0, comp: 0 },
-                                module: { acc: 0, comp: 0 },
-                                dppLogs: {},
-                                moduleLogs: {},
-                                customExerciseConfig: null,
-                                exerciseDisplayNames: null,
-                                moduleQuestionStates: {},
-                                focusTime: 0,
-                                reviewsDone: 0,
-                                nextReview: null,
-                                lastReviewRating: null,
-                                assignments: [],
-                                altNames: [chapterTitle]
-                            };
-                            const newSub = {
-                                name: newSubjectName,
-                                color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
-                                       newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
-                                       newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
-                                       newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
-                                books: [],
-                                chapters: [newCh]
-                            };
-                            nextData.push(newSub);
-                            matchedSubjectIdx = nextData.length - 1;
-                            matchedChapterIdx = 0;
                             updated = true;
                         }
                     }
@@ -390,9 +429,41 @@ export const useActivityProcessor = ({
                                 if (isDeleted && setDeletedAssignmentUrls) {
                                     setDeletedAssignmentUrls(prev => prev.filter(u => normalizeUrl(u) !== normActUrl));
                                 }
-                                if (!ch.assignments.some(a => normalizeUrl(a.url) === normActUrl)) {
-                                    ch.assignments.push({ name: actDetails.assignmentName, url: actDetails.url });
+                                
+                                // Find if it already exists in the syllabus to preserve progress
+                                let existingAssignment = null;
+                                for (let s = 0; s < nextData.length; s++) {
+                                    for (let c = 0; c < nextData[s].chapters.length; c++) {
+                                        const tempCh = nextData[s].chapters[c];
+                                        if (tempCh.assignments) {
+                                            const aIdx = tempCh.assignments.findIndex(a => normalizeUrl(a.url) === normActUrl);
+                                            if (aIdx !== -1) {
+                                                existingAssignment = tempCh.assignments[aIdx];
+                                                // Remove from old chapter
+                                                const updatedTempCh = {
+                                                    ...tempCh,
+                                                    assignments: tempCh.assignments.filter(a => normalizeUrl(a.url) !== normActUrl)
+                                                };
+                                                nextData[s].chapters[c] = updatedTempCh;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (existingAssignment) break;
                                 }
+
+                                const updatedAssignment = {
+                                    name: actDetails.assignmentName,
+                                    type: actDetails.assignmentType || 'DPP',
+                                    url: actDetails.url,
+                                    questionCount: actDetails.questionCount || (existingAssignment ? (existingAssignment.questionCount || 0) : 0),
+                                    questionStates: actDetails.questionStates || (existingAssignment ? (existingAssignment.questionStates || {}) : {}),
+                                    questionRemarks: actDetails.questionRemarks || (existingAssignment ? (existingAssignment.questionRemarks || {}) : {})
+                                };
+
+                                // Remove existing assignment from target chapter to prevent duplicate entry
+                                ch.assignments = ch.assignments.filter(a => normalizeUrl(a.url) !== normActUrl);
+                                ch.assignments.push(updatedAssignment);
                             } else if (actType === 'BOOK_CHAPTER_SUBMISSION') {
                                 const sub = { ...nextData[matchedSubjectIdx] };
                                 if (!sub.books) sub.books = [];
@@ -673,28 +744,56 @@ export const useActivityProcessor = ({
                         const ch = nextData[sIdx].chapters[cIdx];
                         const isAlreadyResolved = nextResolvedIdsSet.has(act.id);
                         
-                        if (!ch.assignments) {
-                            ch.assignments = [];
+                        // Find if it already exists in the syllabus to preserve progress
+                        let existingAssignment = null;
+                        const normActUrl = normalizeUrl(details.url);
+                        for (let s = 0; s < nextData.length; s++) {
+                            for (let c = 0; c < nextData[s].chapters.length; c++) {
+                                const tempCh = nextData[s].chapters[c];
+                                if (tempCh.assignments) {
+                                    const aIdx = tempCh.assignments.findIndex(a => normalizeUrl(a.url) === normActUrl);
+                                    if (aIdx !== -1) {
+                                        existingAssignment = tempCh.assignments[aIdx];
+                                        // Remove from old chapter
+                                        const updatedTempCh = {
+                                            ...tempCh,
+                                            assignments: tempCh.assignments.filter(a => normalizeUrl(a.url) !== normActUrl)
+                                        };
+                                        nextData[s].chapters[c] = updatedTempCh;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (existingAssignment) break;
                         }
 
-                        if (!ch.assignments.some(a => a.url === details.url) || !isAlreadyResolved) {
-                            const updatedCh = { 
-                                ...ch,
-                                assignments: ch.assignments ? [...ch.assignments] : []
-                            };
-                            if (!updatedCh.assignments.some(a => a.url === details.url)) {
-                                updatedCh.assignments.push({ name: details.assignmentName, url: details.url });
-                            }
-                            
-                            nextData[sIdx] = { ...nextData[sIdx], chapters: [...nextData[sIdx].chapters] };
-                            nextData[sIdx].chapters[cIdx] = updatedCh;
-                            syllabusUpdated = true;
+                        const updatedCh = { 
+                            ...ch,
+                            assignments: ch.assignments ? [...ch.assignments] : []
+                        };
 
-                            if (!isAlreadyResolved) {
-                                nextResolvedIds.push(act.id);
-                                nextResolvedIdsSet.add(act.id);
-                                resolvedIdsUpdated = true;
-                            }
+                        // Construct the assignment preserving the progress
+                        const updatedAssignment = {
+                            name: details.assignmentName,
+                            type: details.assignmentType || 'DPP',
+                            url: details.url,
+                            questionCount: details.questionCount || (existingAssignment ? (existingAssignment.questionCount || 0) : 0),
+                            questionStates: details.questionStates || (existingAssignment ? (existingAssignment.questionStates || {}) : {}),
+                            questionRemarks: details.questionRemarks || (existingAssignment ? (existingAssignment.questionRemarks || {}) : {})
+                        };
+
+                        // Remove existing assignment from target chapter to prevent duplicate entry
+                        updatedCh.assignments = updatedCh.assignments.filter(a => normalizeUrl(a.url) !== normActUrl);
+                        updatedCh.assignments.push(updatedAssignment);
+                        
+                        nextData[sIdx] = { ...nextData[sIdx], chapters: [...nextData[sIdx].chapters] };
+                        nextData[sIdx].chapters[cIdx] = updatedCh;
+                        syllabusUpdated = true;
+
+                        if (!isAlreadyResolved) {
+                            nextResolvedIds.push(act.id);
+                            nextResolvedIdsSet.add(act.id);
+                            resolvedIdsUpdated = true;
                         }
                     }
                 }

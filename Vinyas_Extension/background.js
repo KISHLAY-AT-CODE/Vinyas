@@ -58,6 +58,29 @@ function cleanRecentTabs() {
     recentlyCreatedTabs = recentlyCreatedTabs.filter(t => now - t.time < 3000);
 }
 
+function broadcastActionToDashboard(action, data) {
+    try {
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                const url = tab.url || '';
+                if (url.includes('localhost:') || url.includes('127.0.0.1') || url.includes('.vercel.app')) {
+                    console.log(`[Vinyas Tracker Background] Broadcasting ${action} to dashboard tab:`, tab.id, url);
+                    chrome.tabs.sendMessage(tab.id, {
+                        action: action,
+                        data: data
+                    }, () => {
+                        if (chrome.runtime.lastError) {
+                            // Silent ignore if the message handler is not yet registered in this tab
+                        }
+                    });
+                }
+            });
+        });
+    } catch (e) {
+        console.error(`[Vinyas Tracker Background] Error in broadcasting ${action}:`, e);
+    }
+}
+
 function sendActivityToApi(logData) {
     const { syncId, apiUrl, type, details, timestamp } = logData;
     
@@ -81,6 +104,7 @@ function sendActivityToApi(logData) {
             console.error("[Vinyas Tracker Background] Failed to log activity to API. Status:", response.status, "Error:", errText);
         } else {
             console.log("[Vinyas Tracker Background] Successfully logged activity.");
+            broadcastActionToDashboard('syncRefresh');
         }
     })
     .catch(err => {
@@ -104,7 +128,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
         }
 
-        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkUrl=${encodeURIComponent(url)}`)
+        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkUrl=${encodeURIComponent(url)}`, { cache: 'no-store' })
         .then(async response => {
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
@@ -138,7 +162,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
         }
 
-        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkAssignmentUrl=${encodeURIComponent(url)}`)
+        fetch(`${apiUrl}/api/activity?syncId=${encodeURIComponent(syncId)}&checkAssignmentUrl=${encodeURIComponent(url)}`, { cache: 'no-store' })
         .then(async response => {
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
@@ -147,7 +171,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return response.json();
         })
         .then(data => {
-            sendResponse({ exists: !!data.exists });
+            sendResponse({ exists: !!data.exists, assignmentData: data.assignmentData || null });
         })
         .catch(err => {
             console.error("[Vinyas Tracker Background] Error checking assignment URL existence:", err);
@@ -158,7 +182,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === "addAssignment") {
-        const { syncId, apiUrl, chapterName, assignmentName, url } = message.data;
+        const { syncId, apiUrl, subjectName, chapterName, assignmentName, assignmentType, url } = message.data;
 
         if (!syncId || !apiUrl) {
             console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for addAssignment");
@@ -181,8 +205,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 syncId,
                 type: 'ADD_ASSIGNMENT',
                 details: {
+                    subjectName,
                     chapterName,
                     assignmentName,
+                    assignmentType,
                     url
                 }
             })
@@ -195,10 +221,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return response.json();
         })
         .then(data => {
+            broadcastActionToDashboard('syncRefresh');
             sendResponse({ success: true, unresolved: !!data.unresolved });
         })
         .catch(err => {
             console.error("[Vinyas Tracker Background] Error adding assignment:", err);
+            sendResponse({ success: false, error: err.message });
+        });
+
+        return true; // Handle asynchronously
+    }
+
+    if (message.action === "syncAssignmentProgress") {
+        const { syncId, apiUrl, url, questionCount, questionStates, questionRemarks } = message.data;
+
+        if (!syncId || !apiUrl) {
+            console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for syncAssignmentProgress");
+            sendResponse({ success: false, error: "Missing Sync ID or API URL" });
+            return true;
+        }
+
+        if (!isValidApiUrl(apiUrl)) {
+            console.error("[Vinyas Tracker Background] Blocked invalid or unsafe API URL for syncAssignmentProgress:", apiUrl);
+            sendResponse({ success: false, error: "Invalid or unsafe API URL" });
+            return true;
+        }
+
+        fetch(`${apiUrl}/api/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                syncId,
+                type: 'SYNC_ASSIGNMENT_PROGRESS',
+                details: { url, questionCount, questionStates, questionRemarks }
+            })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(errText || `HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            broadcastActionToDashboard('syncRefresh');
+            sendResponse({ success: true });
+        })
+        .catch(err => {
+            console.error("[Vinyas Tracker Background] Error syncing assignment progress:", err);
             sendResponse({ success: false, error: err.message });
         });
 
@@ -303,33 +373,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Otherwise, send directly (e.g. video progress, DPP scores)
         sendActivityToApi(logData);
         if (type === 'INTERACTIVE_QUESTION_UPDATE') {
-            broadcastQuestionUpdateToDashboard(details);
+            broadcastActionToDashboard('syncQuestionUpdate', details);
         }
         sendResponse({ success: true });
         return true;
-    }
-
-    function broadcastQuestionUpdateToDashboard(details) {
-        try {
-            chrome.tabs.query({}, (tabs) => {
-                tabs.forEach(tab => {
-                    const url = tab.url || '';
-                    if (url.includes('localhost:') || url.includes('127.0.0.1') || url.includes('.vercel.app')) {
-                        console.log("[Vinyas Tracker Background] Broadcasting syncQuestionUpdate to dashboard tab:", tab.id, url);
-                        chrome.tabs.sendMessage(tab.id, {
-                            action: "syncQuestionUpdate",
-                            data: details
-                        }, () => {
-                            if (chrome.runtime.lastError) {
-                                // Silent ignore if the message handler is not yet registered in this tab
-                            }
-                        });
-                    }
-                });
-            });
-        } catch (e) {
-            console.error("[Vinyas Tracker Background] Error in broadcasting question update:", e);
-        }
     }
 
     if (message.action === "dashboardSyllabusUpdate") {

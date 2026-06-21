@@ -368,4 +368,40 @@ document.addEventListener('DOMContentLoaded', () => {
     statusDiv.textContent = text;
     statusDiv.style.color = color;
   }
+
+  // 7. Check active tab and toggle widget display
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs || !tabs[0]) return;
+    const activeTab = tabs[0];
+    const url = activeTab.url || '';
+    const isPwPage = url.includes("books.pw.live") || url.includes("books.physicswallah.live") || url.includes("pw.live") || url.toLowerCase().includes("/notes?pdf=");
+
+    if (isPwPage) {
+      const widgetControlCard = document.getElementById('widgetControlCard');
+      const toggleWidgetBtn = document.getElementById('toggleWidgetBtn');
+      if (widgetControlCard && toggleWidgetBtn) {
+        chrome.storage.local.get(['widgetHiddenByUser'], (res) => {
+          const isHidden = !!res.widgetHiddenByUser;
+          toggleWidgetBtn.textContent = isHidden ? "Show Widget" : "Hide Widget";
+          toggleWidgetBtn.className = isHidden ? "btn btn-save" : "btn btn-test";
+          widgetControlCard.style.display = "block";
+        });
+
+        toggleWidgetBtn.addEventListener('click', () => {
+          chrome.storage.local.get(['widgetHiddenByUser'], (res) => {
+            const willHide = !res.widgetHiddenByUser;
+            chrome.storage.local.set({ widgetHiddenByUser: willHide }, () => {
+              toggleWidgetBtn.textContent = willHide ? "Show Widget" : "Hide Widget";
+              toggleWidgetBtn.className = willHide ? "btn btn-save" : "btn btn-test";
+              
+              // Send message to active tab's content script to toggle widget state
+              chrome.tabs.sendMessage(activeTab.id, { action: "toggleWidgetState", hidden: willHide }, () => {
+                if (chrome.runtime.lastError) {}
+              });
+            });
+          });
+        });
+      }
+    }
+  });
 });

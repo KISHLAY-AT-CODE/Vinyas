@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       }
 
       if (type === 'ADD_ASSIGNMENT') {
-        const { chapterName, assignmentName, url } = details || {};
+        const { subjectName, chapterName, assignmentName, assignmentType, url } = details || {};
         if (!chapterName || !assignmentName || !url) {
           return res.status(400).json({ error: 'Missing chapterName, assignmentName, or url' });
         }
@@ -130,31 +130,173 @@ export default async function handler(req, res) {
         const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
         let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
 
-        const normSearchName = normalizeChapterName(chapterName);
-        let found = false;
+        // Find and clean up all existing occurrences of this URL to prevent duplicate conflicts, preserving the most complete progress
+        let existingAssignment = null;
 
         for (const sub of syllabusData) {
           for (const ch of sub.chapters) {
-            if (normalizeChapterName(ch.name) === normSearchName) {
-              if (!ch.assignments) {
-                ch.assignments = [];
+            if (ch.assignments && Array.isArray(ch.assignments)) {
+              let matchIdx;
+              while ((matchIdx = ch.assignments.findIndex(a => normalizeUrl(a.url) === normUrl)) !== -1) {
+                const foundAss = ch.assignments[matchIdx];
+                if (!existingAssignment || 
+                    (Object.keys(foundAss.questionStates || {}).length > Object.keys(existingAssignment.questionStates || {}).length) ||
+                    (foundAss.questionCount > (existingAssignment.questionCount || 0))) {
+                  existingAssignment = foundAss;
+                }
+                ch.assignments.splice(matchIdx, 1);
               }
-              // Avoid duplicates
-              if (!ch.assignments.some(a => normalizeUrl(a.url) === normUrl)) {
-                ch.assignments.push({ name: assignmentName, url });
-              }
-              found = true;
-              break;
             }
           }
-          if (found) break;
+        }
+
+        const normSearchName = normalizeChapterName(chapterName);
+        let found = false;
+
+        if (subjectName) {
+          const normSubName = subjectName.trim().toLowerCase();
+          let sIdx = syllabusData.findIndex(s => s.name.trim().toLowerCase() === normSubName);
+          if (sIdx !== -1) {
+            const sub = syllabusData[sIdx];
+            let cIdx = sub.chapters.findIndex(c => normalizeChapterName(c.name) === normSearchName);
+            if (cIdx !== -1) {
+              const ch = sub.chapters[cIdx];
+              if (!ch.assignments) ch.assignments = [];
+              const updatedAssignment = {
+                name: assignmentName,
+                type: assignmentType || 'DPP',
+                url: url,
+                questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
+                questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
+                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+              };
+
+              ch.assignments.push(updatedAssignment);
+              found = true;
+            } else {
+              // Subject found, but chapter not found -> Create chapter in this subject directly!
+              const normChName = chapterName.trim();
+              const newCh = {
+                name: normChName,
+                status: 'None',
+                lectures: 0,
+                log: '',
+                dpp: { acc: 0, comp: 0 },
+                module: { acc: 0, comp: 0 },
+                dppLogs: {},
+                moduleLogs: {},
+                customExerciseConfig: null,
+                exerciseDisplayNames: null,
+                moduleQuestionStates: {},
+                focusTime: 0,
+                reviewsDone: 0,
+                nextReview: null,
+                lastReviewRating: null,
+                assignments: [],
+                altNames: [normChName]
+              };
+              sub.chapters.push(newCh);
+              const ch = sub.chapters[sub.chapters.length - 1];
+              
+              const updatedAssignment = {
+                name: assignmentName,
+                type: assignmentType || 'DPP',
+                url: url,
+                questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
+                questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
+                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+              };
+
+              ch.assignments.push(updatedAssignment);
+              found = true;
+            }
+          } else {
+            // Subject not found -> Create subject and chapter!
+            const normSubNameTrimmed = subjectName.trim();
+            const normChName = chapterName.trim();
+            const newCh = {
+              name: normChName,
+              status: 'None',
+              lectures: 0,
+              log: '',
+              dpp: { acc: 0, comp: 0 },
+              module: { acc: 0, comp: 0 },
+              dppLogs: {},
+              moduleLogs: {},
+              customExerciseConfig: null,
+              exerciseDisplayNames: null,
+              moduleQuestionStates: {},
+              focusTime: 0,
+              reviewsDone: 0,
+              nextReview: null,
+              lastReviewRating: null,
+              assignments: [],
+              altNames: [normChName]
+            };
+
+            const newSub = {
+              name: normSubNameTrimmed,
+              color: normSubNameTrimmed.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                     normSubNameTrimmed.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                     normSubNameTrimmed.toLowerCase().includes('math') ? 'bg-rose-600' :
+                     normSubNameTrimmed.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+              books: [],
+              chapters: [newCh]
+            };
+            syllabusData.push(newSub);
+            const ch = newSub.chapters[0];
+            
+            const updatedAssignment = {
+              name: assignmentName,
+              type: assignmentType || 'DPP',
+              url: url,
+              questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
+              questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
+              questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+            };
+
+            ch.assignments.push(updatedAssignment);
+            found = true;
+          }
+        } else {
+          // No subjectName provided, search globally
+          for (const sub of syllabusData) {
+            for (const ch of sub.chapters) {
+              if (normalizeChapterName(ch.name) === normSearchName) {
+                if (!ch.assignments) {
+                  ch.assignments = [];
+                }
+                const updatedAssignment = {
+                  name: assignmentName,
+                  type: assignmentType || 'DPP',
+                  url: url,
+                  questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
+                  questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
+                  questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+                };
+
+                ch.assignments.push(updatedAssignment);
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
         }
 
         if (!found) {
           const activityLog = {
             id: Date.now().toString(),
             type: 'ASSIGNMENT_SUBMISSION',
-            details: { chapterName, assignmentName, url },
+            details: {
+              chapterName,
+              assignmentName,
+              assignmentType: assignmentType || 'DPP',
+              url,
+              questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : undefined,
+              questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : undefined,
+              questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : undefined
+            },
             timestamp: getISTISOString()
           };
           await collection.updateOne(
@@ -170,6 +312,51 @@ export default async function handler(req, res) {
             }
           );
           return res.status(200).json({ success: true, unresolved: true });
+        }
+
+        const serializedData = serializeSyllabus(syllabusData, baseTemplate);
+        await collection.updateOne(
+          { syncId },
+          { $set: { data: serializedData, lastUpdated: getISTISOString() } }
+        );
+
+        return res.status(200).json({ success: true });
+      }
+
+      if (type === 'SYNC_ASSIGNMENT_PROGRESS') {
+        const { url, questionCount, questionStates, questionRemarks } = details || {};
+        if (!url) {
+          return res.status(400).json({ error: 'Missing url for assignment sync' });
+        }
+
+        if (!existingDoc) {
+          return res.status(400).json({ error: 'User profile does not exist' });
+        }
+
+        const baseTemplate = loadTemplate(existingDoc.cohort || 'JEE Mains');
+        let syllabusData = deserializeSyllabus(existingDoc.data, baseTemplate);
+        
+        const normUrl = normalizeUrl(url);
+        let found = false;
+
+        for (const sub of syllabusData) {
+          for (const ch of sub.chapters) {
+            if (ch.assignments && ch.assignments.length > 0) {
+              const aIdx = ch.assignments.findIndex(a => normalizeUrl(a.url) === normUrl);
+              if (aIdx !== -1) {
+                if (typeof questionCount !== 'undefined') ch.assignments[aIdx].questionCount = questionCount;
+                if (questionStates) ch.assignments[aIdx].questionStates = questionStates;
+                if (questionRemarks) ch.assignments[aIdx].questionRemarks = questionRemarks;
+                found = true;
+                break;
+              }
+            }
+          }
+          if (found) break;
+        }
+
+        if (!found) {
+          return res.status(404).json({ error: 'Assignment not found for the given URL' });
         }
 
         const serializedData = serializeSyllabus(syllabusData, baseTemplate);
@@ -468,6 +655,40 @@ export default async function handler(req, res) {
           
           const sIdx = syllabusData.findIndex(s => s.name.trim().toLowerCase() === subjectName.trim().toLowerCase());
           if (sIdx !== -1) {
+            const hasCh = syllabusData[sIdx].chapters.some(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase() || (c.altNames && c.altNames.includes(chapterTitle)));
+            if (!hasCh) {
+              const newCh = {
+                name: chapterName,
+                status: 'None',
+                lectures: 0,
+                log: '',
+                dpp: { acc: 0, comp: 0 },
+                module: { acc: 0, comp: 0 },
+                dppLogs: {},
+                moduleLogs: {},
+                customExerciseConfig: null,
+                exerciseDisplayNames: null,
+                moduleQuestionStates: {},
+                focusTime: 0,
+                reviewsDone: 0,
+                nextReview: null,
+                lastReviewRating: null,
+                assignments: [],
+                altNames: [chapterTitle]
+              };
+              syllabusData[sIdx].chapters.push(newCh);
+            }
+            matchedSubjectIdx = sIdx;
+            matchedChapterIdx = syllabusData[sIdx].chapters.findIndex(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase());
+            success = true;
+          }
+        } else if (mode === 'create_subject') {
+          if (!newSubjectName || !chapterName || !chapterTitle) {
+            return res.status(400).json({ error: 'Missing newSubjectName, chapterName, or chapterTitle' });
+          }
+          
+          let sIdx = syllabusData.findIndex(s => s.name.trim().toLowerCase() === newSubjectName.trim().toLowerCase());
+          if (sIdx === -1) {
             const newCh = {
               name: chapterName,
               status: 'None',
@@ -488,49 +709,46 @@ export default async function handler(req, res) {
               altNames: [chapterTitle]
             };
             
-            syllabusData[sIdx].chapters.push(newCh);
+            const newSub = {
+              name: newSubjectName,
+              color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                     newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                     newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
+                     newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
+              books: [],
+              chapters: [newCh]
+            };
+            
+            syllabusData.push(newSub);
+            matchedSubjectIdx = syllabusData.length - 1;
+            matchedChapterIdx = 0;
+          } else {
+            const hasCh = syllabusData[sIdx].chapters.some(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase() || (c.altNames && c.altNames.includes(chapterTitle)));
+            if (!hasCh) {
+              const newCh = {
+                name: chapterName,
+                status: 'None',
+                lectures: 0,
+                log: '',
+                dpp: { acc: 0, comp: 0 },
+                module: { acc: 0, comp: 0 },
+                dppLogs: {},
+                moduleLogs: {},
+                customExerciseConfig: null,
+                exerciseDisplayNames: null,
+                moduleQuestionStates: {},
+                focusTime: 0,
+                reviewsDone: 0,
+                nextReview: null,
+                lastReviewRating: null,
+                assignments: [],
+                altNames: [chapterTitle]
+              };
+              syllabusData[sIdx].chapters.push(newCh);
+            }
             matchedSubjectIdx = sIdx;
-            matchedChapterIdx = syllabusData[sIdx].chapters.length - 1;
-            success = true;
+            matchedChapterIdx = syllabusData[sIdx].chapters.findIndex(c => c.name.trim().toLowerCase() === chapterName.trim().toLowerCase());
           }
-        } else if (mode === 'create_subject') {
-          if (!newSubjectName || !chapterName || !chapterTitle) {
-            return res.status(400).json({ error: 'Missing newSubjectName, chapterName, or chapterTitle' });
-          }
-          
-          const newCh = {
-            name: chapterName,
-            status: 'None',
-            lectures: 0,
-            log: '',
-            dpp: { acc: 0, comp: 0 },
-            module: { acc: 0, comp: 0 },
-            dppLogs: {},
-            moduleLogs: {},
-            customExerciseConfig: null,
-            exerciseDisplayNames: null,
-            moduleQuestionStates: {},
-            focusTime: 0,
-            reviewsDone: 0,
-            nextReview: null,
-            lastReviewRating: null,
-            assignments: [],
-            altNames: [chapterTitle]
-          };
-          
-          const newSub = {
-            name: newSubjectName,
-            color: newSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
-                   newSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
-                   newSubjectName.toLowerCase().includes('math') ? 'bg-rose-600' :
-                   newSubjectName.toLowerCase().includes('biolog') ? 'bg-purple-600' : 'bg-indigo-600',
-            books: [],
-            chapters: [newCh]
-          };
-          
-          syllabusData.push(newSub);
-          matchedSubjectIdx = syllabusData.length - 1;
-          matchedChapterIdx = 0;
           success = true;
         }
 
@@ -567,9 +785,35 @@ export default async function handler(req, res) {
               }
             } else if (actType === 'ASSIGNMENT_SUBMISSION' || actType === 'ADD_ASSIGNMENT') {
               if (!ch.assignments) ch.assignments = [];
-              if (!ch.assignments.some(a => a.url === actDetails.url)) {
-                ch.assignments.push({ name: actDetails.assignmentName, url: actDetails.url });
+              
+              // Find if it already exists in the syllabus to preserve progress
+              let existingAssignment = null;
+              const normActUrl = normalizeUrl(actDetails.url);
+              for (const subItem of syllabusData) {
+                for (const chItem of subItem.chapters) {
+                  if (chItem.assignments) {
+                    const aIdx = chItem.assignments.findIndex(a => normalizeUrl(a.url) === normActUrl);
+                    if (aIdx !== -1) {
+                      existingAssignment = chItem.assignments[aIdx];
+                      chItem.assignments.splice(aIdx, 1);
+                      break;
+                    }
+                  }
+                }
+                if (existingAssignment) break;
               }
+
+              // Construct/update the assignment preserving the progress
+              const updatedAssignment = {
+                name: actDetails.assignmentName,
+                type: actDetails.assignmentType || 'DPP',
+                url: actDetails.url,
+                questionCount: actDetails.questionCount || (existingAssignment ? (existingAssignment.questionCount || 0) : 0),
+                questionStates: actDetails.questionStates || (existingAssignment ? (existingAssignment.questionStates || {}) : {}),
+                questionRemarks: actDetails.questionRemarks || (existingAssignment ? (existingAssignment.questionRemarks || {}) : {})
+              };
+
+              ch.assignments.push(updatedAssignment);
             } else if (actType === 'BOOK_CHAPTER_SUBMISSION') {
               // Add book chapter url to books list in subject
               const sub = syllabusData[matchedSubjectIdx];
@@ -735,33 +979,50 @@ export default async function handler(req, res) {
 
       if (checkAssignmentUrl) {
         const normCheckUrl = normalizeUrl(checkAssignmentUrl);
+
+        // Fast-path: if the URL was explicitly deleted by the user, immediately return exists: false
+        if (userDoc.deletedAssignmentUrls && Array.isArray(userDoc.deletedAssignmentUrls) && userDoc.deletedAssignmentUrls.some(u => normalizeUrl(u) === normCheckUrl)) {
+            return res.status(200).json({ exists: false });
+        }
+
         const syllabus = userDoc.data || {};
         let exists = false;
+        let assignmentData = null;
+
+        const findAssignment = (assignments, chName, subName) => {
+          if (!assignments) return false;
+          const found = assignments.find(a => normalizeUrl(a.url) === normCheckUrl);
+          if (found) {
+            assignmentData = {
+              ...found,
+              chapterName: chName || '',
+              subjectName: subName || ''
+            };
+            return true;
+          }
+          return false;
+        };
 
         if (syllabus.isRaw && Array.isArray(syllabus.data)) {
           exists = syllabus.data.some(sub => 
-            sub.chapters?.some(ch => 
-              ch.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
-            )
+            sub.chapters?.some(ch => findAssignment(ch.assignments, ch.name, sub.name))
           );
         } else if (Array.isArray(syllabus)) {
           exists = syllabus.some(sub => 
-            sub.chapters?.some(ch => 
-              ch.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
-            )
+            sub.chapters?.some(ch => findAssignment(ch.assignments, ch.name, sub.name))
           );
         } else {
           const inProgress = syllabus.progressList?.some(p => 
-            p.progress?.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+            findAssignment(p.progress?.assignments, p.chapterName, p.subjectName)
           );
           const inAdditions = syllabus.additions?.some(add => 
-            add.type === 'chapter' && 
-            add.chapter?.assignments?.some(a => normalizeUrl(a.url) === normCheckUrl)
+            (add.type === 'chapter' && findAssignment(add.chapter?.assignments, add.chapter?.name, add.subjectName)) ||
+            (add.type === 'subject' && add.chapters?.some(ch => findAssignment(ch.assignments, ch.name, add.subjectName)))
           );
           exists = !!(inProgress || inAdditions);
         }
 
-        return res.status(200).json({ exists });
+        return res.status(200).json({ exists, assignmentData });
       }
 
       if (checkUrl) {

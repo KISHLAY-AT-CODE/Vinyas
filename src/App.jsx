@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { YogiLogo, generateEmptyChapter } from './data/constants';
+import { normalizeUrl } from './shared/normalize.js';
 import Header from './components/Header';
 import GamifiedDashboard from './components/GamifiedDashboard';
 import SubjectTable from './components/SubjectTable';
@@ -249,20 +250,6 @@ const App = () => {
         }));
     }, [setData]);
 
-    // 4. Extension Pairing & Warnings Connection Hook
-    const {
-        showExtWarningHeader,
-        pingExtension
-    } = useExtensionConnection({
-        isLoaded,
-        showWhatsNew,
-        lastSeenExtVersion,
-        setLastSeenExtVersion,
-        onSyncQuestionUpdate: handleSyncQuestionUpdate,
-        installedExtVersion,
-        setInstalledExtVersion
-    });
-
     const [activeSubjectIdx, setActiveSubjectIdx] = useState(0);
     const [direction, setDirection] = useState(0);
 
@@ -306,6 +293,21 @@ const App = () => {
         flushSave, showToast, requestConfirm,
         setActiveSubjectIdx, activeSubjectIdx,
         deletedAssignmentUrls, setDeletedAssignmentUrls
+    });
+
+    // 4. Extension Pairing & Warnings Connection Hook
+    const {
+        showExtWarningHeader,
+        pingExtension
+    } = useExtensionConnection({
+        isLoaded,
+        showWhatsNew,
+        lastSeenExtVersion,
+        setLastSeenExtVersion,
+        onSyncQuestionUpdate: handleSyncQuestionUpdate,
+        onSyncRefresh: pollActivities,
+        installedExtVersion,
+        setInstalledExtVersion
     });
 
     // Auto-save useEffect to synchronize state and trigger DB updates
@@ -746,9 +748,97 @@ const App = () => {
         }));
     };
 
-    const handleSaveAssignmentProgress = async (sIdx, cIdx, assignmentIdx, { questionCount, questionStates }) => {
+    const handleUpdateAssignmentMetadata = (sIdx, cIdx, assignmentIdx, newName, newType) => {
+        setData(prevData => prevData.map((sub, idx) => {
+            if (idx !== sIdx) return sub;
+            return {
+                ...sub,
+                chapters: sub.chapters.map((ch, chIdx) => {
+                    if (chIdx !== cIdx) return ch;
+                    const updatedAssignments = [...(ch.assignments || [])];
+                    if (updatedAssignments[assignmentIdx]) {
+                        updatedAssignments[assignmentIdx] = {
+                            ...updatedAssignments[assignmentIdx],
+                            name: newName,
+                            type: newType
+                        };
+                    }
+                    return { ...ch, assignments: updatedAssignments };
+                })
+            };
+        }));
+    };
+
+    const handleResolveAssignmentMovement = (oldSIdx, oldCIdx, assignmentIdx, targetSubjectName, targetChapterName, createNewSubject = false, createNewChapter = false) => {
+        setData(prevData => {
+            const nextData = [...prevData];
+            const oldSubject = { ...nextData[oldSIdx] };
+            const oldChapter = { ...oldSubject.chapters[oldCIdx] };
+            const oldAssignments = [...(oldChapter.assignments || [])];
+            
+            const assignmentToMove = oldAssignments[assignmentIdx];
+            if (!assignmentToMove) return prevData;
+
+            oldAssignments.splice(assignmentIdx, 1);
+            oldChapter.assignments = oldAssignments;
+            oldSubject.chapters[oldCIdx] = oldChapter;
+            nextData[oldSIdx] = oldSubject;
+            
+            if (setDeletedAssignmentUrls) {
+                setDeletedAssignmentUrls(prev => {
+                    const normUrl = normalizeUrl(assignmentToMove.url);
+                    if (!prev.includes(normUrl)) return [...prev, normUrl];
+                    return prev;
+                });
+            }
+
+            let tSIdx = nextData.findIndex(s => s.name.trim().toLowerCase() === targetSubjectName.trim().toLowerCase());
+            if (createNewSubject || tSIdx === -1) {
+                const newSubject = {
+                    name: targetSubjectName.trim(),
+                    color: targetSubjectName.toLowerCase().includes('physic') ? 'bg-blue-600' :
+                           targetSubjectName.toLowerCase().includes('math') ? 'bg-indigo-600' :
+                           targetSubjectName.toLowerCase().includes('chem') ? 'bg-emerald-600' :
+                           targetSubjectName.toLowerCase().includes('bio') ? 'bg-green-600' : 'bg-slate-700',
+                    chapters: []
+                };
+                nextData.push(newSubject);
+                tSIdx = nextData.length - 1;
+            }
+            
+            const targetSubject = { ...nextData[tSIdx] };
+            let tCIdx = targetSubject.chapters.findIndex(c => c.name.trim().toLowerCase() === targetChapterName.trim().toLowerCase());
+            
+            if (createNewChapter || tCIdx === -1) {
+                targetSubject.chapters.push({
+                    name: targetChapterName.trim(),
+                    comp: 0,
+                    acc: 0,
+                    reviewStatus: 'none',
+                    nextReview: null,
+                    lastReviewRating: null,
+                    assignments: []
+                });
+                tCIdx = targetSubject.chapters.length - 1;
+            }
+            
+            const targetChapter = { ...targetSubject.chapters[tCIdx] };
+            if (!targetChapter.assignments) targetChapter.assignments = [];
+            targetChapter.assignments.push(assignmentToMove);
+            targetSubject.chapters[tCIdx] = targetChapter;
+            nextData[tSIdx] = targetSubject;
+            
+            return nextData;
+        });
+        
+        setActiveAssignmentTracker(null);
+        if (showToast) showToast(`Moved assignment to ${targetSubjectName} > ${targetChapterName}`, 'success');
+    };
+
+    const handleSaveAssignmentProgress = async (sIdx, cIdx, assignmentIdx, { questionCount, questionStates, questionRemarks }) => {
         let finalCount = questionCount;
         let finalStates = { ...questionStates };
+        let finalRemarks = { ...questionRemarks };
 
         const updatedData = data.map((sub, subIdx) => {
             if (subIdx !== sIdx) return sub;
@@ -763,7 +853,8 @@ const App = () => {
                             return {
                                 ...ass,
                                 questionCount: finalCount,
-                                questionStates: finalStates
+                                questionStates: finalStates,
+                                questionRemarks: finalRemarks
                             };
                         })
                     };
@@ -1320,10 +1411,24 @@ const App = () => {
                 assignmentUrl={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].url : ''}
                 questionCount={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionCount || 0) : 0}
                 questionStates={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionStates || {}) : {}}
+                questionRemarks={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionRemarks || {}) : {}}
+                assignmentType={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].type || 'DPP') : 'DPP'}
+                allCustomTypes={Array.from(new Set(data?.flatMap(s => s.chapters?.flatMap(c => c.assignments?.map(a => a.type) || []) || []) || [])).filter(t => t && !['DPP', 'Module', 'Test', 'Notes'].includes(t))}
+                data={data}
+                onResolveAssignment={(targetSubjectName, targetChapterName, createNewSubject, createNewChapter) => {
+                    if (!activeAssignmentTracker) return;
+                    const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
+                    handleResolveAssignmentMovement(sIdx, cIdx, assignmentIdx, targetSubjectName, targetChapterName, createNewSubject, createNewChapter);
+                }}
                 onSaveProgress={(progress) => {
                     if (!activeAssignmentTracker) return { success: false };
                     const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
                     return handleSaveAssignmentProgress(sIdx, cIdx, assignmentIdx, progress);
+                }}
+                onUpdateMetadata={(newName, newType) => {
+                    if (!activeAssignmentTracker) return;
+                    const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
+                    handleUpdateAssignmentMetadata(sIdx, cIdx, assignmentIdx, newName, newType);
                 }}
                 showToast={showToast}
                 requestConfirm={requestConfirm}

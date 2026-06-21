@@ -1,6 +1,6 @@
 {
   "name": "vinyas-tracker",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "private": false,
   "description": "<p align=\"center\">   <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong><br>   <em>Experimental App Vibe coded in Antigravity.</em> </p>",
   "homepage": "https://vinyas-one.vercel.app",
@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.5",
+    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.40.0",
     "lodash.debounce": "^4.0.8",
     "mongodb": "^7.2.0",

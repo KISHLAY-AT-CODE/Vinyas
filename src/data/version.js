@@ -1,21 +1,21 @@
-export const VINYAS_APP_VERSION = '2.1.1';
-export const VINYAS_EXTENSION_VERSION = '2.1.1';
+export const VINYAS_APP_VERSION = '2.1.2';
+export const VINYAS_EXTENSION_VERSION = '2.1.2';
 
 export const WHATS_NEW_CHANGELOG = {
-  version: '2.1.1',
-  date: 'June 2, 2026',
+  version: '2.1.2',
+  date: 'June 21, 2026',
   coreChanges: [
-    '🏁 Project Milestone: Vinyas is officially closing its feature development at v2.1.1! From here on out, only bug fixes and new achievements will be added.',
-    '💡 Suggest Feature: You can now suggest new features and improvements to the developer directly from the diagnostics menu.',
-    '📸 Multiple Screenshots: Added support to upload and attach up to 5 screenshots when reporting bugs or suggestions.'
+    '🎯 User Requested Features Updated: Even after project closure, user-requested features and improvements continue to be entertained and shipped.',
+    '📊 Vercel Analytics: Integrated Vercel Analytics for real-time usage insights and performance monitoring.',
+    '🔗 Direct Assignment Mapping: Re-initializing an assignment now directly edits the database entry without creating unresolved submissions.'
   ],
   clientChanges: [
-    '✨ Simpler Notifications: Cleaned up confusing technical logs and messages from alerts, choosing simpler and friendly messages instead.',
-    '🐛 Critical Bug Fix: Fixed a major issue where interactive question states (Difficult/Later) would reset back to Completed when reloading the app.',
-    '🎯 Dynamic Extension: The extension now intelligently adapts to any module practice without getting stuck or showing incorrect question counts.',
-    '🧹 Interface Polish: Removed the redundant Leave button from the native page and unused diagnostic tools for a cleaner experience.'
+    '🔄 Initialize Again: The extension widget now shows an "Initialize Again" button when you modify assignment name or type, letting you re-link assignments to different chapters instantly.',
+    '🛡️ Save Safety Net: Unsaved progress is now automatically flushed on tab close or background, preventing data loss via keepalive requests.',
+    '⚡ Duplicate Prevention: Save operations are now queued to prevent race conditions from concurrent database writes.',
+    '🧹 Cleaner UI: Removed emoji icons from extension buttons, removed backdrop-click dismissal on overlays, and polished button loading states.'
   ],
   actionRequired: [
-    'No actions required! Please ensure your extension updates to 2.1.1.'
+    'Please update your Chrome extension to 2.1.2 for the latest widget improvements.'
   ]
 };

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vinyas Tracker",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Tracks PW activity and syncs it to Vinyas Dashboard",
   "permissions": [
     "storage",
@@ -34,6 +34,7 @@
         "*://physicswallah.live/*"
       ],
       "js": [
+        "tracker_ui.js",
         "content_script.js"
       ],
       "run_at": "document_idle",

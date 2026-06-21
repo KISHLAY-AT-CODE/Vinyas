@@ -46,6 +46,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.error("[Vinyas Tracker] Failed to forward syncQuestionUpdate message to web app page:", e);
             sendResponse({ success: false, error: e.message });
         }
+    } else if (request.action === "syncRefresh") {
+        console.log("[Vinyas Tracker] Received syncRefresh from background worker");
+        try {
+            window.postMessage({
+                type: 'VINYAS_SYNC_REFRESH'
+            }, '*');
+            sendResponse({ success: true });
+        } catch (e) {
+            console.error("[Vinyas Tracker] Failed to forward syncRefresh message to web app page:", e);
+            sendResponse({ success: false, error: e.message });
+        }
     }
     // Return true to keep the message channel open for asynchronous response
     return true;

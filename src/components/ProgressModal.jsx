@@ -124,9 +124,12 @@ const ProgressModal = ({
     const [showAddForm, setShowAddForm] = useState(false);
     const [newAssignmentName, setNewAssignmentName] = useState('');
     const [newAssignmentLink, setNewAssignmentLink] = useState('');
+    const [newAssignmentType, setNewAssignmentType] = useState('DPP');
+    const [newCustomAssignmentType, setNewCustomAssignmentType] = useState('');
     // Inline edit state: tracks which assignment URL is being edited and the draft name
     const [editingAssignmentUrl, setEditingAssignmentUrl] = useState(null);
     const [editDraftName, setEditDraftName] = useState('');
+    const [editDraftLink, setEditDraftLink] = useState('');
 
     const handleSaveNewAssignment = () => {
         if (!newAssignmentName.trim()) {
@@ -155,8 +158,14 @@ const ProgressModal = ({
             setDeletedAssignmentUrls(prev => prev.filter(url => normalizeUrl(url) !== newUrlNormalized));
         }
 
+        let finalType = newAssignmentType;
+        if (newAssignmentType === 'Custom') {
+            finalType = newCustomAssignmentType.trim() || 'DPP';
+        }
+
         const updatedAssignments = [...currentAssignments, { 
             name: newAssignmentName.trim(), 
+            type: finalType,
             url: newAssignmentLink.trim(),
             questionCount: 0,
             questionStates: {}
@@ -168,6 +177,8 @@ const ProgressModal = ({
 
         setNewAssignmentName('');
         setNewAssignmentLink('');
+        setNewAssignmentType('DPP');
+        setNewCustomAssignmentType('');
         setShowAddForm(false);
         if (showToast) showToast("Manual assignment added successfully!", "success");
     };
@@ -183,19 +194,43 @@ const ProgressModal = ({
         e.stopPropagation();
         setEditingAssignmentUrl(normalizeUrl(assignment.url));
         setEditDraftName(assignment.name);
+        setEditDraftLink(assignment.url);
     };
 
-    const handleSaveEdit = (assignment, e) => {
+    const handleSaveEdit = (assignment, e, typeOverride) => {
         if (e) e.stopPropagation();
         if (!editDraftName.trim()) {
             if (showToast) showToast("Assignment name cannot be empty.", "error");
             return;
         }
+        if (!editDraftLink.trim()) {
+            if (showToast) showToast("Assignment link cannot be empty.", "error");
+            return;
+        }
+        try {
+            new URL(editDraftLink.trim());
+        } catch (err) {
+            if (showToast) showToast("Please enter a valid URL.", "error");
+            return;
+        }
+        
+        let finalType = typeOverride || editDraftType;
+        if (finalType === 'Custom') {
+            finalType = editDraftCustomType.trim() || 'DPP';
+        }
+        
         const currentAssignments = chapterData?.assignments || [];
         const targetNormUrl = normalizeUrl(assignment.url);
+        const newNormUrl = normalizeUrl(editDraftLink.trim());
+
+        if (targetNormUrl !== newNormUrl && currentAssignments.some(a => normalizeUrl(a.url) === newNormUrl)) {
+            if (showToast) showToast("An assignment with this link already exists.", "error");
+            return;
+        }
+
         const updatedAssignments = currentAssignments.map(a => {
             if (normalizeUrl(a.url) === targetNormUrl) {
-                return { ...a, name: editDraftName.trim() };
+                return { ...a, name: editDraftName.trim(), url: editDraftLink.trim(), type: finalType };
             }
             return a;
         });
@@ -204,13 +239,15 @@ const ProgressModal = ({
         }
         setEditingAssignmentUrl(null);
         setEditDraftName('');
-        if (showToast) showToast("Assignment name updated!", "success");
+        setEditDraftLink('');
+        if (showToast) showToast("Assignment updated!", "success");
     };
 
     const handleCancelEdit = (e) => {
         if (e) e.stopPropagation();
         setEditingAssignmentUrl(null);
         setEditDraftName('');
+        setEditDraftLink('');
     };
 
     const handleDeleteAssignment = (assignment, e) => {
@@ -488,13 +525,45 @@ const ProgressModal = ({
                                             onChange={(e) => setNewAssignmentName(e.target.value)} 
                                             className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
                                         />
-                                        <input 
-                                            type="url" 
-                                            placeholder="Assignment PDF Link (https://...)" 
-                                            value={newAssignmentLink} 
-                                            onChange={(e) => setNewAssignmentLink(e.target.value)} 
-                                            className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
-                                        />
+                                        <div className="flex gap-2">
+                                            <select 
+                                                value={newAssignmentType} 
+                                                onChange={(e) => setNewAssignmentType(e.target.value)} 
+                                                className="w-1/3 bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                            >
+                                                <option value="DPP">DPP</option>
+                                                <option value="Module">Module</option>
+                                                <option value="Test">Test</option>
+                                                <option value="Notes">Notes</option>
+                                                <option value="Custom">+ Custom</option>
+                                            </select>
+                                            {newAssignmentType === 'Custom' ? (
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Custom Type" 
+                                                    value={newCustomAssignmentType} 
+                                                    onChange={(e) => setNewCustomAssignmentType(e.target.value)} 
+                                                    className="w-2/3 bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                                />
+                                            ) : (
+                                                <input 
+                                                    type="url" 
+                                                    placeholder="Assignment PDF Link (https://...)" 
+                                                    value={newAssignmentLink} 
+                                                    onChange={(e) => setNewAssignmentLink(e.target.value)} 
+                                                    className="w-2/3 bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                                />
+                                            )}
+                                        </div>
+                                        {newAssignmentType === 'Custom' && (
+                                            <input 
+                                                type="url" 
+                                                placeholder="Assignment PDF Link (https://...)" 
+                                                value={newAssignmentLink} 
+                                                onChange={(e) => setNewAssignmentLink(e.target.value)} 
+                                                className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs font-semibold outline-none focus:border-emerald-500 transition-all"
+                                            />
+                                        )}
                                     </div>
                                     <div className="flex gap-2 justify-end">
                                         <button 
@@ -541,17 +610,55 @@ const ProgressModal = ({
                                                 <div className="min-w-0">
                                                     {isEditing ? (
                                                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                            <input
-                                                                type="text"
-                                                                value={editDraftName}
-                                                                onChange={(e) => setEditDraftName(e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') handleSaveEdit(assignment, e);
-                                                                    if (e.key === 'Escape') handleCancelEdit(e);
-                                                                }}
-                                                                className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-sm font-bold text-slate-200 outline-none focus:border-emerald-500 transition-all w-[160px]"
-                                                                autoFocus
-                                                            />
+                                                            <div className="flex flex-col gap-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={editDraftName}
+                                                                    onChange={(e) => setEditDraftName(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                                        if (e.key === 'Escape') handleCancelEdit(e);
+                                                                    }}
+                                                                    className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-xs font-bold text-slate-200 outline-none focus:border-emerald-500 transition-all w-[180px]"
+                                                                    autoFocus
+                                                                />
+                                                                <div className="flex gap-1 items-center">
+                                                                    <select
+                                                                        value={editDraftType}
+                                                                        onChange={(e) => setEditDraftType(e.target.value)}
+                                                                        className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all"
+                                                                    >
+                                                                        <option value="DPP">DPP</option>
+                                                                        <option value="MODULE">MODULE</option>
+                                                                        <option value="PYQ">PYQ</option>
+                                                                        <option value="TEST">TEST</option>
+                                                                        <option value="Custom">+ Custom</option>
+                                                                    </select>
+                                                                    {editDraftType === 'Custom' ? (
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editDraftCustomType}
+                                                                            onChange={(e) => setEditDraftCustomType(e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                                                if (e.key === 'Escape') handleCancelEdit(e);
+                                                                            }}
+                                                                            placeholder="Type"
+                                                                            className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all w-[60px]"
+                                                                        />
+                                                                    ) : null}
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editDraftLink}
+                                                                    onChange={(e) => setEditDraftLink(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                                        if (e.key === 'Escape') handleCancelEdit(e);
+                                                                    }}
+                                                                    className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all w-[180px]"
+                                                                />
+                                                            </div>
                                                             <button
                                                                 onClick={(e) => handleSaveEdit(assignment, e)}
                                                                 className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-all"
@@ -568,13 +675,22 @@ const ProgressModal = ({
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <h4 className="text-sm font-bold text-slate-200 truncate pr-2" title={assignment.name}>
-                                                            {assignment.name}
-                                                        </h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="text-sm font-bold text-slate-200 truncate" title={assignment.name}>
+                                                                {assignment.name}
+                                                            </h4>
+                                                            {assignment.type && (
+                                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 flex-shrink-0">
+                                                                    {assignment.type}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                    <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
-                                                        {assignment.url}
-                                                    </p>
+                                                    {!isEditing && (
+                                                        <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
+                                                            {assignment.url}
+                                                        </p>
+                                                    )}
                                                     {assignment.questionCount > 0 && (
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <span className="text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
@@ -731,7 +847,7 @@ const ProgressModal = ({
 
             {/* Activity Details Popup (same style as GamifiedDashboard) */}
             {selectedActivity && (
-                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedActivity(null)}>
+                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div 
                         className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}

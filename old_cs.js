@@ -13,20 +13,6 @@ console.log("[Vinyas Tracker] Content script injected on PW.");
 let syncId = null;
 let apiUrl = 'http://localhost:3000';
 
-let isWidgetHiddenByUser = false;
-chrome.storage.local.get(['widgetHiddenByUser'], (res) => {
-    isWidgetHiddenByUser = !!res.widgetHiddenByUser;
-});
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.widgetHiddenByUser) {
-        isWidgetHiddenByUser = !!changes.widgetHiddenByUser.newValue;
-        if (isWidgetHiddenByUser) {
-            const existing = document.getElementById('vinyas-tracker-widget-host');
-            if (existing) existing.remove();
-        }
-    }
-});
-
 const maskSyncId = (id) => id ? `${id.slice(0, 4)}...${id.slice(-4)}` : 'null';
 
 function escapeHTML(str) {
@@ -463,7 +449,7 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
     const logoUrl = chrome.runtime.getURL('favicon.ico');
 
     const titleLabel = alreadyExists ? 'Duplicate Detected' : 'Submission Detected';
-    const sendBtnLabel = alreadyExists ? 'Update Again' : 'Send to Vinyas';
+    const sendBtnLabel = alreadyExists ? '🔄 Update Again' : '🔥 Send to Vinyas';
     const cancelBtnLabel = alreadyExists ? 'Cancel' : 'Dismiss';
     const isDuplicateText = alreadyExists 
         ? `<div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.15); border-radius:12px; padding:10px; color:#fb7185; font-size:11px; font-weight:700; margin-bottom:12px; text-align:center;">
@@ -575,9 +561,8 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
 
     shadow.getElementById('btn-send').addEventListener('click', async () => {
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
+        btn.textContent = '⏳ Checking...';
         btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
 
         let chapterSearch = null;
         if (activityData.quizType === 'DPP') {
@@ -592,7 +577,7 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
                 payload.forceUpdate = true;
             }
             logActivity('DPP_SCORE', payload);
-            btn.textContent = alreadyExists ? 'Updated!' : 'Sent!';
+            btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
             setTimeout(() => host.remove(), 800);
             return;
         }
@@ -613,7 +598,7 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
                         payload.forceUpdate = true;
                     }
                     logActivity('DPP_SCORE', payload);
-                    btn.textContent = alreadyExists ? 'Updated!' : 'Sent!';
+                    btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
                     setTimeout(() => host.remove(), 800);
                 } else {
                     host.remove();
@@ -628,7 +613,7 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
                     payload.forceUpdate = true;
                 }
                 logActivity('DPP_SCORE', payload);
-                btn.textContent = alreadyExists ? 'Updated!' : 'Sent!';
+                btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
                 setTimeout(() => host.remove(), 800);
             }
         } catch (e) {
@@ -638,12 +623,14 @@ function showConfirmOverlay(activityData, alreadyExists = false) {
                 payload.forceUpdate = true;
             }
             logActivity('DPP_SCORE', payload);
-            btn.textContent = alreadyExists ? 'Updated!' : 'Sent!';
+            btn.textContent = alreadyExists ? '✅ Updated!' : '✅ Sent!';
             setTimeout(() => host.remove(), 800);
         }
     });
 
-    // backdrop click to dismiss removed
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
+    });
 }
 
 
@@ -816,7 +803,7 @@ function showBooksConfirmOverlay(booksData) {
             </div>
             <div class="footer">
                 <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
-                <button class="btn btn-send" id="btn-send">Sync Exercises</button>
+                <button class="btn btn-send" id="btn-send">🔥 Sync Exercises</button>
             </div>
         </div>
     </div>`;
@@ -827,17 +814,16 @@ function showBooksConfirmOverlay(booksData) {
     });
 
     shadow.getElementById('btn-send').addEventListener('click', () => {
-        const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
-        btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
-        
         logActivity('PW_BOOKS_QUESTIONS', booksData);
-        btn.textContent = 'Synced!';
+        const btn = shadow.getElementById('btn-send');
+        btn.textContent = '✅ Synced!';
+        btn.style.pointerEvents = 'none';
         setTimeout(() => host.remove(), 800);
     });
 
-    // backdrop click to dismiss removed
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
+    });
 }
 
 function parseBooksQuestionsFromDOM() {
@@ -1235,20 +1221,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    if (request.action === "toggleWidgetState") {
-        if (request.hidden) {
-            const existing = document.getElementById('vinyas-tracker-widget-host');
-            if (existing) existing.remove();
-        } else {
-            lastCheckedPdfUrl = '';
-            lastCheckedTrackerUrl = '';
-            checkPdfAssignment();
-            checkInteractiveModuleTracker();
-        }
-        sendResponse({ success: true });
-        return true;
-    }
-
     if (request.action === "detectDppResults") {
         const activityData = parseDppResultsFromDOM();
         if (activityData) {
@@ -1273,16 +1245,14 @@ let lastCheckedPdfUrl = '';
 function checkPdfAssignment() {
     const url = window.location.href;
     if (!url.toLowerCase().includes('/notes?pdf=')) return;
-    const widgetExists = document.getElementById('vinyas-tracker-widget-host');
-    if (url === lastCheckedPdfUrl && widgetExists) return;
+    if (url === lastCheckedPdfUrl) return;
     lastCheckedPdfUrl = url;
 
     console.log("[Vinyas Tracker] PDF URL detected:", url);
 
-    chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl', 'clickHistory', 'customAssignmentTypes'], (result) => {
+    chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl', 'clickHistory'], (result) => {
         const syncId = result.vinyasSyncId;
         const apiUrl = result.vinyasApiUrl;
-        const customAssignmentTypes = result.customAssignmentTypes || [];
         if (!syncId || !apiUrl) {
             console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping assignment check.");
             return;
@@ -1292,41 +1262,265 @@ function checkPdfAssignment() {
             action: "checkAssignmentUrl",
             data: { syncId, apiUrl, url }
         }, (response) => {
-            const clickHistory = result.clickHistory || [];
-            
-            // Fallback default assignment name if none exists
-            let defaultAssignmentName = clickHistory.length > 0 ? clickHistory[0].assignmentName : '';
-            if (!defaultAssignmentName) {
-                try {
-                    const filename = url.split('/').pop().split('?')[0];
-                    if (filename && filename.toLowerCase().includes('pdf')) {
-                        defaultAssignmentName = decodeURIComponent(filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '));
-                    }
-                } catch (e) {}
-            }
-            if (!defaultAssignmentName) {
-                defaultAssignmentName = document.title ? document.title.replace(/\.pdf$/i, '').trim() : 'Assignment';
-            }
-
-            const defaultChapterName = clickHistory.length > 0 ? clickHistory[0].chapterName : '';
-            
-            // Generate dummy assignmentData if it doesn't exist to pre-fill the form
-            let assignmentData = response?.assignmentData || null;
-            if (!assignmentData && !response?.exists) {
-                assignmentData = {
-                    name: defaultAssignmentName,
-                    chapterName: defaultChapterName,
-                    type: 'DPP'
-                };
-            }
-
-            // Call the globally injected widget function
-            if (typeof injectFloatingTrackerWidget === 'function') {
-                injectFloatingTrackerWidget(syncId, apiUrl, url, !!response?.exists, assignmentData, clickHistory, customAssignmentTypes);
+            if (response && response.exists) {
+                console.log("[Vinyas Tracker] Silent bypass: PDF URL already exists under assignments.");
             } else {
-                console.error("[Vinyas Tracker] Error: injectFloatingTrackerWidget is not defined. Ensure tracker_ui.js is loaded.");
+                console.log("[Vinyas Tracker] PDF URL not found in assignments, displaying sync overlay.");
+                
+                const clickHistory = result.clickHistory || [];
+
+                // Fallback default assignment name: try parsing filename from URL or document title
+                let defaultAssignmentName = clickHistory.length > 0 ? clickHistory[0].assignmentName : '';
+                if (!defaultAssignmentName) {
+                    try {
+                        const filename = url.split('/').pop().split('?')[0];
+                        if (filename && filename.toLowerCase().includes('pdf')) {
+                            defaultAssignmentName = decodeURIComponent(filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '));
+                        }
+                    } catch (e) {}
+                }
+                if (!defaultAssignmentName) {
+                    defaultAssignmentName = document.title ? document.title.replace(/\.pdf$/i, '').trim() : 'Assignment';
+                }
+
+                const defaultChapterName = clickHistory.length > 0 ? clickHistory[0].chapterName : '';
+
+                showSyncAssignmentOverlay(defaultChapterName, defaultAssignmentName, url, syncId, apiUrl, clickHistory);
             }
         });
+    });
+}
+
+function showSyncAssignmentOverlay(detectedChapter, detectedAssignment, pdfUrl, syncId, apiUrl, clickHistory = []) {
+    const existing = document.getElementById('vinyas-overlay-host');
+    if (existing) existing.remove();
+
+    const host = document.createElement('div');
+    host.id = 'vinyas-overlay-host';
+    host.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;';
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'closed' });
+
+    const logoUrl = chrome.runtime.getURL('favicon.ico');
+
+    shadow.innerHTML = `
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .backdrop {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(5, 8, 16, 0.65); backdrop-filter:blur(10px);
+            display:flex; align-items:flex-start; justify-content:flex-end;
+            padding:24px; pointer-events:all;
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+        .card {
+            background:rgba(15, 23, 42, 0.85); border:1px solid rgba(255,255,255,0.08); border-radius:24px;
+            width:350px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,0.65), 0 0 25px rgba(59,130,246,0.08);
+            animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            backdrop-filter: blur(16px);
+        }
+        .header {
+            padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:12px;
+        }
+        .logo { width:32px; height:32px; border-radius:10px; border:none; background:none; padding:0; display:block; }
+        .brand { font-size:14px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
+        .subtitle { font-size:9px; color:#64748b; font-weight:750; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+        .body { padding:18px 22px; }
+        .input-group { margin-bottom:14px; }
+        .input-label { display:block; font-size:9px; font-weight:750; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+        .input-field {
+            width:100%; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08);
+            border-radius:12px; color:#e2e8f0; font-size:13px; font-weight:600; outline:none; transition:all 0.2s;
+        }
+        .input-field:focus { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
+        .dropdown-item {
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dropdown-item:hover {
+            background: rgba(59,130,246,0.15);
+            color: #60a5fa;
+        }
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
+        .btn {
+            flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
+            font-weight:800; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-dismiss { background:rgba(255,255,255,0.03); color:#94a3b8; border:1px solid rgba(255,255,255,0.06); }
+        .btn-dismiss:hover { background:rgba(255,255,255,0.08); color:#f8fafc; border-color:rgba(255,255,255,0.12); }
+        .btn-send { background:linear-gradient(135deg,#e04f16,#c23d0e); color:white;
+            box-shadow:0 4px 15px rgba(224,79,22,0.35); }
+        .btn-send:hover { box-shadow:0 4px 20px rgba(224,79,22,0.55); transform:translateY(-1px); }
+    </style>
+    <div class="backdrop" id="backdrop">
+        <div class="card">
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Vinyas Logo" />
+                <div>
+                    <div class="brand">Vinyas Tracker</div>
+                    <div class="subtitle">Sync PDF Assignment</div>
+                </div>
+            </div>
+            <div class="body">
+                <div class="input-group" style="position: relative;">
+                    <label class="input-label">Chapter Name</label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="text" class="input-field" id="input-chapter" value="${escapeHTML(detectedChapter)}" placeholder="e.g. Kinematics" style="padding-right: 40px;" />
+                        ${clickHistory && clickHistory.length > 0 ? `
+                        <button id="btn-chapter-dropdown" type="button" style="position: absolute; right: 10px; background: none; border: none; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; transition: color 0.2s, transform 0.2s; outline: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        ` : ''}
+                    </div>
+                    ${clickHistory && clickHistory.length > 0 ? `
+                    <div id="chapter-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 2147483647; max-height: 180px; overflow-y: auto; backdrop-filter: blur(12px); animation: fadeIn 0.15s ease;">
+                        ${clickHistory.map((item, idx) => `
+                        <div class="dropdown-item" data-value="${escapeHTML(item.chapterName)}" data-index="${idx}">
+                            <span>${escapeHTML(item.chapterName)}</span>
+                            <span style="font-size: 8px; color: #64748b; font-weight: 800; text-transform: uppercase;">${idx === 0 ? 'Latest' : `Click ${idx + 1}`}</span>
+                        </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Assignment Name</label>
+                    <input type="text" class="input-field" id="input-assignment" value="${escapeHTML(detectedAssignment)}" placeholder="e.g. DPP 01" />
+                </div>
+            </div>
+            <div class="footer">
+                <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
+                <button class="btn btn-send" id="btn-send">🔥 Sync to Vinyas</button>
+            </div>
+        </div>
+    </div>`;
+
+    // Dropdown toggle and selection handling
+    const dropdownBtn = shadow.getElementById('btn-chapter-dropdown');
+    const dropdownMenu = shadow.getElementById('chapter-dropdown-menu');
+    const inputChapter = shadow.getElementById('input-chapter');
+    const inputAssignment = shadow.getElementById('input-assignment');
+
+    if (dropdownBtn && dropdownMenu) {
+        dropdownBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = dropdownMenu.style.display === 'block';
+            dropdownMenu.style.display = isVisible ? 'none' : 'block';
+            dropdownBtn.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+        // Close dropdown when clicking outside
+        shadow.addEventListener('click', (e) => {
+            if (!dropdownMenu.contains(e.target) && e.target !== dropdownBtn) {
+                dropdownMenu.style.display = 'none';
+                dropdownBtn.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Handle item selection
+        const items = shadow.querySelectorAll('.dropdown-item');
+        items.forEach(item => {
+            item.addEventListener('click', (e) => {
+                const val = item.getAttribute('data-value');
+                const idx = parseInt(item.getAttribute('data-index'), 10);
+                inputChapter.value = val;
+                
+                // If there's an associated assignment name in history, update that too
+                if (clickHistory[idx] && clickHistory[idx].assignmentName) {
+                    inputAssignment.value = clickHistory[idx].assignmentName;
+                }
+
+                dropdownMenu.style.display = 'none';
+                dropdownBtn.style.transform = 'rotate(0deg)';
+            });
+        });
+    }
+
+    shadow.getElementById('btn-dismiss').addEventListener('click', () => {
+        host.remove();
+        console.log('[Vinyas Tracker] Sync overlay dismissed by user.');
+    });
+
+    shadow.getElementById('btn-send').addEventListener('click', async () => {
+        const editedChapter = shadow.getElementById('input-chapter').value.trim();
+        const editedAssignment = shadow.getElementById('input-assignment').value.trim();
+        
+        if (!editedChapter || !editedAssignment) return;
+
+        const btn = shadow.getElementById('btn-send');
+        btn.textContent = '⏳ Syncing...';
+        btn.style.pointerEvents = 'none';
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: "addAssignment",
+                data: {
+                    syncId,
+                    apiUrl,
+                    chapterName: editedChapter,
+                    assignmentName: editedAssignment,
+                    url: pdfUrl
+                }
+            });
+
+            if (response && response.success) {
+                if (response.unresolved) {
+                    btn.textContent = '⏳ Loading Resolver...';
+                    try {
+                        const syllabusRes = await chrome.runtime.sendMessage({
+                            action: "fetchSyllabus",
+                            data: { syncId, apiUrl }
+                        });
+                        if (syllabusRes && syllabusRes.success && syllabusRes.data) {
+                            host.remove();
+                            showResolveMismatchOverlay(editedChapter, syllabusRes.data.data || [], syncId, apiUrl, {
+                                type: 'ASSIGNMENT_SUBMISSION',
+                                details: {
+                                    chapterName: editedChapter,
+                                    assignmentName: editedAssignment,
+                                    url: pdfUrl
+                                }
+                            });
+                            return;
+                        }
+                    } catch (e) {
+                        console.error("[Vinyas Tracker] Error loading resolver for assignment:", e);
+                    }
+                    btn.textContent = '✅ Queued (Unresolved)';
+                    setTimeout(() => host.remove(), 1200);
+                } else {
+                    btn.textContent = '✅ Synced!';
+                    setTimeout(() => host.remove(), 1200);
+                }
+            } else {
+                btn.textContent = '❌ Failed!';
+                btn.style.pointerEvents = 'auto';
+                setTimeout(() => { btn.textContent = '🔥 Sync to Vinyas'; }, 2000);
+            }
+        } catch (e) {
+            console.error("[Vinyas Tracker] Error syncing assignment:", e);
+            btn.textContent = '❌ Error!';
+            btn.style.pointerEvents = 'auto';
+            setTimeout(() => { btn.textContent = '🔥 Sync to Vinyas'; }, 2000);
+        }
+    });
+
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
     });
 }
 
@@ -1609,7 +1803,7 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
             </div>
             <div class="footer">
                 <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
-                <button class="btn btn-send" id="btn-send">Sync Chapter</button>
+                <button class="btn btn-send" id="btn-send">🔥 Sync Chapter</button>
             </div>
         </div>
     </div>`;
@@ -1624,9 +1818,8 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
         if (!editedChapter) return;
 
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
+        btn.textContent = '⏳ Checking...';
         btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
 
         try {
             const syllabusRes = await chrome.runtime.sendMessage({
@@ -1639,7 +1832,7 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
                 const matches = findChapterMatchesInSyllabus(subjects, editedChapter);
 
                 if (matches.length === 1) {
-                    btn.textContent = '...';
+                    btn.textContent = '⏳ Syncing...';
                     const response = await chrome.runtime.sendMessage({
                         action: "logActivity",
                         data: {
@@ -1655,13 +1848,12 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
                     });
 
                     if (response && response.success) {
-                        btn.textContent = 'Synced!';
+                        btn.textContent = '✅ Synced!';
                         setTimeout(() => host.remove(), 1200);
                     } else {
-                        btn.textContent = 'Failed!';
+                        btn.textContent = '❌ Failed!';
                         btn.style.pointerEvents = 'auto';
-                        btn.style.opacity = '1';
-                        setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
+                        setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
                     }
                 } else {
                     host.remove();
@@ -1675,7 +1867,7 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
                     });
                 }
             } else {
-                btn.textContent = '...';
+                btn.textContent = '⏳ Syncing...';
                 const response = await chrome.runtime.sendMessage({
                     action: "logActivity",
                     data: {
@@ -1691,25 +1883,25 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
                 });
 
                 if (response && response.success) {
-                    btn.textContent = 'Synced!';
+                    btn.textContent = '✅ Synced!';
                     setTimeout(() => host.remove(), 1200);
                 } else {
-                    btn.textContent = 'Failed!';
+                    btn.textContent = '❌ Failed!';
                     btn.style.pointerEvents = 'auto';
-                    btn.style.opacity = '1';
-                    setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
+                    setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
                 }
             }
         } catch (e) {
             console.error("[Vinyas Tracker] Error checking match for book chapter:", e);
-            btn.textContent = 'Error!';
+            btn.textContent = '❌ Error!';
             btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-            setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
+            setTimeout(() => { btn.textContent = '🔥 Sync Chapter'; }, 2000);
         }
     });
 
-    // backdrop click to dismiss removed
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
+    });
 }
 
 function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pendingActivity = null) {
@@ -1729,7 +1921,7 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
 
     const overlayTitle = pendingActivity ? "Resolve Mismatch & Sync" : "Resolve Chapter Mismatch";
     const overlaySubtitle = pendingActivity ? "Syllabus mapping required to sync" : "Link this practice page to your syllabus";
-    const submitBtnLabel = pendingActivity ? "Resolve & Sync" : "Link Tracker";
+    const submitBtnLabel = pendingActivity ? "🔥 Resolve & Sync" : "🔥 Link Tracker";
 
     shadow.innerHTML = `
     <style>
@@ -1946,7 +2138,14 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
         showPwLeaveButton();
     });
 
-    // backdrop click to dismiss removed
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') {
+            host.remove();
+            trackerFailed = true;
+            showPwSubmitButton();
+            showPwLeaveButton();
+        }
+    });
 
     btnSend.addEventListener('click', async () => {
         let payloadDetails = {
@@ -1983,9 +2182,8 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
             payloadDetails.pendingActivity = pendingActivity;
         }
 
-        btnSend.textContent = '...';
+        btnSend.textContent = '⏳ Resolving...';
         btnSend.style.pointerEvents = 'none';
-        btnSend.style.opacity = '0.7';
 
         try {
             const response = await chrome.runtime.sendMessage({
@@ -1999,33 +2197,28 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
             });
 
             if (response && response.success) {
-                btnSend.textContent = 'Resolved!';
+                btnSend.textContent = '✅ Resolved!';
                 setTimeout(() => {
                     host.remove();
                     if (!pendingActivity) {
-                        lastCheckedPdfUrl = '';
-                        checkPdfAssignment();
                         initInteractiveModuleTracker();
                     } else {
                         console.log("[Vinyas Tracker] Resolve and sync completed successfully.");
                     }
                 }, 1200);
             } else {
-                btnSend.textContent = 'Failed!';
+                btnSend.textContent = '❌ Failed!';
                 btnSend.style.pointerEvents = 'auto';
-                btnSend.style.opacity = '1';
                 setTimeout(() => { btnSend.textContent = submitBtnLabel; }, 2000);
             }
         } catch (e) {
             console.error("[Vinyas Tracker] Error resolving mismatch:", e);
-            btnSend.textContent = 'Error!';
+            btnSend.textContent = '❌ Error!';
             btnSend.style.pointerEvents = 'auto';
-            btnSend.style.opacity = '1';
             setTimeout(() => { btnSend.textContent = submitBtnLabel; }, 2000);
         }
     });
 }
-window.showResolveMismatchOverlay = showResolveMismatchOverlay;
 
 function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
     const existing = document.getElementById('vinyas-overlay-host');
@@ -2100,7 +2293,7 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
             </div>
             <div class="footer">
                 <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
-                <button class="btn btn-send" id="btn-send">Sync to Vinyas</button>
+                <button class="btn btn-send" id="btn-send">🔥 Sync to Vinyas</button>
             </div>
         </div>
     </div>`;
@@ -2115,9 +2308,8 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
         if (!editedBook) return;
 
         const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
+        btn.textContent = '⏳ Syncing...';
         btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
 
         try {
             const response = await chrome.runtime.sendMessage({
@@ -2134,24 +2326,24 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
             });
 
             if (response && response.success) {
-                btn.textContent = 'Synced!';
+                btn.textContent = '✅ Synced!';
                 setTimeout(() => host.remove(), 1200);
             } else {
-                btn.textContent = 'Failed!';
+                btn.textContent = '❌ Failed!';
                 btn.style.pointerEvents = 'auto';
-                btn.style.opacity = '1';
-                setTimeout(() => { btn.textContent = 'Sync to Vinyas'; }, 2000);
+                setTimeout(() => { btn.textContent = '🔥 Sync to Vinyas'; }, 2000);
             }
         } catch (e) {
             console.error("[Vinyas Tracker] Error syncing book:", e);
-            btn.textContent = 'Error!';
+            btn.textContent = '❌ Error!';
             btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-            setTimeout(() => { btn.textContent = 'Sync to Vinyas'; }, 2000);
+            setTimeout(() => { btn.textContent = '🔥 Sync to Vinyas'; }, 2000);
         }
     });
 
-    // backdrop click to dismiss removed
+    shadow.getElementById('backdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'backdrop') host.remove();
+    });
 }
 
 // ----------------------------------------------------
@@ -2183,7 +2375,7 @@ setInterval(() => {
         }
 
         // 5. Check if PDF is loaded
-        if (!isWidgetHiddenByUser && url.toLowerCase().includes("/notes?pdf=")) {
+        if (url.toLowerCase().includes("/notes?pdf=")) {
             checkPdfAssignment();
         }
 
@@ -2197,7 +2389,7 @@ setInterval(() => {
         }
 
         // 7. Check if PW practice module page is loaded
-        if (!isWidgetHiddenByUser && url.toLowerCase().includes('/practice-v2/') && url.toLowerCase().includes('chaptertitle=')) {
+        if (url.toLowerCase().includes('/practice-v2/') && url.toLowerCase().includes('chaptertitle=')) {
             checkInteractiveModuleTracker();
             if (!trackerFailed) {
                 hidePwSubmitButton();
@@ -2206,7 +2398,7 @@ setInterval(() => {
                 showPwSubmitButton();
                 showPwLeaveButton();
             }
-        } else if (!url.toLowerCase().includes('/notes?pdf=')) {
+        } else {
             const existing = document.getElementById('vinyas-tracker-widget-host');
             if (existing) {
                 existing.remove();
@@ -3195,11 +3387,11 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
                                     const regex = new RegExp('^' + escapedChName + '\\s*[:\\-]?\\s*', 'i');
                                     dispName = dispName.replace(regex, '');
                                 }
-                                const option = document.createElement('option');
-                                option.value = k;
-                                option.textContent = dispName || k;
-                                if (k === scrapedExKey) option.selected = true;
-                                return option.outerHTML;
+                                return `
+                                    <option value="${k}" ${k === scrapedExKey ? 'selected' : ''}>
+                                        ${escapeHTML(dispName || k)}
+                                    </option>
+                                `;
                             }).join('');
 
                             // Sync new configuration to database immediately

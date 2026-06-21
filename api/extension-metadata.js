@@ -7,9 +7,9 @@ export default async function handler(req, res) {
   }
 
   // Fallbacks corresponding to current status
-  let extVersion = '2.1.1';
+  let extVersion = '2.1.2';
   let extSizeBytes = 98103;
-  let apkVersion = '2.1.1';
+  let apkVersion = '2.1.2';
   let apkSizeBytes = 3112953;
 
   try {

@@ -7,6 +7,7 @@ export const useExtensionConnection = ({
     lastSeenExtVersion,
     setLastSeenExtVersion,
     onSyncQuestionUpdate,
+    onSyncRefresh,
     installedExtVersion,
     setInstalledExtVersion
 }) => {
@@ -29,11 +30,15 @@ export const useExtensionConnection = ({
                 if (onSyncQuestionUpdate) {
                     onSyncQuestionUpdate(event.data.data);
                 }
+            } else if (event.data && event.data.type === 'VINYAS_SYNC_REFRESH') {
+                if (onSyncRefresh) {
+                    onSyncRefresh(false, true);
+                }
             }
         };
         window.addEventListener('message', handleExtensionMessage);
         return () => window.removeEventListener('message', handleExtensionMessage);
-    }, [onSyncQuestionUpdate]);
+    }, [onSyncQuestionUpdate, onSyncRefresh]);
 
     // Ping extension on load and periodically
     useEffect(() => {

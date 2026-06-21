@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.1-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.1.2-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -17,9 +17,10 @@
 
 ---
 
-> ### 🏁 Project Closure Announcement (v2.1.1)
-> As of **June 2, 2026**, Vinyas has officially reached its final planned feature milestone at **version 2.1.1**.
-> The codebase is now in **Active Maintenance Mode** — focus has shifted entirely to platform stability, performance optimizations, bug fixes, and introducing unlockable achievements. 
+> ### 🏁 Project Closure Announcement (v2.1.2)
+> As of **June 2, 2026**, Vinyas has officially reached its final planned feature milestone. The codebase is now in **Active Maintenance Mode** — focus has shifted to platform stability, performance optimizations, bug fixes, and introducing unlockable achievements.
+> 
+> **User-requested features and improvements are still being entertained and shipped.** Version **2.1.2** includes several community-requested enhancements.
 > 
 > * **Experience the Story**: Visit the interactive [/vinyas-lived](/vinyas-lived) route directly in the web app to explore the project timeline, detailed engineering chronicles, and play in the feature sandbox.
 
@@ -356,6 +357,16 @@ Ensure all environment variables are configured in your Vercel project settings.
 ---
 
 ## 📅 Changelog
+
+### v2.1.2 (June 21, 2026) — User Requested Features Updated
+- 🎯 **User Requested Features**: Even after project closure, user-requested features and improvements continue to be entertained and shipped.
+- 📊 **Vercel Analytics**: Integrated Vercel Analytics for real-time usage insights and performance monitoring.
+- 🔗 **Direct Assignment Mapping**: Re-initializing an assignment now directly edits the database entry (name, type, chapter) without creating unresolved submissions in the Resolve Submissions queue.
+- 🔄 **Initialize Again**: The extension widget now shows an "Initialize Again" button when you modify the assignment name or type, letting you instantly re-link assignments to different chapters.
+- 🛡️ **Save Safety Net**: Unsaved syllabus progress is now automatically flushed on tab close or when the tab goes to background, preventing data loss via `keepalive` requests.
+- ⚡ **Concurrent Save Protection**: Database save operations are now queued with `isSavingRef` / `pendingSaveRef` guards to prevent race conditions from overlapping writes.
+- 🧹 **Cleaner Extension UI**: Removed emoji icons from extension overlay buttons, removed backdrop-click dismissal on resolve/sync overlays, and polished button loading states with opacity transitions.
+- 🐛 **Dead Code Cleanup**: Removed unreachable code branch in the assignment URL lookup handler.
 
 ### v2.1.1 (June 2, 2026)
 - 🏁 **Project Milestone**: Vinyas is officially closing its feature development at v2.1.1! From here on out, only bug fixes and new achievements will be added.
