@@ -1,6 +1,6 @@
-import { connectToDatabase } from './shared/db.js';
+import { connectToDatabase } from './_shared/db.js';
 import { getISTISOString, getISTLogPrefix } from '../src/shared/time.js';
-import { resolveUser } from './shared/auth.js';
+import { resolveUser } from './_shared/auth.js';
 
 export default async function handler(req, res) {
   // Setup CORS to allow requests from specific origins

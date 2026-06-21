@@ -1,8 +1,8 @@
-import { connectToDatabase } from './api/shared/db.js';
+import { connectToDatabase } from './api/_shared/db.js';
 import { getISTISOString } from './src/shared/time.js';
 import { normalizeUrl } from './src/shared/normalize.js';
-import { resolveUser } from './api/shared/auth.js';
-import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './api/shared/syllabus.js';
+import { resolveUser } from './api/_shared/auth.js';
+import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './api/_shared/syllabus.js';
 
 async function getAssignment(collection, syncId, targetUrl) {
   const doc = await collection.findOne({ syncId });

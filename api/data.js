@@ -1,10 +1,10 @@
 import crypto from 'crypto';
-import { connectToDatabase } from './shared/db.js';
-import { calculateAchievements, getAllAchievementsStatus } from './shared/achievements_config.js';
-import { getISTISOString, getISTLogPrefix } from './shared/timezone.js';
-import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
+import { connectToDatabase } from './_shared/db.js';
+import { calculateAchievements, getAllAchievementsStatus } from './_shared/achievements_config.js';
+import { getISTISOString, getISTLogPrefix } from './_shared/timezone.js';
+import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './_shared/syllabus.js';
 import { normalizeUrl } from '../src/shared/normalize.js';
-import { resolveUser, hashSyncId } from './shared/auth.js';
+import { resolveUser, hashSyncId } from './_shared/auth.js';
 
 export default async function handler(req, res) {
   // Enforce global request body size limit of 2MB to protect MongoDB and Vercel functions

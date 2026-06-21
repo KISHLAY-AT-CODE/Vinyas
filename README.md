@@ -141,7 +141,7 @@ Vinyas/
 │   ├── logout.js                  # Session logout activity logger
 │   ├── dev-nuke.js                # Localhost developer database nuke tool
 │   ├── extension-metadata.js      # Fetch Chrome extension & APK metadata
-│   └── shared/                    # Shared server utilities & helper configs
+│   └── _shared/                   # Private shared server utilities & helper configs
 │       ├── auth.js                # Sync ID authentication helpers
 │       ├── email.js               # SMTP email dispatch utilities
 │       ├── syllabus.js            # Syllabus data processing helpers

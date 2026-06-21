@@ -1,8 +1,8 @@
-import { connectToDatabase } from './shared/db.js';
+import { connectToDatabase } from './_shared/db.js';
 import { getISTISOString, getISTLogPrefix } from '../src/shared/time.js';
 import { normalizeChapterName } from '../src/shared/normalize.js';
-import { resolveUser, hashSyncId } from './shared/auth.js';
-import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
+import { resolveUser, hashSyncId } from './_shared/auth.js';
+import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './_shared/syllabus.js';
 
 function normalizeUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return '';

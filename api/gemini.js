@@ -1,6 +1,6 @@
 import { getISTLogPrefix } from '../src/shared/time.js';
-import { connectToDatabase } from './shared/db.js';
-import { resolveUser } from './shared/auth.js';
+import { connectToDatabase } from './_shared/db.js';
+import { resolveUser } from './_shared/auth.js';
 
 async function isRateLimited(syncId, db) {
   const now = new Date();

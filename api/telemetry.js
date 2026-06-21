@@ -1,8 +1,8 @@
-import { connectToDatabase } from './shared/db.js';
-import { getISTISOString, getISTLogPrefix } from './shared/timezone.js';
+import { connectToDatabase } from './_shared/db.js';
+import { getISTISOString, getISTLogPrefix } from './_shared/timezone.js';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { resolveUser, hashSyncId } from './shared/auth.js';
+import { resolveUser, hashSyncId } from './_shared/auth.js';
 
 function safeCompare(input, expected) {
   const inputBuffer = Buffer.from(input);

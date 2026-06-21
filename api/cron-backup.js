@@ -1,7 +1,7 @@
-import { connectToDatabase } from './shared/db.js';
+import { connectToDatabase } from './_shared/db.js';
 import { getISTDateStringYYYYMMDD, getISTLogPrefix, getISTCalendarDaysDifference } from '../src/shared/time.js';
-import { deserializeSyllabus, loadTemplate } from './shared/syllabus.js';
-import { sendEmailViaSMTP, sendDeletionAlertEmail } from './shared/email.js';
+import { deserializeSyllabus, loadTemplate } from './_shared/syllabus.js';
+import { sendEmailViaSMTP, sendDeletionAlertEmail } from './_shared/email.js';
 import { aesEncrypt } from '../src/services/crypto.js';
 
 export default async function handler(req, res) {

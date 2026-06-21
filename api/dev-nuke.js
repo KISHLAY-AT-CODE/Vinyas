@@ -1,4 +1,4 @@
-import { connectToDatabase } from './shared/db.js';
+import { connectToDatabase } from './_shared/db.js';
 
 export default async function handler(req, res) {
   // Allow OPTIONS method for CORS preflight

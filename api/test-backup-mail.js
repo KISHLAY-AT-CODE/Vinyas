@@ -1,7 +1,7 @@
-import { connectToDatabase } from './shared/db.js';
+import { connectToDatabase } from './_shared/db.js';
 import { getISTDateStringYYYYMMDD, getISTLogPrefix } from '../src/shared/time.js';
-import { sendEmailViaSMTP, sendDeletionAlertEmail, sendWhatsNewEmail } from './shared/email.js';
-import { resolveUser } from './shared/auth.js';
+import { sendEmailViaSMTP, sendDeletionAlertEmail, sendWhatsNewEmail } from './_shared/email.js';
+import { resolveUser } from './_shared/auth.js';
 import { WHATS_NEW_CHANGELOG } from '../src/data/version.js';
 
 export default async function handler(req, res) {
