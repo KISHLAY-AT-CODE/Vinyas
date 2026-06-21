@@ -1,4 +1,4 @@
-import { connectToDatabase } from './db.js';
+import { connectToDatabase } from './shared/db.js';
 import { getISTISOString, getISTLogPrefix } from '../src/shared/time.js';
 import { resolveUser } from './shared/auth.js';
 

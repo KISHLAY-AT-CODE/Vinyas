@@ -38,4 +38,3 @@ export function getISTCalendarDaysDifference(date1, date2) {
   const diffMs = d2.getTime() - d1.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
-

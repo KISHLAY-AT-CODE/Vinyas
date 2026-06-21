@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { connectToDatabase } from './db.js';
-import { calculateAchievements, getAllAchievementsStatus } from './achievements_config.js';
-import { getISTISOString, getISTLogPrefix } from './timezone.js';
+import { connectToDatabase } from './shared/db.js';
+import { calculateAchievements, getAllAchievementsStatus } from './shared/achievements_config.js';
+import { getISTISOString, getISTLogPrefix } from './shared/timezone.js';
 import { deserializeSyllabus, serializeSyllabus, loadTemplate } from './shared/syllabus.js';
 import { normalizeUrl } from '../src/shared/normalize.js';
 import { resolveUser, hashSyncId } from './shared/auth.js';

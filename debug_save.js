@@ -1,4 +1,4 @@
-import { connectToDatabase } from './api/db.js';
+import { connectToDatabase } from './api/shared/db.js';
 import { getISTISOString } from './src/shared/time.js';
 import { normalizeUrl } from './src/shared/normalize.js';
 import { resolveUser } from './api/shared/auth.js';

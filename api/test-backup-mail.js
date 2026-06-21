@@ -1,4 +1,4 @@
-import { connectToDatabase } from './db.js';
+import { connectToDatabase } from './shared/db.js';
 import { getISTDateStringYYYYMMDD, getISTLogPrefix } from '../src/shared/time.js';
 import { sendEmailViaSMTP, sendDeletionAlertEmail, sendWhatsNewEmail } from './shared/email.js';
 import { resolveUser } from './shared/auth.js';

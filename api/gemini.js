@@ -1,5 +1,5 @@
 import { getISTLogPrefix } from '../src/shared/time.js';
-import { connectToDatabase } from './db.js';
+import { connectToDatabase } from './shared/db.js';
 import { resolveUser } from './shared/auth.js';
 
 async function isRateLimited(syncId, db) {

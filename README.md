@@ -135,19 +135,19 @@ Vinyas/
 │   ├── activity.js                # Chrome Extension telemetry buffer
 │   ├── gemini.js                  # AI gateway with multi-key load balancing
 │   ├── templates.js               # Exam syllabus template server
-│   ├── achievements_config.js     # Achievement evaluation engine
 │   ├── cron-backup.js             # Vercel Cron: weekly backups & inactivity checks
 │   ├── test-backup-mail.js        # Manual backup email trigger
 │   ├── telemetry.js               # Diagnostics telemetry endpoint
 │   ├── logout.js                  # Session logout activity logger
 │   ├── dev-nuke.js                # Localhost developer database nuke tool
 │   ├── extension-metadata.js      # Fetch Chrome extension & APK metadata
-│   ├── db.js                      # MongoDB connection pooling
-│   ├── timezone.js                # IST timezone utility
-│   └── shared/                    # Shared server utilities
+│   └── shared/                    # Shared server utilities & helper configs
 │       ├── auth.js                # Sync ID authentication helpers
 │       ├── email.js               # SMTP email dispatch utilities
-│       └── syllabus.js            # Syllabus data processing helpers
+│       ├── syllabus.js            # Syllabus data processing helpers
+│       ├── db.js                  # MongoDB connection pooling
+│       ├── timezone.js            # IST timezone utility
+│       └── achievements_config.js # Achievement evaluation engine
 ├── src/                           # React frontend application
 │   ├── components/                # 25 modular UI components
 │   │   ├── Header.jsx             # Navigation, brand, diagnostics dropdown
