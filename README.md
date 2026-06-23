@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.2-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.2.2-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -17,10 +17,10 @@
 
 ---
 
-> ### 🏁 Project Closure Announcement (v2.1.2)
+> ### 🏁 Project Closure Announcement (v2.2.2)
 > As of **June 2, 2026**, Vinyas has officially reached its final planned feature milestone. The codebase is now in **Active Maintenance Mode** — focus has shifted to platform stability, performance optimizations, bug fixes, and introducing unlockable achievements.
 > 
-> **User-requested features and improvements are still being entertained and shipped.** Version **2.1.2** includes several community-requested enhancements.
+> **User-requested features and improvements are still being entertained and shipped.** Version **2.2.2** includes critical extension widget bug fixes.
 > 
 > * **Experience the Story**: Visit the interactive [/vinyas-lived](/vinyas-lived) route directly in the web app to explore the project timeline, detailed engineering chronicles, and play in the feature sandbox.
 
@@ -358,6 +358,15 @@ Ensure all environment variables are configured in your Vercel project settings.
 
 ## 📅 Changelog
 
+### v2.2.2 (June 23, 2026) — Critical Extension Bug Fixes
+- 🐛 **Assignment Submission Fixed**: Resolved a critical bug where the "Finalize & Submit" button would get permanently stuck in a "Submitting..." state and never complete, requiring a page reload.
+- ⚡ **Zero-Flash Input**: Eliminated the full-widget flickering that occurred on every keystroke inside the self-analysis form — editing is now buttery smooth with no DOM rebuilds.
+- 🔁 **Infinite Re-render Loop Eliminated**: Removed the root cause — a premature full Shadow DOM rebuild (`render()`) inside `autoSaveProgress()` that fired *before* `sendMessage`, orphaning all callbacks and creating cyclic re-render loops.
+- 🎯 **Dedicated Submit State Flag**: Added `isSubmittingAnalysis` flag, separate from the shared `isSaving` lock, so background auto-saves can never corrupt the submit button UI state.
+- 🛡️ **Runtime Error Propagation**: Extension message errors (e.g. service worker sleeping) now surface as toast errors instead of being silently swallowed, with clean UI recovery.
+- ⏱️ **Extended Safety Timeout**: Save watchdog timeout extended to 8 seconds, now properly triggers failure callback + UI unlock if the network hangs indefinitely.
+- 💾 **Instant Overlay Close**: The "Save & Pause Timer" confirmation overlay now closes immediately on click while the save continues in the background.
+
 ### v2.1.2 (June 21, 2026) — User Requested Features Updated
 - 🎯 **User Requested Features**: Even after project closure, user-requested features and improvements continue to be entertained and shipped.
 - 📊 **Vercel Analytics**: Integrated Vercel Analytics for real-time usage insights and performance monitoring.
@@ -446,19 +455,6 @@ Ensure all environment variables are configured in your Vercel project settings.
 ### v1.0.0 (April 20, 2026)
 - 🚀 **Initial Release**: The core syllabus tracker dashboard with gamification.
 - 🔄 **Chrome Extension**: Companion browser extension to automatically track your study activity.
----
-
-## 🧠 What I Learned
-
-- Full-stack deployment and maintenance using Vercel.
-- MongoDB Atlas database management and free-tier optimization.
-- Product design and software architecture fundamentals.
-- Debugging and validating AI-generated code.
-- Prompt engineering for complex software projects.
-- Security awareness and vulnerability reduction.
-- Performance optimization under infrastructure constraints.
-- Human–AI collaborative software development workflows.
-
 ---
 
 ## 🧠 What I Learned

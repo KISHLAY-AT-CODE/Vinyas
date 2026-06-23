@@ -1,21 +1,21 @@
-export const VINYAS_APP_VERSION = '2.1.2';
-export const VINYAS_EXTENSION_VERSION = '2.1.2';
+export const VINYAS_APP_VERSION = '2.2.2';
+export const VINYAS_EXTENSION_VERSION = '2.2.2';
 
 export const WHATS_NEW_CHANGELOG = {
-  version: '2.1.2',
-  date: 'June 21, 2026',
+  version: '2.2.2',
+  date: 'June 23, 2026',
   coreChanges: [
-    '🎯 User Requested Features Updated: Even after project closure, user-requested features and improvements continue to be entertained and shipped.',
-    '📊 Vercel Analytics: Integrated Vercel Analytics for real-time usage insights and performance monitoring.',
-    '🔗 Direct Assignment Mapping: Re-initializing an assignment now directly edits the database entry without creating unresolved submissions.'
+    '🐛 Assignment Submission Fixed: Resolved a critical bug where the "Finalize & Submit" button in the extension widget would get permanently stuck in a "Submitting..." state and never complete.',
+    '⚡ Zero-Flash Input: Eliminated the entire-widget flickering/flashing that occurred on every keystroke inside the self-analysis form, making editing buttery-smooth.',
+    '🔁 Infinite Re-render Loop Eliminated: Removed the root cause — a premature full DOM rebuild inside the save routine that orphaned callbacks and caused cyclic re-renders.',
   ],
   clientChanges: [
-    '🔄 Initialize Again: The extension widget now shows an "Initialize Again" button when you modify assignment name or type, letting you re-link assignments to different chapters instantly.',
-    '🛡️ Save Safety Net: Unsaved progress is now automatically flushed on tab close or background, preventing data loss via keepalive requests.',
-    '⚡ Duplicate Prevention: Save operations are now queued to prevent race conditions from concurrent database writes.',
-    '🧹 Cleaner UI: Removed emoji icons from extension buttons, removed backdrop-click dismissal on overlays, and polished button loading states.'
+    '🎯 Dedicated Submit State Flag: The "Finalize & Submit" button now tracks its loading state independently of the background auto-save lock, so background saves never corrupt the button UI.',
+    '🛡️ Runtime Error Handling: Extension message errors (e.g. service worker sleeping) now properly surface as user-facing toast errors instead of silently getting swallowed.',
+    '⏱️ Extended Safety Timeout: The save operation watchdog timeout has been extended to 8 seconds and now correctly triggers a failure callback to unlock the UI if the network hangs.',
+    '💾 Instant Overlay Close: The "Save & Pause Timer" overlay now closes immediately on click while the save continues in the background, making the UX feel instant.',
   ],
   actionRequired: [
-    'Please update your Chrome extension to 2.1.2 for the latest widget improvements.'
+    'Please update your Chrome extension to 2.2.2 for the assignment submission fixes.'
   ]
 };
