@@ -233,7 +233,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === "syncAssignmentProgress") {
-        const { syncId, apiUrl, url, questionCount, questionStates, questionRemarks } = message.data;
+        const { syncId, apiUrl, url, questionCount, questionStates, questionRemarks, selfAnalysis } = message.data;
 
         if (!syncId || !apiUrl) {
             console.error("[Vinyas Tracker Background] Missing Sync ID or API URL for syncAssignmentProgress");
@@ -253,7 +253,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             body: JSON.stringify({
                 syncId,
                 type: 'SYNC_ASSIGNMENT_PROGRESS',
-                details: { url, questionCount, questionStates, questionRemarks }
+                details: { url, questionCount, questionStates, questionRemarks, selfAnalysis }
             })
         })
         .then(async response => {

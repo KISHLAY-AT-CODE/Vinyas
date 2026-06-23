@@ -21,8 +21,29 @@ function normalizeUrl(urlStr) {
     
     const urlObj = new URL(u);
     
-    // Remove dynamic query params
-    const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer'];
+    // Special normalization for PDF notes pages: we want to extract the PDF URL,
+    // clean all query parameters/signatures from it, and construct a stable notes URL.
+    if (urlObj.pathname.includes('/notes') && urlObj.searchParams.has('pdf')) {
+      let pdfUrl = urlObj.searchParams.get('pdf');
+      if (pdfUrl) {
+        try {
+          // Try to parse the inner PDF URL
+          const innerUrl = new URL(pdfUrl);
+          // Strip all query parameters and hash from the PDF URL
+          innerUrl.search = '';
+          innerUrl.hash = '';
+          pdfUrl = innerUrl.toString();
+        } catch (err) {
+          // Fallback to simple string manipulation if it's not a full absolute URL
+          pdfUrl = pdfUrl.split('?')[0].split('#')[0];
+        }
+        // Return a standardized note URL format
+        return `https://pw.live/notes?pdf=${pdfUrl.toLowerCase().trim()}`;
+      }
+    }
+    
+    // General query normalization for other pages (DPPs, Practice modules, etc.)
+    const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer', 'permissions'];
     paramsToRemove.forEach(p => {
       urlObj.searchParams.delete(p);
     });
@@ -168,7 +189,8 @@ export default async function handler(req, res) {
                 url: url,
                 questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
                 questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
-                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {},
+                selfAnalysis: existingAssignment ? (existingAssignment.selfAnalysis || {}) : {}
               };
 
               ch.assignments.push(updatedAssignment);
@@ -204,7 +226,8 @@ export default async function handler(req, res) {
                 url: url,
                 questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
                 questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
-                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+                questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {},
+                selfAnalysis: existingAssignment ? (existingAssignment.selfAnalysis || {}) : {}
               };
 
               ch.assignments.push(updatedAssignment);
@@ -252,7 +275,8 @@ export default async function handler(req, res) {
               url: url,
               questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
               questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
-              questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+              questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {},
+              selfAnalysis: existingAssignment ? (existingAssignment.selfAnalysis || {}) : {}
             };
 
             ch.assignments.push(updatedAssignment);
@@ -272,7 +296,8 @@ export default async function handler(req, res) {
                   url: url,
                   questionCount: existingAssignment ? (existingAssignment.questionCount || 0) : 0,
                   questionStates: existingAssignment ? (existingAssignment.questionStates || {}) : {},
-                  questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {}
+                  questionRemarks: existingAssignment ? (existingAssignment.questionRemarks || {}) : {},
+                  selfAnalysis: existingAssignment ? (existingAssignment.selfAnalysis || {}) : {}
                 };
 
                 ch.assignments.push(updatedAssignment);
@@ -324,7 +349,7 @@ export default async function handler(req, res) {
       }
 
       if (type === 'SYNC_ASSIGNMENT_PROGRESS') {
-        const { url, questionCount, questionStates, questionRemarks } = details || {};
+        const { url, questionCount, questionStates, questionRemarks, selfAnalysis } = details || {};
         if (!url) {
           return res.status(400).json({ error: 'Missing url for assignment sync' });
         }
@@ -347,6 +372,7 @@ export default async function handler(req, res) {
                 if (typeof questionCount !== 'undefined') ch.assignments[aIdx].questionCount = questionCount;
                 if (questionStates) ch.assignments[aIdx].questionStates = questionStates;
                 if (questionRemarks) ch.assignments[aIdx].questionRemarks = questionRemarks;
+                if (selfAnalysis) ch.assignments[aIdx].selfAnalysis = selfAnalysis;
                 found = true;
                 break;
               }

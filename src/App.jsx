@@ -141,6 +141,10 @@ const App = () => {
         handleSendTestBackupMail,
         triggerSave,
         flushSave,
+        updateStateRef,
+        saveTimeoutRef,
+        savePromiseRef,
+        saveResolveRef,
         stateRef,
         deletedAssignmentUrls,
         setDeletedAssignmentUrls
@@ -835,7 +839,7 @@ const App = () => {
         if (showToast) showToast(`Moved assignment to ${targetSubjectName} > ${targetChapterName}`, 'success');
     };
 
-    const handleSaveAssignmentProgress = async (sIdx, cIdx, assignmentIdx, { questionCount, questionStates, questionRemarks }) => {
+    const handleSaveAssignmentProgress = (sIdx, cIdx, assignmentIdx, { questionCount, questionStates, questionRemarks, assignmentName, assignmentType, selfAnalysis }) => {
         let finalCount = questionCount;
         let finalStates = { ...questionStates };
         let finalRemarks = { ...questionRemarks };
@@ -854,7 +858,10 @@ const App = () => {
                                 ...ass,
                                 questionCount: finalCount,
                                 questionStates: finalStates,
-                                questionRemarks: finalRemarks
+                                questionRemarks: finalRemarks,
+                                ...(assignmentName !== undefined ? { name: assignmentName } : {}),
+                                ...(assignmentType !== undefined ? { type: assignmentType } : {}),
+                                ...(selfAnalysis !== undefined ? { selfAnalysis } : {})
                             };
                         })
                     };
@@ -864,50 +871,11 @@ const App = () => {
 
         setData(updatedData);
 
-        // Build payload using stateRef for all fields EXCEPT data, which we use the freshly updated version
-        const currentState = stateRef.current;
-        const payload = {
-            syncId: currentState.syncId,
-            data: updatedData,
-            routines: currentState.routines,
-            testLogs: currentState.testLogs,
-            achievements: currentState.achievements,
-            targetDate: currentState.targetDate,
-            cohort: currentState.cohort,
-            resolvedActivityIds: currentState.resolvedActivityIds,
-            email: currentState.email,
-            autoBackupEnabled: currentState.autoBackupEnabled,
-            lastSeenAppVersion: currentState.lastSeenAppVersion,
-            lastSeenExtVersion: currentState.lastSeenExtVersion,
-            userName: currentState.userName,
-            themeSettings: currentState.themeSettings,
-            deletedAssignmentUrls: currentState.deletedAssignmentUrls || []
-        };
-
-        try {
-            const response = await fetch('/api/data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to save to database');
-            }
-
-            const resData = await response.json();
-            handleSaveResponse(resData);
-
-            logEvent('DB_SAVE_SUCCESS', { 
-                message: 'Successfully saved and synced assignment questions to MongoDB.',
-                chapter: data[sIdx]?.chapters[cIdx]?.name
-            }, 'success');
-            return { success: true };
-        } catch (err) {
-            console.error('Error saving assignment progress directly:', err);
-            logEvent('DB_SAVE_ERROR', { error: err.message }, 'error');
-            return { success: false, error: err.message };
+        if (updateStateRef) {
+            updateStateRef({ data: updatedData });
         }
+
+        triggerSave();
     };
 
 
@@ -1413,6 +1381,7 @@ const App = () => {
                 questionStates={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionStates || {}) : {}}
                 questionRemarks={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].questionRemarks || {}) : {}}
                 assignmentType={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].type || 'DPP') : 'DPP'}
+                selfAnalysis={activeAssignmentTracker && data && data[activeAssignmentTracker.sIdx] && data[activeAssignmentTracker.sIdx].chapters && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx] && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments && data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx] ? (data[activeAssignmentTracker.sIdx].chapters[activeAssignmentTracker.cIdx].assignments[activeAssignmentTracker.assignmentIdx].selfAnalysis || {}) : {}}
                 allCustomTypes={Array.from(new Set(data?.flatMap(s => s.chapters?.flatMap(c => c.assignments?.map(a => a.type) || []) || []) || [])).filter(t => t && !['DPP', 'Module', 'Test', 'Notes'].includes(t))}
                 data={data}
                 onResolveAssignment={(targetSubjectName, targetChapterName, createNewSubject, createNewChapter) => {
@@ -1421,15 +1390,11 @@ const App = () => {
                     handleResolveAssignmentMovement(sIdx, cIdx, assignmentIdx, targetSubjectName, targetChapterName, createNewSubject, createNewChapter);
                 }}
                 onSaveProgress={(progress) => {
-                    if (!activeAssignmentTracker) return { success: false };
-                    const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
-                    return handleSaveAssignmentProgress(sIdx, cIdx, assignmentIdx, progress);
-                }}
-                onUpdateMetadata={(newName, newType) => {
                     if (!activeAssignmentTracker) return;
                     const { sIdx, cIdx, assignmentIdx } = activeAssignmentTracker;
-                    handleUpdateAssignmentMetadata(sIdx, cIdx, assignmentIdx, newName, newType);
+                    handleSaveAssignmentProgress(sIdx, cIdx, assignmentIdx, progress);
                 }}
+                flushSave={flushSave}
                 showToast={showToast}
                 requestConfirm={requestConfirm}
             />

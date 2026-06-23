@@ -261,8 +261,7 @@ export const useDatabaseSync = ({
         }
     }, [syncId]);
 
-    const isSavingRef = useRef(false);
-    const pendingSaveRef = useRef(false);
+
 
     const saveCompleteSyllabus = useCallback(async (payload, isUnload = false) => {
         if (!payload.syncId) return;
@@ -307,11 +306,6 @@ export const useDatabaseSync = ({
         }
         saveTimeoutRef.current = setTimeout(async () => {
             saveTimeoutRef.current = null;
-            if (isSavingRef.current) {
-                // If a save is already in progress, mark that we need another save when it finishes
-                pendingSaveRef.current = true;
-                return;
-            }
             
             const currentPayload = {
                 syncId: stateRef.current.syncId,
@@ -331,29 +325,19 @@ export const useDatabaseSync = ({
                 deletedAssignmentUrls: stateRef.current.deletedAssignmentUrls || []
             };
             
-            isSavingRef.current = true;
             await saveCompleteSyllabus(currentPayload);
-            isSavingRef.current = false;
             
             const resolve = saveResolveRef.current;
             savePromiseRef.current = null;
             saveResolveRef.current = null;
             if (resolve) resolve();
-            
-            if (pendingSaveRef.current) {
-                pendingSaveRef.current = false;
-                triggerSave(); // Fire the queued save
-            }
         }, 3000);
     }, [saveCompleteSyllabus]);
 
     const flushSave = useCallback(async (themeSettings, isUnload = false) => {
-        if (saveTimeoutRef.current || pendingSaveRef.current) {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = null;
-            }
-            pendingSaveRef.current = false;
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
             
             const currentPayload = {
                 syncId: stateRef.current.syncId,
@@ -373,7 +357,6 @@ export const useDatabaseSync = ({
                 deletedAssignmentUrls: stateRef.current.deletedAssignmentUrls || []
             };
             
-            isSavingRef.current = true;
             const promise = saveCompleteSyllabus(currentPayload, isUnload);
             
             const resolve = saveResolveRef.current;
@@ -382,7 +365,6 @@ export const useDatabaseSync = ({
             if (resolve) resolve();
             
             await promise;
-            isSavingRef.current = false;
         } else if (savePromiseRef.current) {
             await savePromiseRef.current;
         }
@@ -392,14 +374,14 @@ export const useDatabaseSync = ({
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                if (saveTimeoutRef.current || pendingSaveRef.current) {
+                if (saveTimeoutRef.current) {
                     flushSave(null, true);
                 }
             }
         };
 
         const handleBeforeUnload = (e) => {
-            if (saveTimeoutRef.current || pendingSaveRef.current) {
+            if (saveTimeoutRef.current) {
                 flushSave(null, true);
             }
         };

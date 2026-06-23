@@ -99,6 +99,65 @@ function normalizeChapterName(name) {
     return CHAPTER_SYNONYMS[normalized] || normalized;
 }
 
+function normalizeUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return '';
+    try {
+        let u = urlStr.trim().toLowerCase();
+        
+        // Normalize domains
+        u = u.replace('books.physicswallah.live', 'books.pw.live');
+        u = u.replace('www.physicswallah.live', 'pw.live');
+        u = u.replace('physicswallah.live', 'pw.live');
+        u = u.replace('www.pw.live', 'pw.live');
+        
+        if (!u.startsWith('http://') && !u.startsWith('https://')) {
+            u = 'https://' + u;
+        }
+        
+        const urlObj = new URL(u);
+        
+        // Special normalization for PDF notes pages: we want to extract the PDF URL,
+        // clean all query parameters/signatures from it, and construct a stable notes URL.
+        if (urlObj.pathname.includes('/notes') && urlObj.searchParams.has('pdf')) {
+            let pdfUrl = urlObj.searchParams.get('pdf');
+            if (pdfUrl) {
+                try {
+                    // Try to parse the inner PDF URL
+                    const innerUrl = new URL(pdfUrl);
+                    // Strip all query parameters and hash from the PDF URL
+                    innerUrl.search = '';
+                    innerUrl.hash = '';
+                    pdfUrl = innerUrl.toString();
+                } catch (err) {
+                    // Fallback to simple string manipulation if it's not a full absolute URL
+                    pdfUrl = pdfUrl.split('?')[0].split('#')[0];
+                }
+                // Return a standardized note URL format
+                return `https://pw.live/notes?pdf=${pdfUrl.toLowerCase().trim()}`;
+            }
+        }
+        
+        // General query normalization for other pages (DPPs, Practice modules, etc.)
+        const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer', 'permissions'];
+        paramsToRemove.forEach(p => {
+            urlObj.searchParams.delete(p);
+        });
+        
+        // Sort query parameters
+        const keys = Array.from(urlObj.searchParams.keys()).sort();
+        const sortedParams = new URLSearchParams();
+        keys.forEach(k => {
+            sortedParams.set(k, urlObj.searchParams.get(k));
+        });
+        urlObj.search = sortedParams.toString();
+        urlObj.hash = '';
+        
+        return urlObj.toString();
+    } catch (e) {
+        return urlStr;
+    }
+}
+
 function findChapterMatchesInSyllabus(subjects, searchName) {
     if (!subjects || !searchName) return [];
     
@@ -1269,13 +1328,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // 5. EVENT-DRIVEN & LOCATION-AWARE SCANNERS (Optimized URL Router)
 // ----------------------------------------------------
 let lastCheckedPdfUrl = '';
+let isCheckingPdfAssignment = false;
 
 function checkPdfAssignment() {
+    if (window.self !== window.top) return; // Only run in the top-level frame
+
     const url = window.location.href;
     if (!url.toLowerCase().includes('/notes?pdf=')) return;
+
+    const normUrl = normalizeUrl(url);
     const widgetExists = document.getElementById('vinyas-tracker-widget-host');
-    if (url === lastCheckedPdfUrl && widgetExists) return;
+
+    // Return if already checking or if the normalized URL matches what is currently loaded/displayed
+    if (isCheckingPdfAssignment || (normUrl === normalizeUrl(lastCheckedPdfUrl) && widgetExists)) {
+        return;
+    }
+
     lastCheckedPdfUrl = url;
+    isCheckingPdfAssignment = true;
 
     console.log("[Vinyas Tracker] PDF URL detected:", url);
 
@@ -1285,48 +1355,61 @@ function checkPdfAssignment() {
         const customAssignmentTypes = result.customAssignmentTypes || [];
         if (!syncId || !apiUrl) {
             console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping assignment check.");
+            isCheckingPdfAssignment = false;
             return;
         }
 
-        chrome.runtime.sendMessage({
-            action: "checkAssignmentUrl",
-            data: { syncId, apiUrl, url }
-        }, (response) => {
-            const clickHistory = result.clickHistory || [];
-            
-            // Fallback default assignment name if none exists
-            let defaultAssignmentName = clickHistory.length > 0 ? clickHistory[0].assignmentName : '';
-            if (!defaultAssignmentName) {
-                try {
-                    const filename = url.split('/').pop().split('?')[0];
-                    if (filename && filename.toLowerCase().includes('pdf')) {
-                        defaultAssignmentName = decodeURIComponent(filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '));
-                    }
-                } catch (e) {}
-            }
-            if (!defaultAssignmentName) {
-                defaultAssignmentName = document.title ? document.title.replace(/\.pdf$/i, '').trim() : 'Assignment';
-            }
+        try {
+            chrome.runtime.sendMessage({
+                action: "checkAssignmentUrl",
+                data: { syncId, apiUrl, url: normUrl } // Pass the normalized URL to checkAssignmentUrl
+            }, (response) => {
+                isCheckingPdfAssignment = false;
 
-            const defaultChapterName = clickHistory.length > 0 ? clickHistory[0].chapterName : '';
-            
-            // Generate dummy assignmentData if it doesn't exist to pre-fill the form
-            let assignmentData = response?.assignmentData || null;
-            if (!assignmentData && !response?.exists) {
-                assignmentData = {
-                    name: defaultAssignmentName,
-                    chapterName: defaultChapterName,
-                    type: 'DPP'
-                };
-            }
+                // Stale request protection: if the page URL has changed during the async API call, drop this result
+                if (normalizeUrl(window.location.href) !== normUrl) {
+                    return;
+                }
 
-            // Call the globally injected widget function
-            if (typeof injectFloatingTrackerWidget === 'function') {
-                injectFloatingTrackerWidget(syncId, apiUrl, url, !!response?.exists, assignmentData, clickHistory, customAssignmentTypes);
-            } else {
-                console.error("[Vinyas Tracker] Error: injectFloatingTrackerWidget is not defined. Ensure tracker_ui.js is loaded.");
-            }
-        });
+                const clickHistory = result.clickHistory || [];
+                
+                // Fallback default assignment name if none exists
+                let defaultAssignmentName = clickHistory.length > 0 ? clickHistory[0].assignmentName : '';
+                if (!defaultAssignmentName) {
+                    try {
+                        const filename = url.split('/').pop().split('?')[0];
+                        if (filename && filename.toLowerCase().includes('pdf')) {
+                            defaultAssignmentName = decodeURIComponent(filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '));
+                        }
+                    } catch (e) {}
+                }
+                if (!defaultAssignmentName) {
+                    defaultAssignmentName = document.title ? document.title.replace(/\.pdf$/i, '').trim() : 'Assignment';
+                }
+
+                const defaultChapterName = clickHistory.length > 0 ? clickHistory[0].chapterName : '';
+                
+                // Generate dummy assignmentData if it doesn't exist to pre-fill the form
+                let assignmentData = response?.assignmentData || null;
+                if (!assignmentData && !response?.exists) {
+                    assignmentData = {
+                        name: defaultAssignmentName,
+                        chapterName: defaultChapterName,
+                        type: 'DPP'
+                    };
+                }
+
+                // Call the globally injected widget function with the normalized URL
+                if (typeof injectFloatingTrackerWidget === 'function') {
+                    injectFloatingTrackerWidget(syncId, apiUrl, normUrl, !!response?.exists, assignmentData, clickHistory, customAssignmentTypes);
+                } else {
+                    console.error("[Vinyas Tracker] Error: injectFloatingTrackerWidget is not defined. Ensure tracker_ui.js is loaded.");
+                }
+            });
+        } catch (e) {
+            console.error("[Vinyas Tracker] Error sending message checkAssignmentUrl:", e);
+            isCheckingPdfAssignment = false;
+        }
     });
 }
 
@@ -2356,6 +2439,7 @@ function showPwLeaveButton() {
 }
 
 function checkInteractiveModuleTracker() {
+    if (window.self !== window.top) return; // Only run in the top-level frame
     try {
         const url = window.location.href;
         if (lastCheckedTrackerUrl === url) return;

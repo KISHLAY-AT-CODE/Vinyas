@@ -74,8 +74,29 @@ export const normalizeUrl = (urlStr) => {
         
         const urlObj = new URL(u);
         
-        // Remove dynamic query params
-        const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer'];
+        // Special normalization for PDF notes pages: we want to extract the PDF URL,
+        // clean all query parameters/signatures from it, and construct a stable notes URL.
+        if (urlObj.pathname.includes('/notes') && urlObj.searchParams.has('pdf')) {
+            let pdfUrl = urlObj.searchParams.get('pdf');
+            if (pdfUrl) {
+                try {
+                    // Try to parse the inner PDF URL
+                    const innerUrl = new URL(pdfUrl);
+                    // Strip all query parameters and hash from the PDF URL
+                    innerUrl.search = '';
+                    innerUrl.hash = '';
+                    pdfUrl = innerUrl.toString();
+                } catch (err) {
+                    // Fallback to simple string manipulation if it's not a full absolute URL
+                    pdfUrl = pdfUrl.split('?')[0].split('#')[0];
+                }
+                // Return a standardized note URL format
+                return `https://pw.live/notes?pdf=${pdfUrl.toLowerCase().trim()}`;
+            }
+        }
+        
+        // General query normalization for other pages (DPPs, Practice modules, etc.)
+        const paramsToRemove = ['token', 'time', 'session', 'index', 'utm', 'reattempt', 'type', 'referrer', 'permissions'];
         paramsToRemove.forEach(p => {
             urlObj.searchParams.delete(p);
         });

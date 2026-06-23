@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { normalizeChapterName, normalizeUrl } from '../shared/normalize.js';
 
+const truncateWords = (str, maxWords = 8) => {
+    if (!str) return '';
+    const words = str.split(/\s+/);
+    if (words.length <= maxWords) return str;
+    return words.slice(0, maxWords).join(' ') + '...';
+};
+
+const formatDetailedTime = (totalSeconds) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const p = (num) => String(num).padStart(2, '0');
+    return hrs > 0 ? `${p(hrs)}:${p(mins)}:${p(secs)}` : `${p(mins)}:${p(secs)}`;
+};
+
 const extractChapterFromDppTitle = (title) => {
     if (!title) return null;
     let cleaned = title.trim();
@@ -130,6 +145,8 @@ const ProgressModal = ({
     const [editingAssignmentUrl, setEditingAssignmentUrl] = useState(null);
     const [editDraftName, setEditDraftName] = useState('');
     const [editDraftLink, setEditDraftLink] = useState('');
+    const [editDraftType, setEditDraftType] = useState('DPP');
+    const [editDraftCustomType, setEditDraftCustomType] = useState('');
 
     const handleSaveNewAssignment = () => {
         if (!newAssignmentName.trim()) {
@@ -195,6 +212,14 @@ const ProgressModal = ({
         setEditingAssignmentUrl(normalizeUrl(assignment.url));
         setEditDraftName(assignment.name);
         setEditDraftLink(assignment.url);
+        const typeUpper = (assignment.type || 'DPP').toUpperCase();
+        if (['DPP', 'MODULE', 'PYQ', 'TEST'].includes(typeUpper)) {
+            setEditDraftType(typeUpper);
+            setEditDraftCustomType('');
+        } else {
+            setEditDraftType('Custom');
+            setEditDraftCustomType(assignment.type || '');
+        }
     };
 
     const handleSaveEdit = (assignment, e, typeOverride) => {
@@ -240,6 +265,8 @@ const ProgressModal = ({
         setEditingAssignmentUrl(null);
         setEditDraftName('');
         setEditDraftLink('');
+        setEditDraftType('DPP');
+        setEditDraftCustomType('');
         if (showToast) showToast("Assignment updated!", "success");
     };
 
@@ -248,6 +275,8 @@ const ProgressModal = ({
         setEditingAssignmentUrl(null);
         setEditDraftName('');
         setEditDraftLink('');
+        setEditDraftType('DPP');
+        setEditDraftCustomType('');
     };
 
     const handleDeleteAssignment = (assignment, e) => {
@@ -414,7 +443,7 @@ const ProgressModal = ({
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
                     <div className="relative z-10">
                         <h3 className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">Log Progress</h3>
-                        <h2 className="text-xl font-black text-white leading-tight pr-8">{chapterName}</h2>
+                        <h2 className="text-xl font-black text-white leading-tight pr-8" title={chapterName}>{truncateWords(chapterName, 8)}</h2>
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-white bg-slate-700/50 p-2 rounded-full transition-colors relative z-10">
                         <i className="ph-bold ph-x"></i>
@@ -600,136 +629,167 @@ const ProgressModal = ({
                                         <div 
                                             key={assignment.url} 
                                             onClick={() => !isEditing && handleAssignmentCardClick(assignment.originalIdx)}
-                                            className={`p-4 bg-slate-950/40 border border-slate-700/50 rounded-2xl flex items-center justify-between gap-3 hover:bg-slate-900/60 hover:border-slate-600 transition-all backdrop-blur-md relative overflow-hidden ${isEditing ? '' : 'cursor-pointer'}`}
+                                            className={`p-4 bg-slate-950/40 border border-slate-700/50 rounded-2xl hover:bg-slate-900/60 hover:border-slate-600 transition-all backdrop-blur-md relative overflow-hidden ${isEditing ? '' : 'cursor-pointer'}`}
                                             title={isEditing ? '' : 'Click to open Interactive Assignment Question Tracker'}
                                         >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0 text-orange-400 text-base">
-                                                    📄
-                                                </div>
-                                                <div className="min-w-0">
-                                                    {isEditing ? (
-                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                            <div className="flex flex-col gap-1">
-                                                                <input
-                                                                    type="text"
-                                                                    value={editDraftName}
-                                                                    onChange={(e) => setEditDraftName(e.target.value)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter') handleSaveEdit(assignment, e);
-                                                                        if (e.key === 'Escape') handleCancelEdit(e);
-                                                                    }}
-                                                                    className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-xs font-bold text-slate-200 outline-none focus:border-emerald-500 transition-all w-[180px]"
-                                                                    autoFocus
-                                                                />
-                                                                <div className="flex gap-1 items-center">
-                                                                    <select
-                                                                        value={editDraftType}
-                                                                        onChange={(e) => setEditDraftType(e.target.value)}
-                                                                        className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all"
-                                                                    >
-                                                                        <option value="DPP">DPP</option>
-                                                                        <option value="MODULE">MODULE</option>
-                                                                        <option value="PYQ">PYQ</option>
-                                                                        <option value="TEST">TEST</option>
-                                                                        <option value="Custom">+ Custom</option>
-                                                                    </select>
-                                                                    {editDraftType === 'Custom' ? (
-                                                                        <input
-                                                                            type="text"
-                                                                            value={editDraftCustomType}
-                                                                            onChange={(e) => setEditDraftCustomType(e.target.value)}
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter') handleSaveEdit(assignment, e);
-                                                                                if (e.key === 'Escape') handleCancelEdit(e);
-                                                                            }}
-                                                                            placeholder="Type"
-                                                                            className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all w-[60px]"
-                                                                        />
-                                                                    ) : null}
-                                                                </div>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editDraftLink}
-                                                                    onChange={(e) => setEditDraftLink(e.target.value)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter') handleSaveEdit(assignment, e);
-                                                                        if (e.key === 'Escape') handleCancelEdit(e);
-                                                                    }}
-                                                                    className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all w-[180px]"
-                                                                />
-                                                            </div>
-                                                            <button
-                                                                onClick={(e) => handleSaveEdit(assignment, e)}
-                                                                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-all"
-                                                                title="Save"
-                                                            >
-                                                                <i className="ph-bold ph-check text-sm"></i>
-                                                            </button>
-                                                            <button
-                                                                onClick={handleCancelEdit}
-                                                                className="p-1.5 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg transition-all"
-                                                                title="Cancel"
-                                                            >
-                                                                <i className="ph-bold ph-x text-sm"></i>
-                                                            </button>
+                                            {isEditing ? (
+                                                /* Edit Mode: Vertical stacked layout */
+                                                <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 text-blue-400 text-base">
+                                                            ✏️
                                                         </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <h4 className="text-sm font-bold text-slate-200 truncate" title={assignment.name}>
-                                                                {assignment.name}
-                                                            </h4>
-                                                            {assignment.type && (
-                                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 flex-shrink-0">
-                                                                    {assignment.type}
-                                                                </span>
+                                                        <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Editing Assignment</span>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={editDraftName}
+                                                        onChange={(e) => setEditDraftName(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                            if (e.key === 'Escape') handleCancelEdit(e);
+                                                        }}
+                                                        className="w-full bg-slate-950/60 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-200 outline-none focus:border-emerald-500 transition-all"
+                                                        placeholder="Assignment Name"
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex gap-2 items-center">
+                                                        <select
+                                                            value={editDraftType}
+                                                            onChange={(e) => setEditDraftType(e.target.value)}
+                                                            className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1.5 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all"
+                                                        >
+                                                            <option value="DPP">DPP</option>
+                                                            <option value="MODULE">MODULE</option>
+                                                            <option value="PYQ">PYQ</option>
+                                                            <option value="TEST">TEST</option>
+                                                            <option value="Custom">+ Custom</option>
+                                                        </select>
+                                                        {editDraftType === 'Custom' ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editDraftCustomType}
+                                                                onChange={(e) => setEditDraftCustomType(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                                    if (e.key === 'Escape') handleCancelEdit(e);
+                                                                }}
+                                                                placeholder="Custom Type"
+                                                                className="bg-slate-950/60 border border-slate-600 rounded-lg px-2 py-1.5 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all flex-1"
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={editDraftLink}
+                                                        onChange={(e) => setEditDraftLink(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveEdit(assignment, e);
+                                                            if (e.key === 'Escape') handleCancelEdit(e);
+                                                        }}
+                                                        placeholder="PDF Link (https://...)"
+                                                        className="w-full bg-slate-950/60 border border-slate-600 rounded-lg px-2.5 py-1.5 text-[10px] text-slate-200 outline-none focus:border-emerald-500 transition-all"
+                                                    />
+                                                    <div className="flex gap-2 pt-1">
+                                                        <button
+                                                            onClick={(e) => handleSaveEdit(assignment, e)}
+                                                            className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                                                        >
+                                                            <i className="ph-bold ph-check text-sm"></i>
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="flex-1 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                                                        >
+                                                            <i className="ph-bold ph-x text-sm"></i>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Normal Mode: Horizontal layout */
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0 text-orange-400 text-base">
+                                                            📄
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="text-sm font-bold text-slate-200 truncate" title={assignment.name}>
+                                                                    {assignment.name}
+                                                                </h4>
+                                                                {assignment.type && (
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 flex-shrink-0">
+                                                                        {assignment.type}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
+                                                                {assignment.url}
+                                                            </p>
+                                                            {assignment.selfAnalysis?.isSubmitted ? (
+                                                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                                        ✓ Report Ready
+                                                                    </span>
+                                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700/50">
+                                                                        Score: {assignment.selfAnalysis.correctCount * 3 - assignment.selfAnalysis.incorrectCount} / {assignment.questionCount * 3}
+                                                                    </span>
+                                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700/50">
+                                                                        Time: {formatDetailedTime(assignment.selfAnalysis.elapsedTimeSec || 0)}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                assignment.questionCount > 0 ? (
+                                                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500/10 border border-amber-500/25 text-amber-400 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                                            ⌛ In Progress
+                                                                        </span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700/50">
+                                                                            {Object.values(assignment.questionStates || {}).filter(s => s === 'completed').length} / {assignment.questionCount} Solved
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2 mt-1.5">
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded-md">
+                                                                            Not Started
+                                                                        </span>
+                                                                    </div>
+                                                                )
                                                             )}
                                                         </div>
-                                                    )}
-                                                    {!isEditing && (
-                                                        <p className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]" title={assignment.url}>
-                                                            {assignment.url}
-                                                        </p>
-                                                    )}
-                                                    {assignment.questionCount > 0 && (
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
-                                                                {Object.values(assignment.questionStates || {}).filter(s => s === 'completed').length} / {assignment.questionCount} Solved
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                        <a 
+                                                            href={assignment.url} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="py-2 px-3 bg-gradient-to-r from-orange-600 to-red-650 hover:from-orange-500 hover:to-red-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-md shadow-orange-950/20"
+                                                        >
+                                                            <i className="ph-bold ph-arrow-square-out text-sm"></i>
+                                                            Open
+                                                        </a>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => handleStartEdit(assignment, e)}
+                                                            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
+                                                            title="Edit assignment name"
+                                                        >
+                                                            <i className="ph-bold ph-pencil-simple text-sm"></i>
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => handleDeleteAssignment(assignment, e)}
+                                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
+                                                            title="Delete assignment"
+                                                        >
+                                                            <i className="ph-bold ph-trash text-sm"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                <a 
-                                                    href={assignment.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="py-2 px-3 bg-gradient-to-r from-orange-600 to-red-650 hover:from-orange-500 hover:to-red-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-md shadow-orange-950/20"
-                                                >
-                                                    <i className="ph-bold ph-arrow-square-out text-sm"></i>
-                                                    Open
-                                                </a>
-                                                {!isEditing && (
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => handleStartEdit(assignment, e)}
-                                                        className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
-                                                        title="Edit assignment name"
-                                                    >
-                                                        <i className="ph-bold ph-pencil-simple text-sm"></i>
-                                                    </button>
-                                                )}
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => handleDeleteAssignment(assignment, e)}
-                                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-slate-800/80 rounded-xl transition-all duration-200"
-                                                    title="Delete assignment"
-                                                >
-                                                    <i className="ph-bold ph-trash text-sm"></i>
-                                                </button>
-                                            </div>
+                                            )}
                                         </div>
                                         );
                                     })}

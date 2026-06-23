@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
+const truncateWords = (str, maxWords = 8) => {
+    if (!str) return '';
+    const words = str.split(/\s+/);
+    if (words.length <= maxWords) return str;
+    return words.slice(0, maxWords).join(' ') + '...';
+};
+
 // Default exercise templates based on the subject
 const SUBJECT_TEMPLATES = {
     Maths: {
@@ -237,9 +244,9 @@ const ModuleQuestionTrackerModal = ({
                                 {subjectName}
                             </span>
                         </div>
-                        <h2 className="text-2xl font-black text-white leading-tight flex items-center gap-2">
+                        <h2 className="text-2xl font-black text-white leading-tight flex items-center gap-2" title={chapterName}>
                             <i className="ph-fill ph-grid-nine text-bitsat-500"></i>
-                            {chapterName}
+                            {truncateWords(chapterName, 8)}
                         </h2>
                     </div>
 
