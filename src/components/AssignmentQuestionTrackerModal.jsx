@@ -57,6 +57,8 @@ const AssignmentQuestionTrackerModal = ({
     // Save state
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     // Markdown Modal State
@@ -98,6 +100,8 @@ const AssignmentQuestionTrackerModal = ({
             setRemarksTab('visual');
             setIsDirty(false);
             setIsSaving(false);
+            setIsSubmitting(false);
+            setSubmitSuccess(false);
             setIsInitialLoad(true);
 
             // New states reset
@@ -197,7 +201,12 @@ const AssignmentQuestionTrackerModal = ({
     };
 
     const handleSaveWorkflow = async ({ finalize }) => {
-        setIsSaving(true);
+        if (finalize) {
+            setIsSubmitting(true);
+            setSubmitSuccess(false);
+        } else {
+            setIsSaving(true);
+        }
         setIsTimerRunning(false); // Pause timer on save
         
         let attempts = selfAnalysis.attempts ? [...selfAnalysis.attempts] : [];
@@ -239,6 +248,9 @@ const AssignmentQuestionTrackerModal = ({
                 await flushSave();
             }
             setIsDirty(false);
+            if (finalize) {
+                setSubmitSuccess(true);
+            }
             if (showToast) {
                 showToast(
                     finalize 
@@ -249,11 +261,19 @@ const AssignmentQuestionTrackerModal = ({
             }
             setTimeout(() => {
                 onClose();
-            }, 1000);
+            }, 1500);
         } catch (err) {
-            if (showToast) showToast("❌ Failed to save progress", "error");
+            console.error('[Finalize Assessment] Submission failed:', err);
+            if (showToast) showToast("❌ Failed to save progress: " + (err?.message || 'Unknown error'), "error");
+            if (finalize) {
+                setSubmitSuccess(false);
+            }
         } finally {
-            setIsSaving(false);
+            if (finalize) {
+                setIsSubmitting(false);
+            } else {
+                setIsSaving(false);
+            }
         }
     };
 
@@ -346,7 +366,15 @@ const AssignmentQuestionTrackerModal = ({
 
     const handleDiscardAndClose = () => {
         if (isDirty) {
-            if (!window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+            if (requestConfirm) {
+                requestConfirm(
+                    "Unsaved Changes",
+                    "You have unsaved changes. Are you sure you want to close?",
+                    () => {
+                        setIsTimerRunning(false);
+                        onClose();
+                    }
+                );
                 return;
             }
         }
@@ -955,27 +983,42 @@ const AssignmentQuestionTrackerModal = ({
                                         onClick={async () => {
                                             await handleSaveWorkflow({ finalize: false });
                                         }}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isSubmitting}
                                         className="w-full sm:w-auto px-6 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white text-xs font-black uppercase tracking-wider rounded-xl border border-slate-750 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                                     >
                                         <i className="ph-bold ph-floppy-disk text-sm"></i>
                                         {isSaving ? "Saving..." : "Save Progress"}
                                     </button>
                                     <button 
-                                        onClick={async () => {
+                                        onClick={() => {
                                             if (selfAnalysis.correctCount + selfAnalysis.incorrectCount > questionCount) {
                                                 if (showToast) showToast("❌ Correct + Incorrect questions cannot exceed Total Questions!", "error");
                                                 return;
                                             }
-                                            if (window.confirm("Are you sure you want to finalize this assessment? This will lock your self-analysis report.")) {
-                                                await handleSaveWorkflow({ finalize: true });
-                                            }
+                                            setIsSaveConfirmOpen(true);
                                         }}
-                                        disabled={isSaving}
+                                        disabled={isSubmitting || isSaving}
                                         className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
                                     >
-                                        <i className="ph-bold ph-check-square text-sm"></i>
-                                        {isSaving ? "Submitting..." : "Finalize Assessment"}
+                                        {isSubmitting ? (
+                                            <>
+                                                <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Submitting...
+                                            </>
+                                        ) : submitSuccess ? (
+                                            <>
+                                                <i className="ph-bold ph-check-circle text-sm"></i>
+                                                Successfully Submitted!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="ph-bold ph-check-square text-sm"></i>
+                                                Finalize Assessment
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -1536,10 +1579,23 @@ const AssignmentQuestionTrackerModal = ({
                                     setIsSaveConfirmOpen(false);
                                     await handleSaveWorkflow({ finalize: true });
                                 }}
-                                className="w-full py-3 bg-gradient-to-r from-emerald-650 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+                                disabled={isSubmitting}
+                                className="w-full py-3 bg-gradient-to-r from-emerald-650 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <i className="ph-bold ph-check-square text-sm"></i>
-                                <span>Finalize & Submit Assessment</span>
+                                {isSubmitting ? (
+                                    <>
+                                        <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Submitting...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="ph-bold ph-check-square text-sm"></i>
+                                        <span>Finalize & Submit Assessment</span>
+                                    </>
+                                )}
                             </button>
                             <button
                                 onClick={() => setIsSaveConfirmOpen(false)}

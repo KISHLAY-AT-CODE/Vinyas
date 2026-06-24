@@ -2301,6 +2301,34 @@
             feed.insertBefore(item, feed.firstChild);
         }
 
+        function showVinyasToast(message, durationMs = 4500) {
+            const existing = document.getElementById('vinyas-lived-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.id = 'vinyas-lived-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%) translateY(20px)',
+                background: 'linear-gradient(135deg, rgba(17,24,39,0.95), rgba(30,41,59,0.95))',
+                color: '#f3f4f6', border: '1px solid rgba(99,102,241,0.3)',
+                padding: '14px 28px', borderRadius: '16px', fontSize: '13px', fontWeight: '700',
+                fontFamily: 'Outfit, sans-serif', zIndex: '999999',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(99,102,241,0.15)',
+                backdropFilter: 'blur(12px)', maxWidth: '420px', textAlign: 'center',
+                opacity: '0', transition: 'opacity 0.3s ease, transform 0.3s ease'
+            });
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(-50%) translateY(0)';
+            });
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(-50%) translateY(20px)';
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+            }, durationMs);
+        }
+
 
         // --- 6. SANDBOX WIDGET: STREAK GRID ---
         const streakCellsState = Array(28).fill(false);
@@ -2486,7 +2514,7 @@
             // Notification Beep Sound
             playBeepSound();
             
-            alert(`🎉 Great job! You successfully completed your ${timerDurationMinutes}-minute focus block on ${ch}. You earned ${Math.round(points * xpMultiplier)} XP!`);
+            showVinyasToast(`🎉 Great job! You successfully completed your ${timerDurationMinutes}-minute focus block on ${ch}. You earned ${Math.round(points * xpMultiplier)} XP!`);
             resetTimer();
         }
 
@@ -2554,7 +2582,7 @@
             
             card.reviews++;
             
-            alert(`Recall registered! chapter "${card.title}" has been scheduled for next revision on ${dateStr} (${days} days interval).`);
+            showVinyasToast(`Recall registered! chapter "${card.title}" has been scheduled for next revision on ${dateStr} (${days} days interval).`);
 
             // Next Card
             currentCardIdx = (currentCardIdx + 1) % spacedRepDeck.length;

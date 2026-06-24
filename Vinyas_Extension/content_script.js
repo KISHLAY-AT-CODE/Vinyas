@@ -3191,7 +3191,21 @@ function renderTrackerWidget(subject, chapter, syncId, apiUrl) {
             console.log("[Vinyas Tracker] Clicking hidden PW submit button:", foundSubmitBtn);
             foundSubmitBtn.click();
         } else {
-            alert("Submit button not found on page. Please locate and click the page submit button manually.");
+            // Inline toast instead of native alert()
+            const existing = shadow.getElementById('vinyas-widget-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.id = 'vinyas-widget-toast';
+            toast.textContent = '⚠️ Submit button not found on page. Please locate and click the page submit button manually.';
+            toast.setAttribute('style', 'position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fbbf24;border:1px solid #f59e0b44;padding:8px 14px;border-radius:12px;font-size:11px;font-weight:700;z-index:999999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);animation:vinyasToastIn 0.3s ease;max-width:340px;white-space:normal;text-align:center;');
+            const widgetContainer = shadow.querySelector('.vinyas-widget') || shadow.firstElementChild;
+            if (widgetContainer) {
+                widgetContainer.style.position = widgetContainer.style.position || 'relative';
+                widgetContainer.appendChild(toast);
+            } else {
+                shadow.appendChild(toast);
+            }
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 4000);
         }
     });
 
