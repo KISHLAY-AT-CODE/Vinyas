@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import dataHandler from './api/data.js'
 import activityHandler from './api/activity.js'
-import geminiHandler from './api/gemini.js'
+
 import templatesHandler from './api/templates.js'
 import fs from 'fs'
 import path from 'path'
