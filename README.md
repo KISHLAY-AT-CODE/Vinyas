@@ -1,481 +1,240 @@
-# <p align="center"><img src="icon.svg" width="48" height="48" valign="middle" /> Vinyas</p>
+<div align="center">
 
-<p align="center">
-  <strong>A Gamified Syllabus Tracker, Real-Time Chrome Extension Companion, and AI-Powered Study Planner</strong><br>
-  <em>This is an experimental project built using Antigravity, an AI-first coding environment. Development involved extensive AI assistance, while project direction, testing, debugging, deployment, and optimization were handled manually. The README below is AI-generated, except for the Learning Section.</em>
-</p>
+# <img src="public/icon.svg" width="40" height="40" alt="Vinyas Logo" /> Vinyas
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-2.3.1-indigo.svg?style=flat-square" alt="Version" />
-  <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
-  <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
-  <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
-  <img src="https://img.shields.io/badge/AI-Gemini%20%7C%20Cerebras%20%7C%20Groq-purple.svg?style=flat-square" alt="AI Routing" />
-  <img src="https://img.shields.io/badge/Chrome%20Extension-Active-orange.svg?style=flat-square" alt="Chrome Extension" />
-  <img src="https://img.shields.io/badge/Android%20APK-Available-teal.svg?style=flat-square" alt="Android APK" />
-</p>
+**Full-stack study tracker for JEE · NEET · BITSAT with a Chrome Extension that auto-syncs PhysicsWallah activity, encrypted weekly backups, and a gamified progress dashboard.**
+
+[![Live](https://img.shields.io/badge/Live-vinyas--one.vercel.app-6366f1?style=flat-square&logo=vercel&logoColor=white)](https://vinyas-one.vercel.app)&nbsp;[![Version](https://img.shields.io/badge/version-2.3.1-6366f1?style=flat-square)](CHANGELOG.md)&nbsp;[![Last Commit](https://img.shields.io/github/last-commit/KISHLAY-AT-CODE/Vinyas?style=flat-square&color=6366f1)](https://github.com/KISHLAY-AT-CODE/Vinyas/commits/main)&nbsp;[![License](https://img.shields.io/badge/license-ISC-6366f1?style=flat-square)](#license)
+
+</div>
+
+
+
+![Vinyas Dashboard](public/bg1.png)
 
 ---
 
-![Vinyas Dashboard](public/bg3.png)
+## Why This Exists
 
-## 🌟 Overview
-
-**Vinyas** is a state-of-the-art educational tracker designed for students mastering custom exam targets. Vinyas bridges the gap between passive learning and active tracking by automatically logging video lecture hours, Daily Practice Problem (DPP) scores, and textbook progress from external learning platforms (such as PhysicsWallah) via a custom-built Chrome Extension.
-
-Equipped with a gamified study matrix, Pomodoro focus timers, spaced-repetition flashcards, daily planner workflows, an integrated diagnostics & feedback wizard, and automated encrypted email backups, Vinyas empowers students to optimize their prep with visual analytics, streaks, achievements, and intelligent AI assistance.
-
-> **Live Demo**: [vinyas-one.vercel.app](https://vinyas-one.vercel.app)
+JEE/NEET students track study across 95+ chapters per exam, split between video lectures, DPPs (Daily Practice Problems), and textbook modules — all on PhysicsWallah, which provides no unified analytics layer across them. Vinyas is that layer: a Chrome Extension that silently intercepts PW quiz submissions and module completions, and a React SPA that turns those raw events into a structured, gamified progress matrix.
 
 ---
 
-## ✨ Features
-
-### 🧩 Chrome Extension Companion
-A lightweight Manifest V3 browser extension that seamlessly pairs with your dashboard. Features:
-* **Interactive Tracker Widget Overlay**: A floating, draggable, and bounded widget injected directly into textbook exercise and quiz pages to log question difficulty states (`Easy`, `Medium`, `Hard`, `Difficult`) and syncs progress in real-time.
-* **Auto-Save & Submit Actions**: Widget auto-saves question states directly to the MongoDB database in real-time, preventing progress loss. Native PW quiz submit button actions are proxied programmatically.
-* **Trimmed URL Checker & Auto-Indexing**: Automatically detects unconfigured chapters, prompts to redirect to trimmed list pages to auto-scrape question counts, saves to database, and redirects back to active quiz in under 2 seconds.
-* **1-Click Auto-Pair**: Detects Sync IDs and links dashboard automatically, with beautiful glassmorphic popups alerting on account connection and disconnection states.
-
-### 🏆 Gamified Dashboard
-Features an XP-based leveling system, automatic study **streak tracking** with a visual calendar heatmap, a **Pomodoro focus timer**, **spaced-repetition revision scheduler**, customized daily goals, and unlockable achievements to keep students motivated.
-
-### 📊 Interactive Syllabus Matrix
-Tracks syllabus progress by subject, displaying chapter status (`Todo` | `Doing` | `Done`), personal log entries, DPP averages, and detailed progress/accuracy percentages on exercise modules. Includes a rich **Progress Modal** with per-DPP breakdowns and an interactive **Module Question Tracker**.
-
-### 🧠 Syllabus Auto-Builder
-Generates a comprehensive exam syllabus instantly from **server-hosted templates** (BITSAT, JEE, NEET, and more) or allows deep subject/chapter-level curation via a step-by-step setup wizard. No manual typing required—just select, customize, and go.
-
-### 🤖 Intelligent AI Gateway
-Features a **load-balanced API routing** system cycling through up to **20 Google Gemini API keys** with multi-level failover tiers to **Cerebras (GPT-OSS-120B)** and **Groq (Llama-3.3-70B)** in case of rate limits. Includes per-user rate limiting (15 req/min) and Sync ID authentication.
-
-### 🐞 Diagnostics & Suggest Feature
-Exposes a secure diagnostics panel, bug reporter, and feature suggestion hub. In case of issues or ideas, students can upload a description along with one or more screenshots (under 2MB each). The system packages system diagnostics, Sync IDs, and local core events into an AES-encrypted telemetry bundle, transmitting it securely to the developer via SMTP relay. Features a gold/amber-themed Suggest Feature modal alongside the rose-themed Bug Reporter modal.
-
-### 🛡️ Encrypted Auto-Backups
-A robust **client-side encrypted** (AES-256-GCM + PBKDF2) automated weekly backup system via Vercel Cron that safely emails your entire syllabus database bundle to your inbox every Sunday. The mailed `.json` file is secure even if your email is compromised—decryption requires your private Sync ID.
-
-### 🔒 Inactivity & Privacy Lifecycle
-To preserve backend database resources and keep user profiles secure, Vinyas enforces a strict inactivity cleanup protocol calculated in the India Standard Time (IST) calendar timezone:
-- **5-Day Inactivity Warning**: If a profile remains logged out for 5 calendar days, and an automated backup email was configured, a high-priority orange-alert warning email is sent.
-- **6-Day Automatic Purge**: If a user is inactive for 6 consecutive calendar days, their profile is permanently deleted from MongoDB, and client session states (including extension local storage) are automatically reset.
-- **Instant Activity Reset**: Performing any dashboard interaction (fetching data, logging study records, or syncing) immediately resets the inactivity tracker.
-
-### 📱 Android Companion
-Includes a compiled **Android APK** (`Vinyas.apk`) for study progress tracking directly on your mobile device.
-
-### 📅 Daily Planner Workflows
-Includes a **Morning Planner** for scheduling daily study tasks by subject, chapter, and template (Lecture, DPP, Revision), and a **Nightly Wrap-Up** workflow for logging completion, DPP scores, and notes before sleep. Suggested goals from PW upcoming events can be auto-imported.
-
-### 🔍 Global Search
-A fast overlay search system to instantly locate any chapter across all subjects in the syllabus matrix. Available via keyboard shortcut or header search bar.
-
-### 🎨 Premium UI/UX
-Designed using curated HSL dark-mode palettes, smooth gradients, subtle micro-animations, glassmorphism panels, **Outfit** font family, custom **Phosphor Icons**, and a premium Toast Notification interface with full-screen animated achievement celebrations.
-
-### ⚙️ Settings Panel
-Control your sync profile with a rotating gear Settings menu supporting: **Export/Import** data (client-side encrypted JSON bundles), **Backup Settings** configuration, session **Logout** (which triggers local and browser extension storage cleanup), and permanent account **Delete**.
-
----
-
-## 🛠️ Architecture & Tech Stack
-
-Vinyas operates as a premium React Single-Page Application (SPA) compiled with Vite, deploying serverless API routes on Vercel backed by a persistent MongoDB layer and automated SMTP email services.
+## Architecture
 
 ```mermaid
 graph TD
-    CE[Chrome Extension Vinyas Tracker] -->|Telemetry POST events| API_Act[API Gateway: /api/activity]
-    WA[React Frontend SPA Web App] -->|Initial Hydration GET| API_Data[API Route: /api/data]
-    WA -->|Debounced Sync Mutations| API_Data
-    WA -->|Live Feed Polls| API_Act
-    WA -->|AI Planning & Insights| API_Gemini[API Route: /api/gemini]
-    WA -->|Template Fetching| API_Tmpl[API Route: /api/templates]
-    
-    API_Data -->|Fetch/Modify Profiles| DB[(MongoDB: Users Collection)]
-    API_Act -->|Buffer Extension telemetry| DB
-    
-    API_Gemini -->|Key Rotation / Flash| Gemini[Google Gemini API]
-    API_Gemini -->|Failover Tier 1| Cerebras[Cerebras API]
-    API_Gemini -->|Failover Tier 2| Groq[Groq API]
-    
-    CRON[Vercel Cron: Weekly Backup] -->|AES-256-GCM Encrypted Mail| SMTP[SMTP Nodemailer]
-    CRON -->|Read User Profiles| DB
+    CE[Chrome Extension] -->|POST telemetry| API_Act[/api/activity]
+    WA[React SPA] -->|GET hydration| API_Data[/api/data]
+    WA -->|POST debounced save| API_Data
+    WA -->|GET activity poll| API_Act
+    WA -->|GET syllabus templates| API_Tmpl[/api/templates]
+
+    API_Data -->|CRUD — users collection| DB[(MongoDB Atlas)]
+    API_Act -->|Buffer telemetry| DB
+
+    CRON[Vercel Cron — Sunday 00:00 UTC] -->|Inactivity purge across 3 collections| DB
+    CRON -->|AES-256-GCM encrypted attachment| SMTP[Nodemailer SMTP]
 ```
 
-### Stack Components
 | Layer | Technology |
-|---|---|
-| **Frontend** | React 18, Vite 5, Vanilla CSS + TailwindCSS 3, Framer Motion, Phosphor Icons |
-| **Backend** | Vercel Serverless Functions (Node.js) |
-| **Database** | MongoDB Atlas |
-| **AI Integration** | Gemini Flash (20-key rotation), Cerebras GPT-OSS-120B, Groq Llama-3.3-70B |
-| **Encryption** | AES-256-GCM + PBKDF2 (Web Crypto API), RC4 telemetry obfuscation |
-| **Email Service** | Nodemailer (SMTP), Vercel Cron Scheduler |
-| **Extension** | Manifest V3 Chrome Extension (Service Worker + Content Scripts) |
-| **Mobile** | Android APK |
+| --- | --- |
+| **Frontend** | React 18.2, Vite 5.2, TailwindCSS 3.4, Framer Motion 12.4, Phosphor Icons 2.1 |
+| **Backend** | Vercel Serverless Functions (Node.js), Nodemailer 6.9 |
+| **Database** | MongoDB Atlas 7.2 — 3 collections: `users`, `rate_limits`, `telemetry` |
+| **Encryption** | AES-256-GCM + PBKDF2 · 100k iterations (Web Crypto API — isomorphic) |
+| **Scheduling** | Vercel Cron (`0 0 * * 0`) |
+| **Analytics** | Vercel Analytics |
+| **Extension** | Chrome Manifest V3 · Service Worker · Content Scripts |
 
 ---
 
-## 📦 Project Structure
+## Key Engineering Decisions
 
-```text
+**1 — MongoDB free tier (512MB) forced delta serialization and a full lifecycle system.**
+Storing complete syllabus objects per user was unsustainable at the 512MB cap. `serializeSyllabus()` diffs each user's data against the base exam template and stores only the delta: chapters with active progress, custom additions, and deletions. A JEE student with 95 chapters but progress in 8 stores 8 records, not 95. `deserializeSyllabus()` reconstructs the full syllabus on every read by merging the delta with the server-hosted template. The same constraint forced the inactivity lifecycle: hard-deleting accounts after 6 days of inactivity keeps the database below the ceiling. Encrypted weekly backups became load-bearing infrastructure — without them, a silent purge destroys months of study data.
+
+**2 — Two-token auth where the secret also keys the encryption.**
+Plaintext Sync IDs are never stored. On registration, the `vny_sec_` Sync ID (generated via `crypto.getRandomValues()`, 16 bytes, 32 hex chars) is SHA-256 hashed server-side before storage. On first login, the server issues a `vny_sess_` session token (24 random bytes, 48 hex chars) stored in a `sessions` array on the user document with `createdAt` and `lastUsedAt` timestamps. Subsequent API calls use the session token — the plaintext ID is only transmitted once. `resolveUser()` dispatches on prefix: `vny_sess_` → session array lookup; `vny_sec_` → hash lookup. The same plaintext ID doubles as the PBKDF2 passphrase for AES-256-GCM backup encryption, so the encryption key is never on the server.
+
+**3 — One isomorphic crypto module for browser and server.**
+The weekly Cron runs on Vercel serverless (Node.js). The same AES-256-GCM encryption runs client-side for manual exports. Rather than two separate implementations with two test surfaces, the crypto module auto-detects environment: `window.crypto` in browser, `globalThis.crypto` or `import('crypto').webcrypto` in Node. One file (`src/services/crypto.js`) imported by both the React app and `api/cron-backup.js`.
+
+**4 — MV3 Service Worker as cross-tab broadcast authority.**
+The Chrome Extension POSTs telemetry to `/api/activity`; the dashboard polls the buffer. With multiple dashboard tabs open, each instance races to write state — causing stale overwrites and data corruption. Manifest V3 requires a Service Worker instead of a persistent background page, which is the right primitive here: the background Service Worker broadcasts `VINYAS_SYNC_QUESTION_UPDATE` and `VINYAS_SYNC_REFRESH` via `window.postMessage` to all open Vinyas tabs simultaneously. One tab writes; all others receive the update without independent writes. On the save side, `fetch` calls on tab close use `keepalive: true` so the browser completes the POST after the page begins unloading.
+
+---
+
+## Features
+
+### Chrome Extension (Manifest V3)
+Two content scripts with distinct roles. `tracker_ui.js` + `content_script.js` inject at `document_idle` into all PW pages (`all_frames: true`): they inject a draggable glassmorphic overlay for logging per-question difficulty states (Easy / Medium / Hard / Difficult), proxy the native PW submit button programmatically, and auto-scrape question counts from unconfigured chapter pages via a redirect-and-return flow. `dashboard_connector.js` injects into the live Vinyas dashboard tab, reads the Sync ID from the DOM, and completes auto-pair without persisting any credentials in extension storage. All captured events are fuzzy-matched to the configured syllabus: normalized (lowercased, singularized, `&`→`and`, synonym dictionary) → exact match → substring match ranked by specificity → `altNames` array per chapter as a fallback. Unmatched submissions queue in a Resolve Submissions modal for manual linking.
+
+### Gamified Dashboard
+XP-based leveling, GitHub-style streak heatmap calendar, Pomodoro focus timer with break cycles, spaced-repetition scheduler with self-rated review history, and 15 server-evaluated achievements that trigger full-screen particle celebrations.
+
+### Syllabus Matrix
+Chapter-level tracking across JEE Mains (95 chapters), NEET (48 chapters), and BITSAT (43 chapters) — or a fully custom syllabus. Per chapter: status (Todo / Doing / Done), lecture count, DPP accuracy and completion, module accuracy and completion, per-DPP breakdown logs, per-question difficulty states, Pomodoro focus time, and spaced repetition state. Sort by Master Score or alphabetically per subject, persisted in localStorage. Active and unstarted chapters grouped separately in the view.
+
+### Encrypted Weekly Backups
+Every Sunday at midnight UTC, Vercel Cron reconstructs each user's full syllabus from the stored delta + base template, encrypts the payload with AES-256-GCM keyed by the user's Sync ID, and emails the ciphertext bundle as a `.json` attachment. A compromised inbox cannot expose study data — decryption requires the private Sync ID. Restore via Settings → Import.
+
+### Daily Planning Workflows
+Morning Planner for scheduling lectures, DPPs, and revisions by chapter and type. Nightly Wrap-Up for logging completion percentages, DPP scores, and session notes before close.
+
+### Privacy Lifecycle
+Inactivity calculated in IST calendar days (not UTC hours) using `Intl.DateTimeFormat` with `timeZone: 'Asia/Kolkata'` — a student who logs out at 11:58 PM IST and back in at 12:02 AM IST should not lose two days. Warning email at day 5; hard purge at day 6 across all three MongoDB collections. Any API interaction resets the timer.
+
+---
+
+## Project Structure
+
+```
 Vinyas/
-├── api/                           # Serverless Vercel API endpoints
-│   ├── data.js                    # Core CRUD for user profiles & syllabus
-│   ├── activity.js                # Chrome Extension telemetry buffer
-│   ├── gemini.js                  # AI gateway with multi-key load balancing
-│   ├── templates.js               # Exam syllabus template server
-│   ├── cron-backup.js             # Vercel Cron: weekly backups & inactivity checks
-│   ├── test-backup-mail.js        # Manual backup email trigger
-│   ├── telemetry.js               # Diagnostics telemetry endpoint
-│   ├── logout.js                  # Session logout activity logger
-│   ├── dev-nuke.js                # Localhost developer database nuke tool
-│   ├── extension-metadata.js      # Fetch Chrome extension & APK metadata
-│   └── _shared/                   # Private shared server utilities & helper configs
-│       ├── auth.js                # Sync ID authentication helpers
-│       ├── email.js               # SMTP email dispatch utilities
-│       ├── syllabus.js            # Syllabus data processing helpers
-│       ├── db.js                  # MongoDB connection pooling
-│       ├── timezone.js            # IST timezone utility
-│       └── achievements_config.js # Achievement evaluation engine
-├── src/                           # React frontend application
-│   ├── components/                # 25 modular UI components
-│   │   ├── Header.jsx             # Navigation, brand, diagnostics dropdown
-│   │   ├── GamifiedDashboard.jsx  # XP, streaks, goals, activity feed
-│   │   ├── SubjectTable.jsx       # Interactive syllabus progress matrix
-│   │   ├── ProgressModal.jsx      # Detailed chapter progress modal
-│   │   ├── ModuleQuestionTrackerModal.jsx  # Per-question exercise tracker
-│   │   ├── PomodoroTimer.jsx      # Focus timer with break cycles
-│   │   ├── SpacedRepetition.jsx   # Flashcard revision system
-│   │   ├── StreakCalendar.jsx     # GitHub-style streak heatmap
-│   │   ├── AchievementToast.jsx   # Full-screen celebration animations
-│   │   ├── WhatsNewModal.jsx      # Version update changelog popup
-│   │   ├── ProfileModal.jsx       # User profile editor
-│   │   ├── ExtensionPage.jsx      # Extension download & tutorial hub
-│   │   ├── CohortSetupModal.jsx   # Syllabus template builder wizard
-│   │   ├── MorningPlannerModal.jsx    # Daily study plan creator
-│   │   ├── NightlyWrapUpModal.jsx     # End-of-day logging workflow
-│   │   ├── BackupSettingsModal.jsx    # Email backup configuration
-│   │   ├── ResolveSubmissionsModal.jsx # Unmatched submission resolver
-│   │   ├── ConfirmationModal.jsx  # Reusable confirmation dialog
-│   │   ├── Modals.jsx             # Log, status & chapter edit modals
-│   │   ├── StudyBuddyWidget.jsx   # AI study companion
-│   │   ├── SearchOverlay.jsx      # Global chapter search
-│   │   ├── FireSlider.jsx         # Animated fire intensity slider
-│   │   ├── ToastContext.jsx       # Toast notification provider
-│   │   ├── ThemeModal.jsx         # Custom background, opacity & blur settings
-│   │   └── DevToolsOverlay.jsx    # Developer testing sandbox
-│   ├── services/                  # Client-side service layer
-│   │   ├── crypto.js              # AES-256-GCM encryption (Web Crypto API)
-│   │   ├── gemini.js              # AI client with attempt header parsing
-│   │   ├── logger.js              # In-memory event logging bus
-│   │   └── notifications.js       # Browser notification integration
-│   ├── hooks/                     # Custom React Hooks
-│   │   ├── useAchievements.js     # Achievement state management hook
-│   │   ├── useActivityProcessor.js # Processes activity log queuing, matching & UI updates
-│   │   ├── useDatabaseSync.js     # Automatic background DB save/load orchestrator
-│   │   ├── useExtensionConnection.js # Detects and binds Chrome extension connection states
-│   │   └── useThemeSettings.js    # Manages custom background, blur, and opacity theme preferences
-│   ├── shared/                    # Shared frontend utilities
-│   │   ├── normalize.js           # Data normalization helpers
-│   │   ├── time.js                # Time formatting utilities
-│   │   └── utils.js               # Common mathematical & data structuring helpers
-│   ├── data/
-│   │   ├── constants.jsx          # Initial syllabus, logo, chapter schema
-│   │   ├── ai_instructions.js     # AI system prompt definitions
-│   │   └── version.js             # App & extension version constants
-│   ├── App.jsx                    # Root SPA lifecycle & state orchestrator
-│   ├── index.css                  # Global design system & animations
-│   └── main.jsx                   # DOM mounting with ToastContext provider
-├── Vinyas_Extension/              # Manifest V3 Chrome Extension source
-│   ├── manifest.json              # Extension manifest & permissions
-│   ├── background.js              # Service worker for lifecycle management
-│   ├── content_script.js          # PW page interceptor & data extraction
-│   ├── dashboard_connector.js     # Auto-pair DOM query bridge
-│   ├── popup.html                 # Extension popup UI
-│   ├── popup.js                   # Extension popup logic & pairing controls
-│   └── icon.svg                   # Extension icon
-├── public/                        # Static assets served by Vite
-│   ├── bg1.png                    # Dashboard screenshot for README
-│   ├── bg2.png                    # Tracker overlay widget screenshot
-│   ├── bg3.png                    # Feedback & Suggest Feature screenshot
-│   ├── Vinyas.apk                 # Android companion app
-│   ├── Vinyas_Extension.zip       # Packaged extension download bundle
-│   ├── favicon.ico                # Browser favicon
-│   ├── icon.png / icon.svg        # App icons
-│   ├── guide_*.png                # Extension setup tutorial images
-│   ├── work_*.png                 # How-it-works illustrations
-│   └── manifest.json              # PWA web manifest
-├── templates/                     # Exam syllabus JSON templates
-│   ├── bitsat.json                # BITSAT syllabus
-│   ├── jee_mains.json             # JEE Mains syllabus
-│   └── neet.json                  # NEET syllabus
-├── vercel.json                    # Vercel config: routes, crons, functions
-└── package.json                   # Dependencies & scripts
+├── api/
+│   ├── _shared/
+│   │   ├── achievements_config.js  # 15 server-evaluated achievement definitions
+│   │   ├── auth.js                 # SHA-256 hashing + vny_sess_ token resolution
+│   │   ├── db.js                   # Connection pool with ping health check, 5s timeout
+│   │   ├── email.js                # Backup email, deletion warning, bug report dispatch
+│   │   ├── syllabus.js             # Delta serialize/deserialize + template loader
+│   │   └── timezone.js             # IST date utils via Intl.DateTimeFormat
+│   ├── activity.js                 # Extension telemetry receiver + assignment matcher
+│   ├── cron-backup.js              # Sunday Cron: inactivity purge + encrypted backup
+│   ├── data.js                     # Core CRUD: syllabus, sessions, achievements
+│   ├── extension-metadata.js       # Serve extension/APK version + file size to frontend
+│   ├── logout.js                   # Sets logoutTimestamp to begin inactivity countdown
+│   ├── telemetry.js                # Bug report + diagnostics receiver
+│   ├── templates.js                # Serve exam syllabus JSON templates
+│   └── test-backup-mail.js         # Manual backup trigger (dev)
+├── src/
+│   ├── components/                 # 28 React components
+│   ├── hooks/
+│   │   ├── useActivityProcessor.js # Reactive fuzzy-match pipeline + activity polling
+│   │   ├── useDatabaseSync.js      # Debounced save, keepalive flush, session management
+│   │   ├── useExtensionConnection.js # postMessage bridge, version mismatch detection
+│   │   ├── useAchievements.js      # Achievement state management
+│   │   └── useThemeSettings.js     # Background, blur, opacity preferences
+│   ├── services/
+│   │   ├── crypto.js               # Isomorphic AES-256-GCM + PBKDF2 + SHA-256
+│   │   ├── logger.js               # In-memory event log bus
+│   │   └── notifications.js        # Browser notification integration
+│   └── shared/
+│       ├── normalize.js            # normalizeChapterName (synonym dict) + normalizeUrl
+│       ├── time.js                 # IST formatting utilities
+│       └── utils.js                # findChapterByName, findAllChaptersByName,
+│                                   # generateSecureSyncId, applyActivitiesToChapter
+├── Vinyas_Extension/               # Manifest V3 Chrome Extension
+│   ├── background.js               # Service Worker — cross-tab broadcast authority
+│   ├── content_script.js           # PW page interceptor, submit proxy, DOM scraper
+│   ├── dashboard_connector.js      # Auto-pair DOM bridge (reads Sync ID from dashboard)
+│   ├── tracker_ui.js               # Glassmorphic overlay UI
+│   └── manifest.json               # MV3 manifest
+├── templates/
+│   ├── jee_mains.json              # 95 chapters across Physics / Chemistry / Mathematics
+│   ├── bitsat.json                 # 43 chapters across 5 subjects
+│   └── neet.json                   # 48 chapters across Physics / Chemistry / Biology
+├── Vinyas_lived.html               # Project retrospective page
+└── vercel.json                     # Cron schedule, SPA rewrites, template includeFiles
 ```
 
 ---
 
-## ⚡ Getting Started
+## Getting Started
 
 ### Prerequisites
-* **Node.js** v18+
-* **MongoDB** instance (Atlas or local)
-* At least one **Google Gemini API Key** (optional: Cerebras or Groq keys for fallback)
+- Node.js v18+
+- MongoDB Atlas cluster
+- Vercel account (required for Cron and serverless functions)
 
-### Local Installation
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/KISHLAY-AT-CODE/Vinyas.git
-   cd Vinyas
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Environment Setup**:
-   Create a `.env` file in the root directory:
-   ```env
-   MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/vinyas?retryWrites=true&w=majority
-   TELEMETRY_PASSWORD=your_secure_diagnostics_password
-
-   # Gemini API Keys (supports up to 20 for load balancing)
-   GEMINI_API_KEY_1=your_gemini_api_key_here
-   GEMINI_API_KEY_2=your_second_key_here
-
-   # Optional Fallback AI Providers
-   GENERAL_API_KEY=gsk_your_groq_key_here
-   CEREBRAS_API_KEY=csk_your_cerebras_key_here
-
-   # Email Backup & Feedback Service (optional)
-   SMTP_USER=your_smtp_email@gmail.com
-   SMTP_PASS=your_app_password
-   DEV_EMAIL=developer_recipient_email@gmail.com
-   ```
-
-4. **Run Development Server**:
-   ```bash
-   npm run dev
-   # Or to run with Vercel serverless functions locally:
-   npm run vercel-dev
-   ```
-
-5. **Open in Browser**: Navigate to `http://localhost:5173` and create your Sync ID to get started.
-
----
-
-## 🧩 Chrome Extension Setup
-
-> **📸 Interactive Visual Tutorial**: Visit [vinyas-one.vercel.app/extension](https://vinyas-one.vercel.app/extension) for a step-by-step guided slideshow with annotated screenshots covering every installation step.
-
-### Quick Setup Steps
-
-1. **Download** the extension ZIP bundle from the `/extension` page on your dashboard, or find `Vinyas_Extension/` in this repository.
-2. Open Chrome → navigate to `chrome://extensions/`.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** → select the extracted `Vinyas_Extension/` folder.
-5. **Pin** the extension to your Chrome toolbar via the puzzle icon.
-6. **1-Click Auto-Pair**: Open your active Vinyas dashboard tab, click the **Vinyas Tracker** extension icon, and hit **"Auto-Pair"**. The extension automatically detects your Sync ID and server URL.
-
-### How It Works
-
-Once paired, the extension silently monitors your study activity on PW platforms:
-
-| What it Captures | How it Syncs |
-|---|---|
-| 📝 Quiz scores, accuracy, completion | Auto-posted to `/api/activity` on submission |
-| 👑 Module/exercise completion metrics | Auto-posted with chapter matching |
-| 🎥 Video lecture watch progress | Tracked via content script interception |
-| 📚 Textbook exercise layouts | Extracts per-exercise question counts |
-
-All captured data is **fuzzy-matched** to your syllabus chapters and auto-applied. Unmatched submissions appear in the **Resolve Submissions** modal for manual linking.
-
----
-
-## 🔐 Security
-
-Vinyas is designed with student privacy as a core priority:
-
-* **Cryptographic Sync IDs**: Generated using `crypto.getRandomValues()` with `vny_sec_` prefix (32 hex characters).
-* **AES-256-GCM Encryption**: All exported backups and email attachments are encrypted client-side using PBKDF2-derived keys (100,000 iterations). The server never sees plaintext backup data.
-* **Per-User Rate Limiting**: AI endpoints enforce 15 requests/minute per Sync ID.
-* **Sync ID Validation**: API routes verify secure prefix or database registration before processing.
-* **Diagnostics Redaction**: Sensitive model details and identifiers are automatically obfuscated. Bypass available only in localhost DevTools.
-* **Content Security Policy**: Strict CSP headers restrict script and connection origins.
-
----
-
-## 🏅 Achievements System
-
-Achievements trigger premium **full-screen animated celebrations** with particle effects.
-
-🤫 Discover achievements yourself!
-
----
-
-## 📧 Automated Backups
-
-Configure automated backups from **Settings → Backup Settings**:
-
-1. Enter your destination email address.
-2. Toggle **Weekly Auto-Backups** on.
-3. Every **Sunday at midnight UTC**, Vercel Cron automatically:
-   - Fetches your latest profile from MongoDB
-   - Encrypts the payload with AES-256-GCM using your Sync ID
-   - Emails the encrypted `.json` bundle via SMTP
-4. To restore: Import the file via the **Import** button and supply your Sync ID for decryption.
-
----
-
-## 🚀 Deployment
-
-Vinyas is designed for **Vercel** deployment out of the box:
+### Local Setup
 
 ```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel --prod
+git clone https://github.com/KISHLAY-AT-CODE/Vinyas.git
+cd Vinyas
+npm install
 ```
 
-Ensure all environment variables are configured in your Vercel project settings. The `vercel.json` handles SPA routing, serverless function bundling, and cron job scheduling automatically.
+Create `.env` in the root:
+
+```env
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/vinyas
+
+# Diagnostics endpoint auth
+TELEMETRY_PASSWORD=your_password
+
+# Email: backups, inactivity alerts, bug reports
+SMTP_USER=your_smtp@gmail.com
+SMTP_PASS=your_app_password
+DEV_EMAIL=developer_recipient@gmail.com
+
+# Vercel Cron authentication (set same value in Vercel dashboard)
+CRON_SECRET=your_cron_secret
+
+# Optional: comma-separated extra CORS origins for the extension
+ALLOWED_CORS_ORIGINS=
+```
+
+```bash
+npm run dev
+# With Vercel serverless functions locally:
+npm run vercel-dev
+```
+
+Open `http://localhost:5173` and create a Sync ID to start.
 
 ---
 
-## 📅 Changelog
+## Chrome Extension Setup
+
+1. Download `Vinyas_Extension.zip` from the `/extension` page on your dashboard, or use `Vinyas_Extension/` from this repo.
+2. Open `chrome://extensions/` → enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** → select the extracted `Vinyas_Extension/` folder.
+4. Open your Vinyas dashboard tab → click the extension icon → **Auto-Pair**.
+
+The extension reads your Sync ID from the live dashboard DOM. No credentials are stored in extension storage.
+
+Full annotated visual walkthrough: [vinyas-one.vercel.app/extension](https://vinyas-one.vercel.app/extension)
+
+---
+
+## Security
+
+- **Sync IDs** generated via `crypto.getRandomValues()` — 16 bytes, 32 hex chars, `vny_sec_` prefix. Never stored in plaintext — SHA-256 hashed server-side before insertion into MongoDB.
+- **Session tokens** (`vny_sess_`) issued on first login, stored in a sessions array with timestamps. Subsequent calls use the token; the plaintext Sync ID transits the network only once.
+- **AES-256-GCM + PBKDF2** (100,000 iterations, 16-byte random salt, 12-byte IV) for all backup payloads. The same isomorphic module runs in the browser for manual exports and in Node.js for the weekly Cron. The server handles only ciphertext — the plaintext Sync ID used as the passphrase never leaves the client.
+- **Extension auto-pair** reads the Sync ID from the live page DOM; nothing is persisted in Chrome extension storage.
+- **CORS**: `chrome-extension://` origins, `localhost:*`, and `*.vercel.app` are explicitly whitelisted at the origin header level. Additional origins configurable via `ALLOWED_CORS_ORIGINS`.
+- **Payload limits**: 500KB on `/api/activity`, 2MB on `/api/data` — enforced before DB interaction.
+
+---
+
+## Changelog
 
 ### v2.3.1 (June 28, 2026) — Dynamic Dashboard Pages & Interactive Sorting
-- 📊 **Standalone Recent Activity Dashboard**: Introduced a consolidated recent activity card listing the 5 latest active chapters from each subject based on automatic study tracker triggers and manual status overrides.
-- 🔁 **Segmented View Switcher Navbar**: Added a premium glassmorphic navbar switcher at the top of the workspace to toggle between the main syllabus Chapter Table and the Recent Activity dashboard like separate pages.
-- 🔍 **Search-to-Chapter Page Routing**: Selecting a chapter from search query suggestions or overlays automatically redirects you to the Chapter Table view tab and scrolls/highlights the corresponding row.
-- 🎯 **Subject Chapter Sorting**: Added a custom sort selector in the subject table headers to sort chapters alphabetically (A-Z) or by Master Score (Ascending/Descending).
-- 💾 **Persistent Sorting Preferences**: Your chosen sort criteria is automatically saved in browser local storage and loaded when you return to the app or switch subjects.
-- 🗂️ **Categorized Section Grouping**: Chapters are divided into "Active Chapters" (those with progress) and "No Data Available" (unstarted chapters) divider rows, where score-sorting only reorganizes started chapters.
-- 🛡️ **Thicker Master Status Bar Outline**: The row segmented progress bars are now 3.5px thick and have a dark top-border outline to guarantee sharp contrast on light dashboard backgrounds.
+- Standalone Recent Activity view listing the 5 latest active chapters per subject.
+- Glassmorphic segmented navbar switcher between Chapter Table and Recent Activity views.
+- Chapter search now routes to the Chapter Table and scrolls to the matched row.
+- Sort selector per subject: alphabetical or Master Score (ascending/descending), persisted in localStorage.
+- Active and unstarted chapters divided into separate grouping rows; score-sort only reorders started chapters.
 
 ### v2.2.2 (June 23, 2026) — Critical Extension Bug Fixes
-- 🐛 **Assignment Submission Fixed**: Resolved a critical bug where the "Finalize & Submit" button would get permanently stuck in a "Submitting..." state and never complete, requiring a page reload.
-- ⚡ **Zero-Flash Input**: Eliminated the full-widget flickering that occurred on every keystroke inside the self-analysis form — editing is now buttery smooth with no DOM rebuilds.
-- 🔁 **Infinite Re-render Loop Eliminated**: Removed the root cause — a premature full Shadow DOM rebuild (`render()`) inside `autoSaveProgress()` that fired *before* `sendMessage`, orphaning all callbacks and creating cyclic re-render loops.
-- 🎯 **Dedicated Submit State Flag**: Added `isSubmittingAnalysis` flag, separate from the shared `isSaving` lock, so background auto-saves can never corrupt the submit button UI state.
-- 🛡️ **Runtime Error Propagation**: Extension message errors (e.g. service worker sleeping) now surface as toast errors instead of being silently swallowed, with clean UI recovery.
-- ⏱️ **Extended Safety Timeout**: Save watchdog timeout extended to 8 seconds, now properly triggers failure callback + UI unlock if the network hangs indefinitely.
-- 💾 **Instant Overlay Close**: The "Save & Pause Timer" confirmation overlay now closes immediately on click while the save continues in the background.
+- Fixed "Finalize & Submit" permanently stuck in a submitting state.
+- Eliminated full-widget flicker on every keystroke inside the self-analysis form.
+- Root cause removed: premature Shadow DOM rebuild inside `autoSaveProgress()` that fired before `sendMessage`, orphaning all callbacks and creating cyclic re-renders.
+- Added `isSubmittingAnalysis` flag separate from the shared `isSaving` lock to prevent UI state corruption.
+- Extension errors now surface as toast notifications instead of being silently swallowed.
+- Save watchdog timeout extended to 8 seconds with clean UI recovery on network hangs.
 
-### v2.1.2 (June 21, 2026) — User Requested Features Updated
-- 🎯 **User Requested Features**: Even after project closure, user-requested features and improvements continue to be entertained and shipped.
-- 📊 **Vercel Analytics**: Integrated Vercel Analytics for real-time usage insights and performance monitoring.
-- 🔗 **Direct Assignment Mapping**: Re-initializing an assignment now directly edits the database entry (name, type, chapter) without creating unresolved submissions in the Resolve Submissions queue.
-- 🔄 **Initialize Again**: The extension widget now shows an "Initialize Again" button when you modify the assignment name or type, letting you instantly re-link assignments to different chapters.
-- 🛡️ **Save Safety Net**: Unsaved syllabus progress is now automatically flushed on tab close or when the tab goes to background, preventing data loss via `keepalive` requests.
-- ⚡ **Concurrent Save Protection**: Database save operations are now queued with `isSavingRef` / `pendingSaveRef` guards to prevent race conditions from overlapping writes.
-- 🧹 **Cleaner Extension UI**: Removed emoji icons from extension overlay buttons, removed backdrop-click dismissal on resolve/sync overlays, and polished button loading states with opacity transitions.
-- 🐛 **Dead Code Cleanup**: Removed unreachable code branch in the assignment URL lookup handler.
-
-### v2.1.1 (June 2, 2026)
-- 🏁 **Project Milestone**: Vinyas is officially closing its feature development at v2.1.1! From here on out, only bug fixes and new achievements will be added.
-- 🐛 **Critical Bug Fix**: Fixed a major issue where interactive question states (Difficult/Later) would reset back to Completed when reloading the app.
-- 🎯 **Dynamic Extension**: The extension now intelligently adapts to any module practice without getting stuck or showing incorrect question counts.
-- 🧹 **Interface Polish**: Removed the redundant Leave button from the native page and unused diagnostic tools for a cleaner experience.
-
-### v2.1.0 (June 2, 2026)
-- 💡 **Suggest Feature Modal**: Propose feature ideas or feedback directly to the developer, routed via secure SMTP email.
-- 📸 **Multi-Screenshot Attachment**: Added support for uploading up to 5 screenshots simultaneously in both Bug Reports and Suggest Feature modals.
-- ✨ **Simplified Alerts**: Removed confusing technical terms ("logs", "console") from user-facing popup alerts for a simpler, friendly interface.
-- 🧹 **Cleaned Diagnostics**: Removed unused log clearing options from the diagnostic settings dropdown.
-
-### v2.0.0 (June 1, 2026) - Major Update
-- 🎯 **Integrated Interactive Widget Overlay**: Beautiful glassmorphic overlay matches your active chapter practice pages directly, allowing you to register question states seamlessly without doing split screen.
-- 👑 **Draggable & Bounded Widget Layout**: Drag and reposition the floating question tracker anywhere on your viewport, bounded safely inside browser borders.
-- 🎥 **Immediate Glassmorphic Loading State**: Features an instant animated loading spinner overlay showing feedback immediately while data loads.
-- 🚪 **Sidebar Toggle Shortcut**: Click on the Vinyas Logo in the header to instantly collapse or expand the navigation sidebar dock, persisted beautifully in browser local storage.
-- 🛑 **Native Submit Button Hiding**: Chrome extension automatically hides native PW quiz submit buttons using active styling overrides to keep layout clean.
-- 🔥 **Programmatic Submit Redirection**: Submitting on the Vinyas widget acts as a proxy, clicking and completing the native PW submission programmatically.
-- 📚 **Multi-Textbook Modules Support**: Sync multiple textbook modules per subject and toggle between them using a gorgeous glassy dropdown in the subject matrix.
-- 🔗 **Smarter Chapter Reading Links**: Chapter rows render Phosphorus icons directing you to synced book chapter pages in a single click, or prompting a map utility if unlinked.
-- ⚡ **Real-Time Tab Synchronization Bridge**: Background worker dynamically broadcasts live overlay status updates to all open Vinyas dashboard tabs, eliminating stale overwrite race conditions.
-- 📦 **Aligned Key Generation**: Aligned key generation formulas between content script scanners and backend processors to ensure consistent question mappings.
-- 🛡 **Security Telemetry Validation**: Cryptographically secure prefix validations in all telemetry routes.
-- 💡 **Suggest Feature Wizard**: Introduced Suggest Feature feedback path with an amber theme, direct SMTP forwarding to developer, and multi-screenshot uploads.
-- 📸 **Multi-Screenshot Support**: Upgraded telemetry uploads to support attaching multiple images for bug reports and feature suggestions.
-
-### v1.2.5 (May 28, 2026)
-- ⚡ **Syllabus Scroll Optimization**: Optimized the scroll event handler to eliminate layout thrashing, delivering a lag-free, butter-smooth scrolling experience.
-- 💾 **Real-Time LocalStorage Sync**: Syncs interactive module question status in real-time as you click them, protecting against accidental progress loss.
-- 📊 **Dynamic Setup Information**: Extension setup page fetches and displays Chrome Extension and Android APK versions and file sizes dynamically from the server.
-- 📜 **Scrollable Setup Layout**: Fixed layout constraints on the extension page to allow vertical scrolling on all viewports.
-- 🔗 **Smarter Extension Integration**: Chrome Extension automatically bypasses already synced chapters and suppresses prompts when unconfigured.
-
-### v1.2.4 (May 28, 2026)
-- 🎬 **Custom Loading Screen**: A beautiful branded loading animation with the Vinyas logo and an animated orange progress bar now appears while the app loads your data.
-- ✨ **Pinned Action Buttons**: Save and Cancel buttons in all settings panels are now pinned at the bottom, so they are always accessible without scrolling.
-- 🖼️ **Sharp & Custom Backdrops**: Uploaded background images now load crisp and clean by default, without any automatic blur or zoom.
-- 🎨 **Drag to Position**: You can now click and drag your custom background image directly inside the settings preview to position it exactly how you want.
-- ⚙️ **Smooth Fade & Blur**: Use the new opacity and blur sliders in the settings panel to customize the background style to your liking.
-
-### v1.2.3 (May 28, 2026)
-- 🐞 **Bug Report Button**: Added a quick-access bug report button right next to the Vinyas logo — tap it to report an issue, take a snapshot, or send feedback.
-- 📚 **Custom Chapters**: You can now add your own chapters to any subject directly from the subject header.
-- ✨ **Calmer Progress Animations**: Progress bar shine effects now only appear when you hover over a subject — no more constant flashing.
-- 🔧 **Scrollbar Fix**: Removed a stray horizontal scrollbar that appeared on the syllabus page.
-- 🎯 **Menus Stay Visible**: Pop-ups and dropdowns no longer get clipped — everything opens and displays fully.
-
-### v1.2.2 (May 27, 2026)
-- 👤 **Edit Your Profile**: You can now set a custom username that syncs across all your devices.
-- 🎨 **New Logo Look**: The Vinyas logo now uses a premium gradient font style.
-- 🔍 **Collapsible Search Bar**: The search bar in the header now collapses into an icon on smaller screens.
-- 💾 **Backup Reminder**: A helpful backup prompt now appears after dismissing the What's New popup.
-
-### v1.2.1 (May 26, 2026)
-- 🔒 **Secure Login**: Your Sync ID is now used as a secure password for login.
-- 📧 **Smarter Inactivity Alerts**: Inactivity countdowns now reset properly when you log back in.
-- 🔄 **Duplicate Chapter Handling**: If two chapters share the same name, incoming study data is sent to a review queue instead of being lost.
-- 🆕 **What's New Popup**: You'll now see a summary of new features whenever the app updates.
-- 🚨 **Extension Warning**: A banner appears in the header if your Chrome extension is outdated.
-
-### v1.2.0 (May 25, 2026)
-- 🔄 **Duplicate Check on Sync**: A confirmation popup now asks whether to overwrite or skip when duplicate study results are detected.
-- 🎨 **Empty State Illustrations**: Friendly "Nothing here yet" graphics for new sections before first use.
-- 🔗 **Open in PW**: Quick-access buttons in your progress logs to jump directly to the DPP or Module on PhysicsWallah.
-- 🎯 **Combined Study Goals**: Lecture and DPP goals are now merged into a single card with checkboxes.
-- 📝 **Manual Module Tracking**: Track module completion and accuracy manually during nightly wrap-ups.
-- 🐞 **Bug Reporter**: Report issues with a description and screenshot — everything is sent securely to the developer.
-- ⏱️ **Inactivity Warnings**: Get notified after 5 days of inactivity; accounts are auto-deleted after 6 days to keep things tidy.
-
-### v1.1.0 (May 10, 2026)
-- 🔐 **Secure Sync IDs**: Your device now gets a unique, secure identifier for syncing.
-- 📧 **Weekly Backups**: Set up automatic encrypted email backups of your study data.
-- ⏱️ **Pomodoro Timer**: Focus timer with break cycles and XP rewards for study sessions.
-
-### v1.0.0 (April 20, 2026)
-- 🚀 **Initial Release**: The core syllabus tracker dashboard with gamification.
-- 🔄 **Chrome Extension**: Companion browser extension to automatically track your study activity.
----
-
-## 🧠 What I Learned
-
-- Full-stack deployment and maintenance using Vercel.
-- MongoDB Atlas database management and free-tier optimization.
-- Product design and software architecture fundamentals.
-- Debugging and validating AI-generated code.
-- Prompt engineering for complex software projects.
-- Security awareness and vulnerability reduction.
-- Performance optimization under infrastructure constraints.
-- Human–AI collaborative software development workflows.
+[Full changelog →](CHANGELOG.md)
 
 ---
 
-## 📄 License
+## License
 
-This project is open source and available under the [MIT License](LICENSE).
+ISC — see `package.json`.
 
 ---
 
-<p align="center">
-  <sub>Built with ❤️ for students, by students.</sub>
-</p>
+<div align="center">Built for Indian competitive exam students who deserved better tooling.</div><div align="center">
+
