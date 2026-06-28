@@ -22,20 +22,6 @@ JEE/NEET students track study across 95+ chapters per exam, split between video 
 
 ## Architecture
 
-```mermaid
-graph TD
-    CE[Chrome Extension] -->|POST telemetry| API_Act[/api/activity]
-    WA[React SPA] -->|GET hydration| API_Data[/api/data]
-    WA -->|POST debounced save| API_Data
-    WA -->|GET activity poll| API_Act
-    WA -->|GET syllabus templates| API_Tmpl[/api/templates]
-
-    API_Data -->|CRUD — users collection| DB[(MongoDB Atlas)]
-    API_Act -->|Buffer telemetry| DB
-
-    CRON[Vercel Cron — Sunday 00:00 UTC] -->|Inactivity purge across 3 collections| DB
-    CRON -->|AES-256-GCM encrypted attachment| SMTP[Nodemailer SMTP]
-```
 
 | Layer | Technology |
 | --- | --- |
