@@ -44,6 +44,7 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
     let isLoadingSyllabus = true;
     let isSaving = false;
     let isSubmittingAnalysis = false; // Separate flag just for the Finalize & Submit button UI state
+    let selfAnalysisFeedback = null;
     let isSyncing = false;
     let saveTimer = null;
     let isDirty = false;
@@ -981,6 +982,15 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
                             <div class="modal-title">Assignment Self-Analysis</div>
                         </div>
                         <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding-right: 8px;">
+                            ${selfAnalysisFeedback ? `
+                                <div class="feedback-msg ${selfAnalysisFeedback.type}" style="padding: 10px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-bottom: 12px; border: 1px solid; ${
+                                    selfAnalysisFeedback.type === 'success'
+                                        ? 'background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981;'
+                                        : 'background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #f87171;'
+                                }">
+                                    ${escapeHTML(selfAnalysisFeedback.text)}
+                                </div>
+                            ` : ''}
                             ${selfAnalysis.isSubmitted ? `
                                 <div style="display: flex; flex-direction: column; gap: 14px;">
                                     <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 12px; text-align: center;">
@@ -1166,9 +1176,9 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
             render();
         });
 
-        // 2. Actions corner triggers
         shadow.getElementById('btn-save-dist')?.addEventListener('click', () => {
-            isSaveConfirmOpen = true;
+            isSelfAnalysisOpen = true;
+            selfAnalysisFeedback = null;
             if (isTimerRunning) {
                 isTimerRunning = false;
                 stopTimer();
@@ -1178,6 +1188,7 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
         });
         shadow.getElementById('btn-analysis-dist')?.addEventListener('click', () => {
             isSelfAnalysisOpen = true;
+            selfAnalysisFeedback = null;
             if (isTimerRunning) {
                 isTimerRunning = false;
                 stopTimer();
@@ -1492,77 +1503,31 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
         });
         shadow.getElementById('btn-confirm-autosave')?.addEventListener('click', () => {
             isSaveConfirmOpen = false;
-            isTimerRunning = false;
-            stopTimer();
-            render(); // Close the overlay immediately — the save happens in background
-            autoSaveProgress((success, err) => {
-                if (success) {
-                    showToast("Progress Auto-Saved! (Timer Paused)", "success");
-                } else {
-                    showToast(err ? `Failed to save: ${err}` : "Failed to save progress.", "error");
-                }
-                // render() is called by autoSaveProgress after this callback (to update dirty dot etc.)
-            });
+            isSelfAnalysisOpen = true;
+            selfAnalysisFeedback = null;
+            if (isTimerRunning) {
+                isTimerRunning = false;
+                stopTimer();
+                autoSaveProgress();
+            }
+            render();
         });
         shadow.getElementById('btn-confirm-finalize')?.addEventListener('click', () => {
             isSaveConfirmOpen = false;
-
-            const isSelfAnalysisFilled = selfAnalysis.blunder.trim() !== '' && selfAnalysis.resolution.trim() !== '';
-            if (!isSelfAnalysisFilled) {
-                isSelfAnalysisOpen = true;
-                render();
-                showToast("Please fill in your Self-Analysis (Blunders & Resolutions) first.", "info");
-                return;
+            isSelfAnalysisOpen = true;
+            selfAnalysisFeedback = null;
+            if (isTimerRunning) {
+                isTimerRunning = false;
+                stopTimer();
+                autoSaveProgress();
             }
-
-            isTimerRunning = false;
-            stopTimer();
-
-            let correct = 0;
-            let incorrect = 0;
-            for (let q = 1; q <= questionCount; q++) {
-                const state = questionStates[q];
-                if (state === 'completed') correct++;
-                else if (state === 'difficult' || state === 'later') incorrect++;
-            }
-
-            if (!selfAnalysis.attempts) {
-                selfAnalysis.attempts = [];
-            }
-            const prevAttemptsTime = selfAnalysis.attempts.reduce((sum, att) => sum + (att.elapsedTimeSec || 0), 0);
-            const additionalTime = Math.max(0, elapsedTimeSec - prevAttemptsTime);
-            const newAttempt = {
-                attemptNumber: selfAnalysis.attempts.length + 1,
-                elapsedTimeSec: additionalTime,
-                formattedTime: formatTime(additionalTime),
-                timestamp: new Date().toISOString(),
-                correctCount: correct,
-                incorrectCount: incorrect
-            };
-            selfAnalysis.attempts.push(newAttempt);
-
-            selfAnalysis.correctCount = correct;
-            selfAnalysis.incorrectCount = incorrect;
-            selfAnalysis.elapsedTimeSec = elapsedTimeSec;
-            selfAnalysis.completedDuration = Math.round(elapsedTimeSec / 60);
-            selfAnalysis.isSubmitted = true;
-
-            autoSaveProgress((success, err) => {
-                if (success) {
-                    showToast("🎉 Assessment Finalized and Sync'd!", "success");
-                    isSelfAnalysisOpen = false;
-                } else {
-                    selfAnalysis.attempts.pop();
-                    selfAnalysis.isSubmitted = false;
-                    showToast(err ? `Failed to finalize: ${err}` : "Failed to finalize assessment.", "error");
-                }
-                // render() is handled by autoSaveProgress after this callback
-            }, true);
+            render();
         });
 
         // 5. Self-Analysis Modal triggers & inputs
         shadow.getElementById('btn-close-analysis')?.addEventListener('click', () => {
             isSelfAnalysisOpen = false;
+            selfAnalysisFeedback = null;
             render();
         });
         shadow.getElementById('btn-edit-report-dist')?.addEventListener('click', () => {
@@ -1575,46 +1540,30 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
         // Realtime edits mapping inside self-analysis fields
         shadow.getElementById('analysis-topic-name')?.addEventListener('input', (e) => {
             selfAnalysis.topicName = e.target.value;
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-topic-name')?.addEventListener('blur', (e) => {
             selfAnalysis.topicName = e.target.value.trim();
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-correct-count')?.addEventListener('input', (e) => {
             selfAnalysis.correctCount = Math.max(0, parseInt(e.target.value) || 0);
-            triggerSave(true, false);
-        });
-        shadow.getElementById('analysis-correct-count')?.addEventListener('blur', (e) => {
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-incorrect-count')?.addEventListener('input', (e) => {
             selfAnalysis.incorrectCount = Math.max(0, parseInt(e.target.value) || 0);
-            triggerSave(true, false);
-        });
-        shadow.getElementById('analysis-incorrect-count')?.addEventListener('blur', (e) => {
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-target-duration')?.addEventListener('input', (e) => {
             selfAnalysis.targetDuration = Math.max(0, parseInt(e.target.value) || 0);
-            triggerSave(true, false);
-        });
-        shadow.getElementById('analysis-target-duration')?.addEventListener('blur', (e) => {
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-blunder')?.addEventListener('input', (e) => {
             selfAnalysis.blunder = e.target.value;
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-blunder')?.addEventListener('blur', (e) => {
-            triggerSave(true, false);
+            selfAnalysis.blunder = e.target.value.trim();
         });
         shadow.getElementById('analysis-resolution')?.addEventListener('input', (e) => {
             selfAnalysis.resolution = e.target.value;
-            triggerSave(true, false);
         });
         shadow.getElementById('analysis-resolution')?.addEventListener('blur', (e) => {
-            triggerSave(true, false);
+            selfAnalysis.resolution = e.target.value.trim();
         });
 
         shadow.getElementById('btn-submit-analysis')?.addEventListener('click', () => {
@@ -1667,12 +1616,19 @@ window.injectFloatingTrackerWidget = function (syncId, apiUrl, pdfUrl, exists, a
             autoSaveProgress((success, err) => {
                 isSubmittingAnalysis = false;
                 if (success) {
-                    showToast("🎉 Assessment Finalized and Sync'd!", "success");
-                    isSelfAnalysisOpen = false;
+                    console.log("[Vinyas Tracker] Assignment progress and self-analysis successfully dispatched & saved to Vinyas!");
+                    selfAnalysisFeedback = {
+                        text: "🎉 Assessment Finalized and Sync'd successfully to Vinyas database!",
+                        type: "success"
+                    };
                 } else {
+                    console.error("[Vinyas Tracker] Failed to finalize/sync self-analysis:", err);
                     selfAnalysis.attempts.pop();
                     selfAnalysis.isSubmitted = false;
-                    showToast(err ? `Failed to finalize: ${err}` : "Failed to finalize assessment.", "error");
+                    selfAnalysisFeedback = {
+                        text: `❌ Failed to finalize assessment: ${err || 'Unknown error'}`,
+                        type: "error"
+                    };
                 }
                 // render() is called by autoSaveProgress after this callback returns
             }, true);

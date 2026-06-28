@@ -85,6 +85,7 @@ export const useDatabaseSync = ({
                     showToast("This Sync session does not exist or has been deleted.", "error");
                     return;
                 } else if (serverData) {
+                    rawServerDocRef.current = serverData;
                     let parsedData = [];
                     if (serverData.data) {
                         parsedData = typeof serverData.data === 'string' ? JSON.parse(serverData.data) : serverData.data;
@@ -216,6 +217,7 @@ export const useDatabaseSync = ({
     const savePromiseRef = useRef(null);
     const saveResolveRef = useRef(null);
     const stateRef = useRef({});
+    const rawServerDocRef = useRef(null);
 
     const triggerWhatsNewUpdateNotification = useCallback(async (targetEmail) => {
         // 1. Browser Notification
@@ -840,15 +842,11 @@ export const useDatabaseSync = ({
             }
 
             const exportObj = {
-                syncId,
-                userName,
-                cohort,
-                targetDate,
-                data,
-                routines,
-                testLogs,
-                resolvedActivityIds
+                ...(rawServerDocRef.current || {}),
+                ...stateRef.current,
+                activities
             };
+            delete exportObj._id;
             
             const jsonString = JSON.stringify(exportObj);
             logEvent('BACKUP_ENCRYPT', { message: 'Performing secure AES-256-GCM backup encryption...' });
@@ -978,6 +976,7 @@ export const useDatabaseSync = ({
             `Are you sure you want to import this secure backup? This will completely overwrite your current progress and configuration for sync ID: ${syncId}.`,
             async () => {
                 try {
+                    rawServerDocRef.current = importedObj;
                     if (importedObj.data) setData(importedObj.data);
                     if (importedObj.routines) setRoutines(importedObj.routines);
                     if (importedObj.testLogs) setTestLogs(importedObj.testLogs);
@@ -991,8 +990,16 @@ export const useDatabaseSync = ({
                         setUserName(importedObj.userName);
                         localStorage.setItem('vinyasUserName', importedObj.userName);
                     }
+                    if (importedObj.activities) setActivities(importedObj.activities);
+                    if (importedObj.deletedAssignmentUrls) setDeletedAssignmentUrls(importedObj.deletedAssignmentUrls);
+                    if (importedObj.email) setEmail(importedObj.email);
+                    if (importedObj.autoBackupEnabled !== undefined) setAutoBackupEnabled(importedObj.autoBackupEnabled);
+                    if (importedObj.themeSettings) {
+                        localStorage.setItem('vinyasThemeSettings', JSON.stringify(importedObj.themeSettings));
+                    }
 
                     const payload = {
+                        ...importedObj,
                         syncId: syncId,
                         data: importedObj.data || data,
                         routines: importedObj.routines || routines,
@@ -1004,8 +1011,9 @@ export const useDatabaseSync = ({
                         email: email,
                         autoBackupEnabled: autoBackupEnabled,
                         userName: importedObj.userName || userName,
-                        themeSettings: stateRef.current.themeSettings
+                        themeSettings: importedObj.themeSettings || stateRef.current.themeSettings
                     };
+                    delete payload._id;
 
                     logEvent('DB_SAVE', { message: 'Importing and syncing decrypted syllabus/state to MongoDB immediately...' });
                     const response = await fetch('/api/data', {
@@ -1046,15 +1054,11 @@ export const useDatabaseSync = ({
             let backupWrapper = null;
             if (action === 'backup') {
                 const exportObj = {
-                    syncId,
-                    userName,
-                    cohort,
-                    targetDate,
-                    data,
-                    routines,
-                    testLogs,
-                    resolvedActivityIds
+                    ...(rawServerDocRef.current || {}),
+                    ...stateRef.current,
+                    activities
                 };
+                delete exportObj._id;
                 
                 const jsonString = JSON.stringify(exportObj);
                 

@@ -132,7 +132,7 @@ const ProgressModal = ({
     setDeletedAssignmentUrls
 }) => {
     // Local state for the modal
-    const [activeTab, setActiveTab] = useState('dpp');
+    const [activeTab, setActiveTab] = useState('overview');
     const [comp, setComp] = useState(0);
     const [acc, setAcc] = useState(0);
     const [selectedActivity, setSelectedActivity] = useState(null);
@@ -426,6 +426,186 @@ const ProgressModal = ({
         });
     }, [chapterData, deletedAssignmentUrls]);
 
+    // Calculate Master Score
+    const masterScoreData = useMemo(() => {
+        const dppComp = chapterData?.dpp?.comp || 0;
+        const dppAcc = chapterData?.dpp?.acc || 0;
+
+        const moduleComp = chapterData?.module?.comp || 0;
+        const moduleAcc = chapterData?.module?.acc || 0;
+
+        const hasAssignments = nonDeletedAssignments.length > 0;
+        let assComp = 0;
+        let assAcc = 0;
+        let submittedAssCount = 0;
+
+        if (hasAssignments) {
+            let totalAssComp = 0;
+            let totalAssAcc = 0;
+            
+            nonDeletedAssignments.forEach(a => {
+                const questionCount = a.questionCount || 0;
+                if (questionCount > 0) {
+                    if (a.selfAnalysis?.isSubmitted) {
+                        const correct = a.selfAnalysis.correctCount || 0;
+                        const incorrect = a.selfAnalysis.incorrectCount || 0;
+                        const attempted = correct + incorrect;
+                        totalAssComp += (attempted / questionCount) * 100;
+                        if (attempted > 0) {
+                            totalAssAcc += (correct / attempted) * 100;
+                            submittedAssCount++;
+                        }
+                    } else {
+                        const solvedCount = Object.values(a.questionStates || {}).filter(s => s === 'completed').length;
+                        const errorCount = Object.values(a.questionStates || {}).filter(s => s === 'difficult' || s === 'later').length;
+                        const attempted = solvedCount + errorCount;
+                        totalAssComp += (attempted / questionCount) * 100;
+                        if (attempted > 0) {
+                            totalAssAcc += (solvedCount / attempted) * 100;
+                            submittedAssCount++;
+                        }
+                    }
+                } else {
+                    if (a.selfAnalysis?.isSubmitted) {
+                        totalAssComp += 100;
+                        const correct = a.selfAnalysis.correctCount || 0;
+                        const incorrect = a.selfAnalysis.incorrectCount || 0;
+                        const total = correct + incorrect;
+                        if (total > 0) {
+                            totalAssAcc += (correct / total) * 100;
+                            submittedAssCount++;
+                        }
+                    }
+                }
+            });
+            
+            assComp = totalAssComp / nonDeletedAssignments.length;
+            if (submittedAssCount > 0) {
+                assAcc = totalAssAcc / submittedAssCount;
+            }
+        }
+
+        // Base Weights: DPP 30%, Module 40%, Assignments 30%
+        let weights = {
+            dpp: 0.3,
+            module: 0.4,
+            assignments: 0.3
+        };
+
+        // Redistribution if no assignments exist
+        if (!hasAssignments) {
+            weights.assignments = 0;
+        }
+
+        const totalWeight = weights.dpp + weights.module + weights.assignments;
+
+        // Overall Completion
+        const overallComp = totalWeight > 0 ? (
+            (weights.dpp * dppComp + weights.module * moduleComp + weights.assignments * assComp) / totalWeight
+        ) : 0;
+
+        // Overall Accuracy (only dynamic weighting of components with completion > 0)
+        let activeAccWeightSum = 0;
+        let activeAccScoreSum = 0;
+
+        if (dppComp > 0) {
+            activeAccWeightSum += weights.dpp;
+            activeAccScoreSum += weights.dpp * dppAcc;
+        }
+        if (moduleComp > 0) {
+            activeAccWeightSum += weights.module;
+            activeAccScoreSum += weights.module * moduleAcc;
+        }
+        if (hasAssignments && submittedAssCount > 0) {
+            activeAccWeightSum += weights.assignments;
+            activeAccScoreSum += weights.assignments * assAcc;
+        }
+
+        const overallAcc = activeAccWeightSum > 0 ? (activeAccScoreSum / activeAccWeightSum) : 0;
+
+        // Final Master Score: Comp * (0.3 + 0.7 * (Acc / 100))
+        const rawMasterScore = overallComp > 0 ? overallComp * (0.3 + 0.7 * (overallAcc / 100)) : 0;
+        const masterScore = Math.round(rawMasterScore);
+
+        // Standing & visual color code
+        let standing = 'Needs Attention ⚠️';
+        let colorClass = 'text-rose-455';
+        let strokeColor = '#f43f5e'; // rose-500
+        let bgGradient = 'from-rose-500/10 to-red-500/5';
+        let borderGlow = 'border-rose-500/20 shadow-rose-950/20';
+        let recommendation = 'Start solving questions in DPPs and Interactive Module to establish your chapter progress.';
+
+        if (masterScore >= 90) {
+            standing = 'Mastered 👑';
+            colorClass = 'text-violet-400 font-extrabold';
+            strokeColor = '#a78bfa'; // violet-400
+            bgGradient = 'from-violet-500/15 to-indigo-500/5';
+            borderGlow = 'border-violet-500/30 shadow-violet-950/30';
+            recommendation = 'Exceptional standing! You have complete domain over this chapter. Try taking a timed mock test.';
+        } else if (masterScore >= 75) {
+            standing = 'Strong 🌟';
+            colorClass = 'text-emerald-400';
+            strokeColor = '#34d399'; // emerald-400
+            bgGradient = 'from-emerald-500/15 to-teal-500/5';
+            borderGlow = 'border-emerald-500/30 shadow-emerald-950/30';
+            recommendation = 'Great progress and high accuracy! Clear remaining assignments or module exercises to push for full mastery.';
+        } else if (masterScore >= 55) {
+            standing = 'Proficient 🏆';
+            colorClass = 'text-blue-450';
+            strokeColor = '#60a5fa'; // blue-400
+            bgGradient = 'from-blue-500/15 to-indigo-500/5';
+            borderGlow = 'border-blue-500/30 shadow-blue-950/30';
+            recommendation = 'Solid performance. Dedicate time to solve complex module questions or clear pending assignments to build confidence.';
+        } else if (masterScore >= 30) {
+            standing = 'Developing 📈';
+            colorClass = 'text-amber-455';
+            strokeColor = '#fbbf24'; // amber-400
+            bgGradient = 'from-amber-500/15 to-orange-500/5';
+            borderGlow = 'border-amber-500/30 shadow-amber-950/30';
+            recommendation = 'Chapter coverage is growing. Review conceptual details and double-check wrong answers on completed exercises.';
+        } else if (overallComp > 0 && overallAcc < 40) {
+            recommendation = 'Your progress is logged, but accuracy is low. Focus on reviewing theory before attempting more questions.';
+        }
+
+        return {
+            masterScore,
+            overallComp: Math.round(overallComp),
+            overallAcc: Math.round(overallAcc),
+            standing,
+            colorClass,
+            strokeColor,
+            bgGradient,
+            borderGlow,
+            recommendation,
+            details: {
+                dpp: { 
+                    comp: dppComp, 
+                    acc: dppAcc, 
+                    weight: Math.round((weights.dpp / totalWeight) * 100),
+                    correct: Math.round(dppComp * (dppAcc / 100)),
+                    incorrect: Math.round(dppComp * (1 - dppAcc / 100)),
+                    get notAttempted() { return 100 - this.correct - this.incorrect; }
+                },
+                module: { 
+                    comp: moduleComp, 
+                    acc: moduleAcc, 
+                    weight: Math.round((weights.module / totalWeight) * 100),
+                    correct: Math.round(moduleComp * (moduleAcc / 100)),
+                    incorrect: Math.round(moduleComp * (1 - moduleAcc / 100)),
+                    get notAttempted() { return 100 - this.correct - this.incorrect; }
+                },
+                assignments: hasAssignments ? { 
+                    comp: Math.round(assComp), 
+                    acc: Math.round(assAcc), 
+                    weight: Math.round((weights.assignments / totalWeight) * 100),
+                    correct: Math.round(assComp * ((assAcc || 0) / 100)),
+                    incorrect: Math.round(assComp * (1 - (assAcc || 0) / 100)),
+                    get notAttempted() { return 100 - this.correct - this.incorrect; }
+                } : null
+            }
+        };
+    }, [chapterData, nonDeletedAssignments]);
+
     const handleSave = () => {
         onSave(activeTab, { comp: parseInt(comp), acc: parseInt(acc) });
         onClose();
@@ -454,11 +634,11 @@ const ProgressModal = ({
                 <div className="p-6">
                     {/* Tabs */}
                     <div className="flex gap-2 p-1 bg-slate-900/50 rounded-xl mb-8 border border-slate-700/50">
-                        {['dpp', 'module', 'assignments'].map((tab) => (
+                        {['overview', 'dpp', 'module', 'assignments'].map((tab) => (
                             <button 
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-all
+                                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all
                                     ${activeTab === tab ? 'bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}
                                 `}
                             >
@@ -466,6 +646,168 @@ const ProgressModal = ({
                             </button>
                         ))}
                     </div>
+
+                    {activeTab === 'overview' && (
+                        <div className="space-y-5 mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Radial/Circular Gauge & standing */}
+                            <div className={`p-5 rounded-2xl bg-gradient-to-br ${masterScoreData.bgGradient} border ${masterScoreData.borderGlow} flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-md`}>
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                                
+                                {/* SVG Circular Gauge */}
+                                <div className="relative w-32 h-32 flex items-center justify-center mb-3">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        {/* Background ring */}
+                                        <circle 
+                                            cx="64" 
+                                            cy="64" 
+                                            r="52" 
+                                            stroke="#1e293b" 
+                                            strokeWidth="8" 
+                                            fill="transparent"
+                                        />
+                                        {/* Progress ring */}
+                                        <circle 
+                                            cx="64" 
+                                            cy="64" 
+                                            r="52" 
+                                            stroke={masterScoreData.strokeColor} 
+                                            strokeWidth="8" 
+                                            fill="transparent"
+                                            strokeDasharray={2 * Math.PI * 52}
+                                            strokeDashoffset={(2 * Math.PI * 52) * (1 - masterScoreData.masterScore / 100)}
+                                            strokeLinecap="round"
+                                            className="transition-all duration-1000 ease-out"
+                                        />
+                                    </svg>
+                                    {/* Text in center */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-3xl font-black text-white leading-none">
+                                            {masterScoreData.masterScore}%
+                                        </span>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                            Master Score
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Standing Badge */}
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                        Overall Standing
+                                    </span>
+                                    <span className={`text-sm font-black px-3.5 py-1 rounded-full bg-slate-900/80 border border-slate-700 shadow-md ${masterScoreData.colorClass} tracking-wide`}>
+                                        {masterScoreData.standing}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Aggregated Stats (Completion and Accuracy) */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-slate-900/40 border border-slate-750 rounded-xl p-3 flex flex-col items-center text-center">
+                                    <span className="text-lg">📊</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                                        Overall Comp
+                                    </span>
+                                    <span className="text-lg font-black text-white mt-0.5">
+                                        {masterScoreData.overallComp}%
+                                    </span>
+                                </div>
+                                <div className="bg-slate-900/40 border border-slate-750 rounded-xl p-3 flex flex-col items-center text-center">
+                                    <span className="text-lg">🎯</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                                        Overall Acc
+                                    </span>
+                                    <span className="text-lg font-black text-white mt-0.5">
+                                        {masterScoreData.overallAcc}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Component Breakdown list */}
+                            <div className="bg-slate-900/40 border border-slate-750 rounded-xl p-4 space-y-3">
+                                <h4 className="text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1.5">
+                                    Component Breakdown
+                                </h4>
+                                
+                                {/* DPP Row */}
+                                <div className="flex items-center justify-between text-xs">
+                                    <div className="min-w-0 flex-1 pr-4">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <span className="font-bold text-slate-300">DPPs</span>
+                                            <span className="text-[8px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
+                                                Weight: {masterScoreData.details.dpp.weight}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden flex relative z-10">
+                                            {masterScoreData.details.dpp.correct > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${masterScoreData.details.dpp.correct}%` }} />}
+                                            {masterScoreData.details.dpp.incorrect > 0 && <div className="bg-red-500 h-full" style={{ width: `${masterScoreData.details.dpp.incorrect}%` }} />}
+                                            {masterScoreData.details.dpp.notAttempted > 0 && <div className="bg-slate-600 h-full" style={{ width: `${masterScoreData.details.dpp.notAttempted}%` }} />}
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="font-bold text-slate-200">
+                                            Comp: {masterScoreData.details.dpp.comp}%
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">
+                                            Acc: {masterScoreData.details.dpp.acc}%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Module Row */}
+                                <div className="flex items-center justify-between text-xs border-t border-slate-800/50 pt-2.5">
+                                    <div className="min-w-0 flex-1 pr-4">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <span className="font-bold text-slate-300">Interactive Module</span>
+                                            <span className="text-[8px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
+                                                Weight: {masterScoreData.details.module.weight}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden flex relative z-10">
+                                            {masterScoreData.details.module.correct > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${masterScoreData.details.module.correct}%` }} />}
+                                            {masterScoreData.details.module.incorrect > 0 && <div className="bg-red-500 h-full" style={{ width: `${masterScoreData.details.module.incorrect}%` }} />}
+                                            {masterScoreData.details.module.notAttempted > 0 && <div className="bg-slate-600 h-full" style={{ width: `${masterScoreData.details.module.notAttempted}%` }} />}
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="font-bold text-slate-200">
+                                            Comp: {masterScoreData.details.module.comp}%
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">
+                                            Acc: {masterScoreData.details.module.acc}%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Assignments Row */}
+                                {masterScoreData.details.assignments && (
+                                    <div className="flex items-center justify-between text-xs border-t border-slate-800/50 pt-2.5">
+                                        <div className="min-w-0 flex-1 pr-4">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <span className="font-bold text-slate-300">Assignments</span>
+                                                <span className="text-[8px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
+                                                    Weight: {masterScoreData.details.assignments.weight}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden flex relative z-10">
+                                                {masterScoreData.details.assignments.correct > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${masterScoreData.details.assignments.correct}%` }} />}
+                                                {masterScoreData.details.assignments.incorrect > 0 && <div className="bg-red-500 h-full" style={{ width: `${masterScoreData.details.assignments.incorrect}%` }} />}
+                                                {masterScoreData.details.assignments.notAttempted > 0 && <div className="bg-slate-600 h-full" style={{ width: `${masterScoreData.details.assignments.notAttempted}%` }} />}
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <div className="font-bold text-slate-200">
+                                                Comp: {masterScoreData.details.assignments.comp}%
+                                            </div>
+                                            <div className="text-[10px] text-slate-400">
+                                                Acc: {masterScoreData.details.assignments.acc}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {activeTab === 'module' && (
                         <div className="mb-6 bg-slate-900/60 border border-slate-700/60 rounded-2xl p-5 text-center flex flex-col items-center">

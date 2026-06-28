@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.2.2-indigo.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-2.3.1-indigo.svg?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/build-passing-emerald.svg?style=flat-square" alt="Build Status" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Vite%20%7C%20Tailwind-blue.svg?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/database-MongoDB-green.svg?style=flat-square" alt="Database" />
@@ -14,15 +14,6 @@
   <img src="https://img.shields.io/badge/Chrome%20Extension-Active-orange.svg?style=flat-square" alt="Chrome Extension" />
   <img src="https://img.shields.io/badge/Android%20APK-Available-teal.svg?style=flat-square" alt="Android APK" />
 </p>
-
----
-
-> ### 🏁 Project Closure Announcement (v2.2.2)
-> As of **June 2, 2026**, Vinyas has officially reached its final planned feature milestone. The codebase is now in **Active Maintenance Mode** — focus has shifted to platform stability, performance optimizations, bug fixes, and introducing unlockable achievements.
-> 
-> **User-requested features and improvements are still being entertained and shipped.** Version **2.2.2** includes critical extension widget bug fixes.
-> 
-> * **Experience the Story**: Visit the interactive [/vinyas-lived](/vinyas-lived) route directly in the web app to explore the project timeline, detailed engineering chronicles, and play in the feature sandbox.
 
 ---
 

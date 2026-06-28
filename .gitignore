@@ -95,3 +95,5 @@ summary.txt
 version_changelog.txt
 git_push.py
 bump_version.py
+
+VinyasApp/

@@ -608,13 +608,16 @@ tr:hover .row-fill-container {
   left: 0;
   right: 0;
   width: 100%;
-  height: 0;
-  transition: height 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+  height: 100%;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
   z-index: 0;
 }
 
 tr:hover .row-fill-wave {
-  height: 100%;
+  transform: scaleY(1);
 }
 
 /* Waves themes */
@@ -659,6 +662,7 @@ tr:hover .row-fill-wave {
 /* Staggered Floating Particles triggered on Row Hover */
 .float-particle-1, .float-particle-2, .float-particle-3, .float-particle-4, .float-particle-5 {
   opacity: 0;
+  will-change: transform, opacity;
 }
 
 tr:hover .float-particle-1 {
@@ -703,7 +707,7 @@ tr:hover .float-particle-5 {
 }
 
 .dynamic-glass-subject-header {
-  background: color-mix(in srgb, var(--card-backdrop) 20%, transparent) !important;
+  background: color-mix(in srgb, var(--card-backdrop) 92%, #0a0f1d) !important;
   backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
   -webkit-backdrop-filter: blur(calc(var(--glass-blur, 100px) * 0.15)) !important;
   border-bottom: 1px solid rgba(var(--hover-border-glow-rgb, 255, 255, 255), 0.12) !important;
@@ -738,7 +742,7 @@ tr:hover .float-particle-5 {
 }
 
 .performance-mode .dynamic-glass-subject-header {
-  background: rgba(10, 15, 30, 0.45) !important;
+  background: rgba(10, 15, 30, 0.9) !important;
 }
 
 /* Disable backdrop blur filter pipelines */

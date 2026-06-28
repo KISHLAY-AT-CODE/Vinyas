@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { normalizeUrl } from '../shared/normalize.js';
 
 export const getEffectiveStatusInfo = (chapter) => {
     let sumComp = 0, sumAcc = 0, validCount = 0;
@@ -130,9 +131,114 @@ export const getSubjectGlassTheme = (colorClass, subjectName, isStuck) => {
     };
 };
 
+export const calculateChapterBreakdown = (chapter) => {
+    const dppComp = chapter?.dpp?.comp || 0;
+    const dppAcc = chapter?.dpp?.acc || 0;
+    
+    const moduleComp = chapter?.module?.comp || 0;
+    const moduleAcc = chapter?.module?.acc || 0;
+    
+    const assignments = chapter?.assignments || [];
+    const hasAssignments = assignments.length > 0;
+    
+    let assComp = 0;
+    let assAcc = 0;
+    let submittedAssCount = 0;
+    
+    if (hasAssignments) {
+        let totalAssComp = 0;
+        let totalAssAcc = 0;
+        assignments.forEach(a => {
+            const questionCount = a.questionCount || 0;
+            if (questionCount > 0) {
+                if (a.selfAnalysis?.isSubmitted) {
+                    const correct = a.selfAnalysis.correctCount || 0;
+                    const incorrect = a.selfAnalysis.incorrectCount || 0;
+                    const attempted = correct + incorrect;
+                    totalAssComp += (attempted / questionCount) * 100;
+                    if (attempted > 0) {
+                        totalAssAcc += (correct / attempted) * 100;
+                        submittedAssCount++;
+                    }
+                } else {
+                    const solvedCount = Object.values(a.questionStates || {}).filter(s => s === 'completed').length;
+                    const errorCount = Object.values(a.questionStates || {}).filter(s => s === 'difficult' || s === 'later').length;
+                    const attempted = solvedCount + errorCount;
+                    totalAssComp += (attempted / questionCount) * 100;
+                    if (attempted > 0) {
+                        totalAssAcc += (solvedCount / attempted) * 100;
+                        submittedAssCount++;
+                    }
+                }
+            } else {
+                if (a.selfAnalysis?.isSubmitted) {
+                    totalAssComp += 100;
+                    const correct = a.selfAnalysis.correctCount || 0;
+                    const incorrect = a.selfAnalysis.incorrectCount || 0;
+                    const total = correct + incorrect;
+                    if (total > 0) {
+                        totalAssAcc += (correct / total) * 100;
+                        submittedAssCount++;
+                    }
+                }
+            }
+        });
+        assComp = totalAssComp / assignments.length;
+        if (submittedAssCount > 0) {
+            assAcc = totalAssAcc / submittedAssCount;
+        }
+    }
+    
+    let weights = { dpp: 0.3, module: 0.4, assignments: 0.3 };
+    if (!hasAssignments) {
+        weights.assignments = 0;
+    }
+    const totalWeight = weights.dpp + weights.module + weights.assignments;
+    
+    const overallComp = totalWeight > 0 ? (
+        (weights.dpp * dppComp + weights.module * moduleComp + weights.assignments * assComp) / totalWeight
+    ) : 0;
+    
+    let activeAccWeightSum = 0;
+    let activeAccScoreSum = 0;
+    
+    if (dppComp > 0) {
+        activeAccWeightSum += weights.dpp;
+        activeAccScoreSum += weights.dpp * dppAcc;
+    }
+    if (moduleComp > 0) {
+        activeAccWeightSum += weights.module;
+        activeAccScoreSum += weights.module * moduleAcc;
+    }
+    if (hasAssignments && submittedAssCount > 0) {
+        activeAccWeightSum += weights.assignments;
+        activeAccScoreSum += weights.assignments * assAcc;
+    }
+    
+    const overallAcc = activeAccWeightSum > 0 ? (activeAccScoreSum / activeAccWeightSum) : 0;
+    
+    const correct = overallComp * (overallAcc / 100);
+    const incorrect = overallComp * (1 - overallAcc / 100);
+    const notAttempted = 100 - overallComp;
+    
+    return {
+        correct: Math.round(correct),
+        incorrect: Math.round(incorrect),
+        notAttempted: Math.round(notAttempted)
+    };
+};
+
+export const getChapterMasterScore = (chapter) => {
+    const breakdown = calculateChapterBreakdown(chapter);
+    return Math.round(breakdown.correct + 0.3 * breakdown.incorrect);
+};
+
 const SubjectTable = ({ 
     subject, 
     sIdx, 
+    allSubjects = [],
+    activities = [],
+    onSelectSubject,
     handleUpdate, 
     handleNestedUpdate, 
     openLogModal, 
@@ -166,6 +272,73 @@ const SubjectTable = ({
         return subject.bookUrl || '';
     });
     const [showBooksDropdown, setShowBooksDropdown] = useState(false);
+    const [sortBy, setSortBy] = useState(() => {
+        try {
+            return localStorage.getItem('vinyas_chapter_sort_order') || 'default';
+        } catch (e) {
+            return 'default';
+        }
+    });
+
+    const hasChapterData = React.useCallback((ch) => {
+        return (ch.dpp?.comp || 0) > 0 ||
+               (ch.module?.comp || 0) > 0 ||
+               (ch.assignments && ch.assignments.length > 0) ||
+               (parseInt(ch.lectures) || 0) > 0 ||
+               (ch.log && ch.log.trim().length > 0) ||
+               (ch.status && ch.status !== 'None');
+    }, []);
+
+    const groupedChapters = React.useMemo(() => {
+        const chaptersWithIndex = (subject.chapters || []).map((chapter, cIdx) => ({
+            chapter,
+            cIdx
+        }));
+
+        const activeList = [];
+        const noDataList = [];
+
+        chaptersWithIndex.forEach(item => {
+            if (hasChapterData(item.chapter)) {
+                activeList.push(item);
+            } else {
+                noDataList.push(item);
+            }
+        });
+
+        if (sortBy === 'alphabetical') {
+            activeList.sort((a, b) => (a.chapter.name || '').localeCompare(b.chapter.name || ''));
+            noDataList.sort((a, b) => (a.chapter.name || '').localeCompare(b.chapter.name || ''));
+        } else if (sortBy === 'ms_asc') {
+            activeList.sort((a, b) => getChapterMasterScore(a.chapter) - getChapterMasterScore(b.chapter));
+        } else if (sortBy === 'ms_desc') {
+            activeList.sort((a, b) => getChapterMasterScore(b.chapter) - getChapterMasterScore(a.chapter));
+        }
+
+        return {
+            activeChapters: activeList,
+            noDataChapters: noDataList
+        };
+    }, [subject.chapters, sortBy, hasChapterData]);
+
+    const listItems = React.useMemo(() => {
+        const items = [];
+        if (groupedChapters.activeChapters.length > 0) {
+            items.push({ type: 'header', title: 'Active Chapters', count: groupedChapters.activeChapters.length, isActive: true });
+            groupedChapters.activeChapters.forEach(item => {
+                items.push({ type: 'row', ...item });
+            });
+        }
+        if (groupedChapters.noDataChapters.length > 0) {
+            items.push({ type: 'header', title: 'No Data Available', count: groupedChapters.noDataChapters.length, isActive: false });
+            groupedChapters.noDataChapters.forEach(item => {
+                items.push({ type: 'row', ...item });
+            });
+        }
+        return items;
+    }, [groupedChapters]);
+
+
 
     React.useEffect(() => {
         if (subject.books && subject.books.length > 0) {
@@ -174,6 +347,11 @@ const SubjectTable = ({
             setActiveBookUrl(subject.bookUrl || '');
         }
         setShowBooksDropdown(false);
+        try {
+            setSortBy(localStorage.getItem('vinyas_chapter_sort_order') || 'default');
+        } catch (e) {
+            setSortBy('default');
+        }
     }, [subject]);
 
     React.useEffect(() => {
@@ -374,6 +552,30 @@ const SubjectTable = ({
                 </div>
                 
                 <div className="flex items-center gap-3 relative z-10">
+                    {/* Chapter Sort Select Dropdown */}
+                    <div className="relative">
+                        <select
+                            value={sortBy}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSortBy(val);
+                                try {
+                                    localStorage.setItem('vinyas_chapter_sort_order', val);
+                                } catch (err) {}
+                            }}
+                            className={`text-xs font-black pl-3.5 pr-8 py-1.5 rounded-xl backdrop-blur-md border cursor-pointer outline-none transition-all shadow-md appearance-none select-none ${glassTheme.badgeClass}`}
+                            title="Sort chapters list"
+                        >
+                            <option value="default" className="bg-slate-900 text-slate-300">Default Order</option>
+                            <option value="alphabetical" className="bg-slate-900 text-slate-300">Alphabetical (A-Z)</option>
+                            <option value="ms_asc" className="bg-slate-900 text-slate-300">Master Score Ascending</option>
+                            <option value="ms_desc" className="bg-slate-900 text-slate-300">Master Score Descending</option>
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <i className="ph-bold ph-caret-down text-[10px]"></i>
+                        </div>
+                    </div>
+
                     {/* Compact Glass Custom Chapter Add Button on right dead corner */}
                     <button 
                         onClick={() => setShowAddChapterModal(true)}
@@ -402,13 +604,28 @@ const SubjectTable = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
-                        {subject.chapters.map((chapter, cIdx) => {
+                        {listItems.map((item, itemIdx) => {
+                            if (item.type === 'header') {
+                                return (
+                                    <tr key={`header-${item.title}`} className="bg-slate-900/45 border-b border-slate-700/60 pointer-events-none select-none">
+                                        <td colSpan="5" className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest ${item.isActive ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                            <div className="flex items-center gap-2">
+                                                <i className={`ph-fill ${item.isActive ? 'ph-activity' : 'ph-eye-slash'} text-sm`}></i>
+                                                {item.title} ({item.count})
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            }
+
+                            const { chapter, cIdx } = item;
                             const analysisScore = getChapterAnalysis(chapter);
                             const eff = getEffectiveStatusInfo(chapter);
                             const theme = getAccuracyTheme(analysisScore);
+
                             return (
                                 <tr key={cIdx} id={`chapter-${sIdx}-${cIdx}`} className={`transition-all duration-300 group relative ${theme.rowClass}`}>
-                                    <td className="px-4 py-3 font-semibold text-slate-300 flex items-center justify-between" title={chapter.name}>
+                                    <td className="px-4 py-3 font-semibold text-slate-350 flex items-center justify-between" title={chapter.name}>
                                         {/* Dynamic Rising Fill Animation with Sparkles and Crystals */}
                                         {!performanceMode && (
                                             <div className="row-fill-container">
@@ -421,56 +638,73 @@ const SubjectTable = ({
                                             </div>
                                         )}
 
-                                        <div className="flex items-center min-w-0 flex-1 mr-2 relative z-10">
-                                            <span className={`truncate max-w-[120px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-[320px] lg:max-w-[420px] xl:max-w-[550px] transition-all duration-300 relative group-hover:${theme.text}`}>
-                                                {chapter.name}
-                                            </span>
-                                            {((subject.books && subject.books.length > 0) || !!subject.bookUrl) && (
-                                                <button 
-                                                    onClick={() => {
-                                                        const mappedInfo = getChapterBookUrl(chapter.name);
-                                                        if (mappedInfo && mappedInfo.url) {
-                                                            window.open(mappedInfo.url, '_blank', 'noopener,noreferrer');
-                                                        } else {
-                                                            setLinkModalChapter(chapter.name);
-                                                            setLinkModalInputUrl('');
-                                                            if (subject.books && subject.books.length > 0) {
-                                                                setLinkModalSelectedBookUrl(activeBookUrl || subject.books[0].url);
-                                                            } else {
-                                                                setLinkModalSelectedBookUrl(subject.bookUrl || '');
-                                                            }
-                                                            setShowLinkBookModal(true);
-                                                        }
-                                                    }}
-                                                    className={`ml-2 transition-colors flex items-center justify-center p-0.5 rounded hover:bg-slate-800/50 cursor-pointer ${
-                                                        getChapterBookUrl(chapter.name) 
-                                                            ? 'text-indigo-400 hover:text-indigo-300' 
-                                                            : 'text-slate-500 hover:text-slate-350'
-                                                    }`}
-                                                    title={
-                                                        getChapterBookUrl(chapter.name) 
-                                                            ? `Read chapter in book: ${getChapterBookUrl(chapter.name).bookName}` 
-                                                            : 'Book is not configured. Click to link it yourself.'
-                                                    }
-                                                >
-                                                    <i className="ph-bold ph-book-open text-sm"></i>
-                                                </button>
-                                            )}
+                                        <div className="flex flex-col min-w-0 flex-1 mr-2 relative z-10">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`truncate max-w-[120px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-[320px] lg:max-w-[420px] xl:max-w-[550px] transition-all duration-300 relative group-hover:${theme.text} font-bold`}>
+                                                    {chapter.name}
+                                                </span>
+                                                {chapter.bookUrl && (
+                                                    <a 
+                                                        href={chapter.bookUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5 text-[10px] font-bold"
+                                                        title="Read Textbook Chapter"
+                                                    >
+                                                        <i className="ph-fill ph-book-open"></i>
+                                                        Read
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity relative z-10">
-                                            <button onClick={() => openLogModal(sIdx, cIdx, chapter.name, chapter.log)} className={`transition-colors focus:outline-none p-1 rounded hover:bg-slate-700 ${chapter.log ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}`} title={chapter.log ? "Edit your Notes" : "Add prep notes for AI analysis"}>
+
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 relative z-10">
+                                            <button 
+                                                onClick={() => {
+                                                    setLinkModalChapter(chapter.name);
+                                                    setLinkModalInputUrl(chapter.bookUrl || '');
+                                                    setLinkModalSelectedBookUrl(activeBookUrl || '');
+                                                    setShowLinkBookModal(true);
+                                                }}
+                                                className={`transition-colors focus:outline-none p-1 rounded hover:bg-slate-700 ${chapter.bookUrl ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}`}
+                                                title={chapter.bookUrl ? "Edit Link to Textbook" : "Link Chapter to Textbook"}
+                                            >
+                                                <i className="ph-bold ph-link text-lg"></i>
+                                            </button>
+                                            <button 
+                                                onClick={() => openLogModal(sIdx, cIdx, chapter.name, chapter.log)} 
+                                                className={`transition-colors focus:outline-none p-1 rounded hover:bg-slate-700 ${chapter.log ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}`} 
+                                                title={chapter.log ? "Edit your Notes" : "Add prep notes for AI analysis"}
+                                            >
                                                 <i className="ph-fill ph-notepad text-lg"></i>
                                             </button>
-                                            <button onClick={() => {
-                                                requestConfirm(
-                                                    "Remove Chapter",
-                                                    `Are you sure you want to remove "${chapter.name}"? This action is irreversible.`,
-                                                    () => removeChapter(sIdx, cIdx)
-                                                );
-                                            }} className="transition-colors focus:outline-none p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400" title="Remove Chapter">
+                                            <button 
+                                                onClick={() => {
+                                                    requestConfirm(
+                                                        "Remove Chapter",
+                                                        `Are you sure you want to remove "${chapter.name}"? This action is irreversible.`,
+                                                        () => removeChapter(sIdx, cIdx)
+                                                    );
+                                                }} 
+                                                className="transition-colors focus:outline-none p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400" 
+                                                title="Remove Chapter"
+                                            >
                                                 <i className="ph-bold ph-trash text-lg"></i>
                                             </button>
                                         </div>
+
+                                        {/* Segmented status bar at bottom of the row */}
+                                        {(() => {
+                                            const breakdown = calculateChapterBreakdown(chapter);
+                                            return (
+                                                <div className="absolute bottom-0 left-0 right-0 h-[3.5px] flex z-35 pointer-events-none overflow-hidden border-t border-slate-950/50">
+                                                    {breakdown.correct > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${breakdown.correct}%` }} />}
+                                                    {breakdown.incorrect > 0 && <div className="bg-red-500 h-full" style={{ width: `${breakdown.incorrect}%` }} />}
+                                                    {breakdown.notAttempted > 0 && <div className="bg-slate-700 h-full" style={{ width: `${breakdown.notAttempted}%` }} />}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-2 py-3 border-l border-slate-700/20 transition-all duration-300 relative z-10">
                                         <select value={chapter.status || 'None'} onChange={(e) => handleUpdate(sIdx, cIdx, 'status', e.target.value)} className={`text-xs font-bold rounded-full px-3 py-1 w-full text-center border cursor-pointer outline-none transition-all appearance-none ${eff.style} relative z-10`}>
@@ -530,6 +764,7 @@ const SubjectTable = ({
                     </tbody>
                 </table>
             </div>
+
             {/* Decorative rounded base spacer */}
             <div className="h-4 bg-slate-950/20 rounded-b-2xl border-t border-slate-800/10" />
 

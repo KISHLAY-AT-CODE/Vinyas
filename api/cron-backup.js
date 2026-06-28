@@ -63,17 +63,12 @@ export default async function handler(req, res) {
         const baseTemplate = loadTemplate(userDoc.cohort);
         const fullSyllabus = deserializeSyllabus(userDoc.data, baseTemplate);
 
-        // Prepare backup JSON string
+        // Prepare backup JSON string by copying the entire userDoc, replacing data, and removing _id
         const backupData = {
-          syncId: userDoc.syncId,
-          userName: userDoc.userName || '',
-          cohort: userDoc.cohort || 'BITSAT',
-          targetDate: userDoc.targetDate || '2026-05-23',
-          data: fullSyllabus,
-          routines: userDoc.routines || [],
-          testLogs: userDoc.testLogs || [],
-          resolvedActivityIds: userDoc.resolvedActivityIds || []
+          ...userDoc,
+          data: fullSyllabus
         };
+        delete backupData._id;
 
         const jsonString = JSON.stringify(backupData, null, 2);
         

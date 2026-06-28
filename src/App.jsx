@@ -3,7 +3,8 @@ import { YogiLogo, generateEmptyChapter } from './data/constants';
 import { normalizeUrl } from './shared/normalize.js';
 import Header from './components/Header';
 import GamifiedDashboard from './components/GamifiedDashboard';
-import SubjectTable from './components/SubjectTable';
+import SubjectTable, { getChapterMasterScore } from './components/SubjectTable';
+import RecentActivityTable from './components/RecentActivityTable';
 import ConfirmationModal from './components/ConfirmationModal';
 import Modals from './components/Modals';
 import SearchOverlay from './components/SearchOverlay';
@@ -255,6 +256,7 @@ const App = () => {
     }, [setData]);
 
     const [activeSubjectIdx, setActiveSubjectIdx] = useState(0);
+    const [activeViewTab, setActiveViewTab] = useState('recent');
     const [direction, setDirection] = useState(0);
 
     // 5. Activity Scanner & Resolve Actions Hook
@@ -552,11 +554,12 @@ const App = () => {
     const handleInlineSearchSelect = (sIdx, cIdx) => {
         setSearchQuery('');
         setIsSearchFocused(false);
+        setActiveViewTab('chapters');
         if (sIdx !== activeSubjectIdx) {
             setActiveSubjectIdx(sIdx);
             setTimeout(() => {
                 scrollToAndHighlight(sIdx, cIdx);
-            }, 200);
+            }, 250);
         } else {
             scrollToAndHighlight(sIdx, cIdx);
         }
@@ -569,11 +572,12 @@ const App = () => {
     const handleOverlaySearchSelect = (sIdx, cIdx) => {
         setOverlaySearchOpen(false);
         setOverlaySearchQuery('');
+        setActiveViewTab('chapters');
         if (sIdx !== activeSubjectIdx) {
             setActiveSubjectIdx(sIdx);
             setTimeout(() => {
                 scrollToAndHighlight(sIdx, cIdx);
-            }, 200);
+            }, 250);
         } else {
             scrollToAndHighlight(sIdx, cIdx);
         }
@@ -584,11 +588,7 @@ const App = () => {
     };
 
     const getChapterAnalysis = (chapter) => {
-        let sum = 0, validCount = 0;
-        [chapter.dpp, chapter.module].forEach(sec => {
-            if (sec && (sec.acc > 0 || sec.comp > 0)) { sum += (sec.acc + sec.comp) / 2; validCount++; }
-        });
-        return validCount > 0 ? (sum / validCount) : 0;
+        return getChapterMasterScore(chapter);
     };
 
     const handleUpdate = (sIdx, cIdx, field, value) => {
@@ -598,7 +598,11 @@ const App = () => {
                 ...sub,
                 chapters: sub.chapters.map((ch, chIdx) => {
                     if (chIdx !== cIdx) return ch;
-                    return { ...ch, [field]: value };
+                    return { 
+                        ...ch, 
+                        [field]: value,
+                        lastModified: new Date().toISOString()
+                    };
                 })
             };
         }));
@@ -620,7 +624,11 @@ const App = () => {
                     if (chIdx !== cIdx) return ch;
                     const secVal = ch[section] ? { ...ch[section] } : { comp: 0, acc: 0 };
                     secVal[field] = parsedValue;
-                    return { ...ch, [section]: secVal };
+                    return { 
+                        ...ch, 
+                        [section]: secVal,
+                        lastModified: new Date().toISOString()
+                    };
                 })
             };
         }));
@@ -1205,28 +1213,75 @@ const App = () => {
                     isSidebarVisible={isSidebarVisible}
                 />
 
-                <div className={`flex flex-col relative transition-all duration-300 ${(isCardHidden || !isSidebarVisible) ? 'xl:col-span-4' : 'xl:col-span-3'}`}>
+                <div className={`flex flex-col relative transition-all duration-300 ${(isCardHidden || !isSidebarVisible) ? 'xl:col-span-4' : 'xl:col-span-3'} gap-6`}>
                     {data.length > 0 ? (
-                        <div className="w-full relative min-h-[400px]">
-                            {data[activeSubjectIdx] && (
-                                <SubjectTable 
-                                    subject={data[activeSubjectIdx]}
-                                    sIdx={activeSubjectIdx}
+                        <div className="w-full flex flex-col gap-6 relative min-h-[400px]">
+                            {/* Premium Segmented Navigation Tabs */}
+                            <div className="flex items-center gap-1.5 p-1 bg-slate-900/80 border border-slate-800/80 rounded-2xl backdrop-blur-xl self-start relative z-25 shadow-[0_0_30px_rgba(0,0,0,0.5)] select-none">
+                                <button
+                                    onClick={() => setActiveViewTab('recent')}
+                                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-350 cursor-pointer select-none group/tab border ${
+                                        activeViewTab === 'recent'
+                                            ? 'bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 text-indigo-300 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.25)] font-extrabold'
+                                            : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-850/50'
+                                    }`}
+                                >
+                                    <i className={`ph-fill ph-clock-counter-clockwise text-sm transition-transform duration-300 group-hover/tab:rotate-45 ${activeViewTab === 'recent' ? 'text-indigo-400' : 'text-slate-500'}`}></i>
+                                    Recent Activity
+                                </button>
+                                <button
+                                    onClick={() => setActiveViewTab('chapters')}
+                                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-350 cursor-pointer select-none group/tab border ${
+                                        activeViewTab === 'chapters'
+                                            ? 'bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 text-indigo-300 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.25)] font-extrabold'
+                                            : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-850/50'
+                                    }`}
+                                >
+                                    <i className={`ph-fill ph-table text-sm transition-transform duration-300 group-hover/tab:scale-110 ${activeViewTab === 'chapters' ? 'text-indigo-400' : 'text-slate-500'}`}></i>
+                                    Chapter Table
+                                </button>
+                            </div>
+
+                            {activeViewTab === 'recent' ? (
+                                <RecentActivityTable 
+                                    allSubjects={data}
+                                    activities={activities}
                                     handleUpdate={handleUpdate}
-                                    handleNestedUpdate={handleNestedUpdate}
                                     openLogModal={openLogModal}
-                                    getChapterAnalysis={getChapterAnalysis}
-                                    openProgressModal={openProgressModal}
-                                    addChapter={handleAddChapter}
                                     removeChapter={handleRemoveChapter}
                                     requestConfirm={requestConfirm}
-                                    onPrevSubject={handlePrevSubject}
-                                    onNextSubject={handleNextSubject}
-                                    activeSubjectIdx={activeSubjectIdx}
-                                    totalSubjects={data.length}
+                                    openProgressModal={openProgressModal}
+                                    getChapterAnalysis={getChapterAnalysis}
+                                    onSelectSubject={(sIdx) => {
+                                        setActiveSubjectIdx(sIdx);
+                                        setActiveViewTab('chapters');
+                                    }}
                                     performanceMode={themeSettings.performanceMode}
-                                    onLinkChapterBookUrl={handleLinkChapterBookUrl}
                                 />
+                            ) : (
+                                data[activeSubjectIdx] && (
+                                    <SubjectTable 
+                                        subject={data[activeSubjectIdx]}
+                                        sIdx={activeSubjectIdx}
+                                        allSubjects={data}
+                                        activities={activities}
+                                        onSelectSubject={setActiveSubjectIdx}
+                                        handleUpdate={handleUpdate}
+                                        handleNestedUpdate={handleNestedUpdate}
+                                        openLogModal={openLogModal}
+                                        getChapterAnalysis={getChapterAnalysis}
+                                        openProgressModal={openProgressModal}
+                                        addChapter={handleAddChapter}
+                                        removeChapter={handleRemoveChapter}
+                                        requestConfirm={requestConfirm}
+                                        onPrevSubject={handlePrevSubject}
+                                        onNextSubject={handleNextSubject}
+                                        activeSubjectIdx={activeSubjectIdx}
+                                        totalSubjects={data.length}
+                                        performanceMode={themeSettings.performanceMode}
+                                        onLinkChapterBookUrl={handleLinkChapterBookUrl}
+                                    />
+                                )
                             )}
                         </div>
                     ) : (

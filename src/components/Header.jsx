@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
+import QRCode from 'qrcode';
 import { YogiLogo } from '../data/constants';
 import { useToast } from './ToastContext';
 import { VINYAS_APP_VERSION, VINYAS_EXTENSION_VERSION } from '../data/version';
@@ -483,6 +484,17 @@ const Header = ({
 
     const [localDate, setLocalDate] = React.useState(targetDate || '');
     const [isSaving, setIsSaving] = React.useState(false);
+
+    const [qrCodeDataUrl, setQrCodeDataUrl] = React.useState('');
+    const [showAndroidSyncModal, setShowAndroidSyncModal] = React.useState(false);
+
+    React.useEffect(() => {
+        if (syncId && showAndroidSyncModal) {
+            QRCode.toDataURL(syncId, { width: 300, margin: 2 })
+                .then(url => setQrCodeDataUrl(url))
+                .catch(err => console.error("Failed to generate QR code", err));
+        }
+    }, [syncId, showAndroidSyncModal]);
 
     React.useEffect(() => {
         setLocalDate(targetDate || '');
@@ -1113,6 +1125,20 @@ const Header = ({
                         </div>
                     </div>
 
+                    {/* Android Companion Sync QR Button */}
+                    {syncId && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAndroidSyncModal(true)}
+                            className={`px-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-md shrink-0 ${
+                                isHeaderCollapsed ? 'h-12' : 'h-14'
+                            } bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 text-emerald-400 hover:text-emerald-350 hover:border-emerald-700/80`}
+                            title="Sync Android Companion App"
+                        >
+                            <i className="ph-bold ph-android-logo text-lg"></i>
+                        </button>
+                    )}
+
                     {/* Performance Optimization Mode Toggle Switch */}
                     <button
                         type="button"
@@ -1192,6 +1218,64 @@ const Header = ({
                                 {isSaving ? 'Saving...' : 'Save Date'}
                             </button>
                         </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Android Sync Modal */}
+            {showAndroidSyncModal && createPortal(
+                <div 
+                    className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" 
+                    onClick={() => setShowAndroidSyncModal(false)}
+                >
+                    <div 
+                        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm overflow-hidden animate-pop-in"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                <i className="ph-bold ph-android-logo text-emerald-400 text-base"></i>
+                                Companion App Sync
+                            </h3>
+                            <button 
+                                onClick={() => setShowAndroidSyncModal(false)}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <i className="ph-bold ph-x text-base"></i>
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-400 mb-4 leading-relaxed text-center">
+                            Scan this QR code with the Vinyas Companion App on your phone to automatically link your syllabus trackers, test logs, and achievements.
+                        </p>
+
+                        <div className="flex justify-center items-center my-4 bg-white p-3 rounded-2xl w-[220px] h-[220px] mx-auto shadow-inner">
+                            {qrCodeDataUrl ? (
+                                <img 
+                                    src={qrCodeDataUrl} 
+                                    className="w-[200px] h-[200px]" 
+                                    alt="Sync QR Code" 
+                                />
+                            ) : (
+                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+                            )}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-slate-800">
+                            <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3 flex flex-col items-center gap-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Your Sync ID</span>
+                                <span className="text-xs font-mono font-bold text-slate-300 select-all">{syncId}</span>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowAndroidSyncModal(false)}
+                            className="mt-5 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 cursor-pointer text-center"
+                        >
+                            Done
+                        </button>
                     </div>
                 </div>,
                 document.body

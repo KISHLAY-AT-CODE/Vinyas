@@ -7,6 +7,32 @@ import { normalizeUrl } from '../src/shared/normalize.js';
 import { resolveUser, hashSyncId } from './_shared/auth.js';
 
 export default async function handler(req, res) {
+  // Setup CORS to allow requests from the Chrome Extension & specific origins
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  const origin = req.headers.origin;
+  const allowedOriginsEnv = process.env.ALLOWED_CORS_ORIGINS ? process.env.ALLOWED_CORS_ORIGINS.split(',') : [];
+  
+  const isAllowed = origin && (
+    origin.startsWith('chrome-extension://') ||
+    origin.startsWith('http://localhost:') ||
+    origin.endsWith('.vercel.app') ||
+    allowedOriginsEnv.includes(origin)
+  );
+  
+  if (isAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   // Enforce global request body size limit of 2MB to protect MongoDB and Vercel functions
   const contentLength = req.headers['content-length'] ? parseInt(req.headers['content-length'], 10) : 0;
   if (contentLength > 2 * 1024 * 1024 || (req.body && JSON.stringify(req.body).length > 2 * 1024 * 1024)) {
@@ -71,7 +97,7 @@ export default async function handler(req, res) {
     } 
     
     if (req.method === 'POST') {
-      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings, deletedAssignmentUrls } = req.body;
+      const { syncId: rawSyncId, data, routines, testLogs, targetDate, cohort, resolvedActivityIds, email, autoBackupEnabled, lastSeenAppVersion, lastSeenExtVersion, userName, themeSettings, deletedAssignmentUrls, activities } = req.body;
       if (!rawSyncId || typeof rawSyncId !== 'string') return res.status(400).json({ error: 'Invalid or missing syncId' });
       const syncId = String(rawSyncId).trim();
       if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
@@ -94,7 +120,7 @@ export default async function handler(req, res) {
       }
 
       const docToUse = userDoc || {};
-      const activities = docToUse.activities || [];
+      const dbActivities = docToUse.activities || [];
       const sessions = docToUse.sessions || [];
 
       if (sessionToken) {
@@ -189,7 +215,7 @@ export default async function handler(req, res) {
         data: data || [],
         routines: routines || [],
         testLogs: testLogs || [],
-        activities,
+        activities: activities !== undefined ? activities : dbActivities,
         targetDate: targetDate || null,
         cohort: cohort || 'JEE Mains',
         achievements: docToUse.achievements || []
@@ -222,17 +248,10 @@ export default async function handler(req, res) {
 
       const updateDoc = {
         $set: {
+          ...req.body,
           data: serializedData, // Save only the optimized diff structure
-          routines: routines || [],
-          testLogs: testLogs || [],
           achievements: calculatedAchievements,
-          targetDate: targetDate || null,
-          cohort: cohort || 'JEE Mains',
-          resolvedActivityIds: resolvedActivityIds || [],
-          email: email || '',
-          autoBackupEnabled: autoBackupEnabled || false,
           sessions,
-          deletedAssignmentUrls: prunedDeletedUrls,
           lastUpdated: getISTISOString()
         },
         $unset: {
@@ -241,18 +260,10 @@ export default async function handler(req, res) {
         }
       };
 
-      if (lastSeenAppVersion !== undefined) {
-        updateDoc.$set.lastSeenAppVersion = lastSeenAppVersion;
-      }
-      if (lastSeenExtVersion !== undefined) {
-        updateDoc.$set.lastSeenExtVersion = lastSeenExtVersion;
-      }
-      if (userName !== undefined) {
-        updateDoc.$set.userName = userName;
-      }
-      if (themeSettings !== undefined) {
-        updateDoc.$set.themeSettings = themeSettings;
-      }
+      // Remove keys from $set to prevent lookup mutations and $set/$unset update path conflicts in MongoDB
+      delete updateDoc.$set.syncId;
+      delete updateDoc.$set.logoutTimestamp;
+      delete updateDoc.$set.alertSent;
 
       // Sanitize the $set object to remove any keys that are undefined to prevent BSON errors
       if (updateDoc.$set) {
