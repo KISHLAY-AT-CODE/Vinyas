@@ -286,6 +286,8 @@ const App = () => {
         handleResolveLinkBookChapter,
         handleResolveCreateSubjectAndLinkBookChapter,
         handleLinkChapterBookUrl,
+        handleUpdateSubjectBooks,
+        handleBulkLinkChapterBookUrls,
         handleResolveLinkBook,
         handleResolveCreateSubjectAndLinkBook
     } = useActivityProcessor({
@@ -1280,6 +1282,8 @@ const App = () => {
                                         totalSubjects={data.length}
                                         performanceMode={themeSettings.performanceMode}
                                         onLinkChapterBookUrl={handleLinkChapterBookUrl}
+                                        onUpdateSubjectBooks={handleUpdateSubjectBooks}
+                                        onBulkLinkChapterBookUrls={handleBulkLinkChapterBookUrls}
                                     />
                                 )
                             )}

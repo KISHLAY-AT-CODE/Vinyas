@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vinyas Tracker",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "Tracks PW activity and syncs it to Vinyas Dashboard",
   "permissions": [
     "storage",

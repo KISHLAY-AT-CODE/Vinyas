@@ -513,15 +513,19 @@ export const useActivityProcessor = ({
                         return;
                     }
 
-                    const cleanedBookName = bookName.toLowerCase();
                     let matchedSubjectIdx = -1;
-                    
-                    for (let sIdx = 0; sIdx < nextData.length; sIdx++) {
-                        const subName = nextData[sIdx].name.toLowerCase();
-                        const stem = subName.substring(0, Math.min(subName.length, 5));
-                        if (cleanedBookName.includes(subName) || cleanedBookName.includes(stem)) {
-                            matchedSubjectIdx = sIdx;
-                            break;
+                    if (details.subjectName) {
+                        matchedSubjectIdx = nextData.findIndex(s => s.name.toLowerCase() === details.subjectName.toLowerCase());
+                    }
+                    if (matchedSubjectIdx === -1) {
+                        const cleanedBookName = bookName.toLowerCase();
+                        for (let sIdx = 0; sIdx < nextData.length; sIdx++) {
+                            const subName = nextData[sIdx].name.toLowerCase();
+                            const stem = subName.substring(0, Math.min(subName.length, 5));
+                            if (cleanedBookName.includes(subName) || cleanedBookName.includes(stem)) {
+                                matchedSubjectIdx = sIdx;
+                                break;
+                            }
                         }
                     }
 
@@ -1575,6 +1579,54 @@ export const useActivityProcessor = ({
         }, 'success');
     }, [data, setData]);
 
+    const handleUpdateSubjectBooks = useCallback((sIdx, updatedBooks) => {
+        setData(prevData => prevData.map((sub, idx) => {
+            if (idx !== sIdx) return sub;
+            return {
+                ...sub,
+                books: updatedBooks
+            };
+        }));
+        
+        logEvent('UPDATE_SUBJECT_BOOKS', {
+            subject: data[sIdx]?.name,
+            count: updatedBooks.length
+        }, 'success');
+    }, [data, setData]);
+
+    const handleBulkLinkChapterBookUrls = useCallback((sIdx, chapterName, mappings) => {
+        setData(prevData => prevData.map((sub, idx) => {
+            if (idx !== sIdx) return sub;
+            
+            const updatedSub = { ...sub };
+            if (!updatedSub.books) updatedSub.books = [];
+            
+            updatedSub.books = updatedSub.books.map(book => {
+                const mappedUrl = mappings[book.url];
+                if (mappedUrl !== undefined) {
+                    const updatedChapters = { ...(book.chapters || {}) };
+                    if (mappedUrl.trim() === '') {
+                        delete updatedChapters[chapterName];
+                    } else {
+                        updatedChapters[chapterName] = mappedUrl.trim();
+                    }
+                    return {
+                        ...book,
+                        chapters: updatedChapters
+                    };
+                }
+                return book;
+            });
+            
+            return updatedSub;
+        }));
+
+        logEvent('BULK_LINK_CHAPTER_BOOKS', {
+            subject: data[sIdx]?.name,
+            chapter: chapterName
+        }, 'success');
+    }, [data, setData]);
+
     const handleResolveLinkBook = useCallback((act, subjectName) => {
         setData(prevData => prevData.map(sub => {
             if (sub.name !== subjectName) return sub;
@@ -1763,6 +1815,8 @@ export const useActivityProcessor = ({
         handleResolveLinkBookChapter,
         handleResolveCreateSubjectAndLinkBookChapter,
         handleLinkChapterBookUrl,
+        handleUpdateSubjectBooks,
+        handleBulkLinkChapterBookUrls,
         handleResolveLinkBook,
         handleResolveCreateSubjectAndLinkBook
     };

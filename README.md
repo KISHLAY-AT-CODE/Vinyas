@@ -197,6 +197,13 @@ Full annotated visual walkthrough: [vinyas-one.vercel.app/extension](https://vin
 
 ## Changelog
 
+### v2.3.2 (June 29, 2026) — Books Update
+- Multi-book support per subject with independent chapter-to-URL mappings.
+- Subject-level Book Settings panel (gear icon) to add, view, and delete textbooks.
+- Bulk Chapter Link Editor to map or clear reading URLs across all books per chapter.
+- Active book selector with localStorage persistence across sessions.
+- Fixed dropdown clipping inside sticky subject headers.
+
 ### v2.3.1 (June 28, 2026) — Dynamic Dashboard Pages & Interactive Sorting
 - Standalone Recent Activity view listing the 5 latest active chapters per subject.
 - Glassmorphic segmented navbar switcher between Chapter Table and Recent Activity views.
@@ -204,13 +211,6 @@ Full annotated visual walkthrough: [vinyas-one.vercel.app/extension](https://vin
 - Sort selector per subject: alphabetical or Master Score (ascending/descending), persisted in localStorage.
 - Active and unstarted chapters divided into separate grouping rows; score-sort only reorders started chapters.
 
-### v2.2.2 (June 23, 2026) — Critical Extension Bug Fixes
-- Fixed "Finalize & Submit" permanently stuck in a submitting state.
-- Eliminated full-widget flicker on every keystroke inside the self-analysis form.
-- Root cause removed: premature Shadow DOM rebuild inside `autoSaveProgress()` that fired before `sendMessage`, orphaning all callbacks and creating cyclic re-renders.
-- Added `isSubmittingAnalysis` flag separate from the shared `isSaving` lock to prevent UI state corruption.
-- Extension errors now surface as toast notifications instead of being silently swallowed.
-- Save watchdog timeout extended to 8 seconds with clean UI recovery on network hangs.
 
 [Full changelog →](CHANGELOG.md)
 

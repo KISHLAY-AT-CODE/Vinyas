@@ -1414,6 +1414,45 @@ function checkPdfAssignment() {
 }
 
 let lastCheckedBookUrl = '';
+let lastCheckedChapterUrl = '';
+const dismissedUrls = new Set();
+
+function getBookAndChapterInfo(url) {
+    const lowerUrl = url.toLowerCase();
+    const bookIdx = lowerUrl.indexOf('/books/');
+    if (bookIdx === -1) return null;
+    
+    let chapterIdx = lowerUrl.indexOf('/chapters/');
+    let sepLength = '/chapters/'.length;
+    if (chapterIdx === -1) {
+        chapterIdx = lowerUrl.indexOf('/chapter/');
+        sepLength = '/chapter/'.length;
+    }
+    
+    if (chapterIdx !== -1) {
+        const afterChapters = lowerUrl.substring(chapterIdx + sepLength);
+        const pathPart = afterChapters.split('?')[0].split('#')[0];
+        if (pathPart.includes('/')) return null; // trailing paths
+        
+        const bookUrl = url.substring(0, chapterIdx);
+        return {
+            type: 'chapter',
+            bookUrl: bookUrl,
+            chapterUrl: url,
+            chapterId: pathPart
+        };
+    } else {
+        const afterBooks = lowerUrl.substring(bookIdx + '/books/'.length);
+        const pathPart = afterBooks.split('?')[0].split('#')[0];
+        if (pathPart.includes('/')) return null; // trailing paths
+        
+        return {
+            type: 'book',
+            bookUrl: url,
+            bookId: pathPart
+        };
+    }
+}
 
 function parseBookNameFromDOM() {
     try {
@@ -1436,50 +1475,183 @@ function parseBookNameFromDOM() {
     return null;
 }
 
+function showFloatingSyncButton(type, bookUrl, chapterUrl, syncId, apiUrl) {
+    const existing = document.getElementById('vinyas-sync-floating-container');
+    if (existing) existing.remove();
+
+    const urlToCheck = type === 'chapter' ? chapterUrl : bookUrl;
+    if (dismissedUrls.has(urlToCheck)) return;
+
+    const container = document.createElement('div');
+    container.id = 'vinyas-sync-floating-container';
+    container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 6px 12px;
+        border-radius: 9999px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.15);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        pointer-events: auto;
+        animation: vinyasSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+
+    if (!document.getElementById('vinyas-keyframes-style')) {
+        const style = document.createElement('style');
+        style.id = 'vinyas-keyframes-style';
+        style.textContent = `
+            @keyframes vinyasSlideIn {
+                from { opacity: 0; transform: translateX(20px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const mainBtn = document.createElement('button');
+    mainBtn.id = 'vinyas-sync-main-btn';
+    mainBtn.innerText = type === 'chapter' ? 'Add Chapter' : 'SYNC';
+    mainBtn.style.cssText = `
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 800;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-family: inherit;
+        outline: none;
+    `;
+    mainBtn.addEventListener('mouseenter', () => {
+        mainBtn.style.transform = 'translateY(-1px)';
+        mainBtn.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.5)';
+        mainBtn.style.background = 'linear-gradient(135deg, #4f46e5, #2563eb)';
+    });
+    mainBtn.addEventListener('mouseleave', () => {
+        mainBtn.style.transform = 'translateY(0)';
+        mainBtn.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+        mainBtn.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'vinyas-sync-close-btn';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = `
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        font-family: inherit;
+        outline: none;
+    `;
+    closeBtn.addEventListener('mouseenter', () => {
+        closeBtn.style.background = 'rgba(239, 68, 68, 0.15)';
+        closeBtn.style.color = '#f87171';
+        closeBtn.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+    });
+    closeBtn.addEventListener('mouseleave', () => {
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+        closeBtn.style.color = '#94a3b8';
+        closeBtn.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+    });
+
+    closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissedUrls.add(urlToCheck);
+        container.remove();
+        console.log(`[Vinyas Tracker] Dismissed floating button for: ${urlToCheck}`);
+    });
+
+    mainBtn.addEventListener('click', () => {
+        if (type === 'chapter') {
+            const chapterName = parseChapterNameFromDOM() || 'PW Chapter';
+            showSyncChapterOverlay(chapterName, bookUrl, chapterUrl, syncId, apiUrl);
+        } else {
+            const bookName = parseBookNameFromDOM() || 'PW Book';
+            showSyncBookOverlay(bookName, bookUrl, syncId, apiUrl);
+        }
+    });
+
+    container.appendChild(mainBtn);
+    container.appendChild(closeBtn);
+    document.body.appendChild(container);
+}
+
 function checkPwBookLoad() {
     try {
         const url = window.location.href;
+        
+        const info = getBookAndChapterInfo(url);
+        if (!info || info.type !== 'book') {
+            const widget = document.getElementById('vinyas-sync-floating-container');
+            if (widget && !url.toLowerCase().includes('/chapters/') && !url.toLowerCase().includes('/chapter/')) {
+                widget.remove();
+            }
+            return;
+        }
+
         if (lastCheckedBookUrl === url) return;
 
-        // Validate URL structure: books/<encrypted-text> without any trailing sub-path
-        const lowerUrl = url.toLowerCase();
-        const bookIdx = lowerUrl.indexOf('/books/');
-        if (bookIdx === -1) return;
-        const afterBooks = lowerUrl.substring(bookIdx + '/books/'.length);
-        const pathPart = afterBooks.split('?')[0].split('#')[0];
-        if (pathPart.includes('/')) return;
+        const bookUrl = info.bookUrl;
+        const bookName = parseBookNameFromDOM() || 'PW Book';
 
-        const bookName = parseBookNameFromDOM();
-        if (bookName) {
-            chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
-                const syncId = result.vinyasSyncId;
-                const apiUrl = result.vinyasApiUrl;
-                if (!syncId || !apiUrl) {
-                    console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping book check.");
-                    return;
+        chrome.storage.local.set({
+            capturedBookLink: {
+                url: bookUrl,
+                title: bookName
+            }
+        });
+
+        chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
+            const syncId = result.vinyasSyncId;
+            const apiUrl = result.vinyasApiUrl;
+            if (!syncId || !apiUrl) {
+                console.warn("[Vinyas Tracker] Sync ID or API URL not configured.");
+                return;
+            }
+
+            chrome.runtime.sendMessage({
+                action: "checkUrl",
+                data: { syncId, apiUrl, url: bookUrl }
+            }, (response) => {
+                const alreadyExists = !!(response && response.exists);
+                console.log(`[Vinyas Tracker] Book URL existence check: ${alreadyExists}`);
+                if (!alreadyExists) {
+                    showFloatingSyncButton('book', bookUrl, null, syncId, apiUrl);
+                } else {
+                    console.log(`[Vinyas Tracker] Silent bypass: Book already synced.`);
+                    const widget = document.getElementById('vinyas-sync-floating-container');
+                    if (widget) widget.remove();
                 }
-
-                chrome.runtime.sendMessage({
-                    action: "checkUrl",
-                    data: { syncId, apiUrl, url }
-                }, (response) => {
-                    const alreadyExists = !!(response && response.exists);
-                    console.log(`[Vinyas Tracker] Book URL existence check: ${alreadyExists}`);
-                    if (!alreadyExists) {
-                        showSyncBookOverlay(bookName, url, syncId, apiUrl);
-                    } else {
-                        console.log(`[Vinyas Tracker] Silent bypass: Book already synced.`);
-                    }
-                });
             });
-            lastCheckedBookUrl = url;
-        }
+        });
+        lastCheckedBookUrl = url;
     } catch (err) {
         console.error("[Vinyas Tracker] Error checking PW Book page:", err);
     }
 }
-
-let lastCheckedChapterUrl = '';
 
 function parseChapterNameFromDOM() {
     try {
@@ -1577,49 +1749,72 @@ function parseChapterNameFromDOM() {
 function checkPwBookChapterLoad() {
     try {
         const url = window.location.href;
+        
+        const info = getBookAndChapterInfo(url);
+        if (!info || info.type !== 'chapter') {
+            return;
+        }
+
         if (lastCheckedChapterUrl === url) return;
 
-        // Validate URL structure: chapters/<encrypted-text-2> without any trailing sub-path
-        const lowerUrl = url.toLowerCase();
-        const chapterIdx = lowerUrl.indexOf('/chapters/');
-        if (chapterIdx === -1) return;
-        const afterChapters = lowerUrl.substring(chapterIdx + '/chapters/'.length);
-        const pathPart = afterChapters.split('?')[0].split('#')[0];
-        if (pathPart.includes('/')) return;
+        const chapterUrl = info.chapterUrl;
+        const bookUrl = info.bookUrl;
+        const chapterName = parseChapterNameFromDOM() || 'PW Chapter';
 
-        const chapterName = parseChapterNameFromDOM();
-        if (chapterName) {
-            chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
-                const syncId = result.vinyasSyncId;
-                const apiUrl = result.vinyasApiUrl;
-                if (!syncId || !apiUrl) {
-                    console.warn("[Vinyas Tracker] Sync ID or API URL not configured. Skipping chapter check.");
+        chrome.storage.local.set({
+            capturedChapterLink: {
+                url: chapterUrl,
+                bookUrl: bookUrl,
+                title: chapterName
+            }
+        });
+
+        chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl'], (result) => {
+            const syncId = result.vinyasSyncId;
+            const apiUrl = result.vinyasApiUrl;
+            if (!syncId || !apiUrl) {
+                console.warn("[Vinyas Tracker] Sync ID or API URL not configured.");
+                return;
+            }
+
+            chrome.runtime.sendMessage({
+                action: "checkUrl",
+                data: { syncId, apiUrl, url: chapterUrl }
+            }, (response) => {
+                const chapterExists = !!(response && response.exists);
+                console.log(`[Vinyas Tracker] Chapter URL existence check: ${chapterExists}`);
+                if (chapterExists) {
+                    console.log(`[Vinyas Tracker] Silent bypass: Chapter already synced.`);
+                    const widget = document.getElementById('vinyas-sync-floating-container');
+                    if (widget) widget.remove();
                     return;
                 }
 
                 chrome.runtime.sendMessage({
-                    action: "checkUrl",
-                    data: { syncId, apiUrl, url }
-                }, (response) => {
-                    const alreadyExists = !!(response && response.exists);
-                    console.log(`[Vinyas Tracker] Chapter URL existence check: ${alreadyExists}`);
-                    if (!alreadyExists) {
-                        const chapterIdx = url.toLowerCase().indexOf('/chapters/');
-                        const bookUrl = url.substring(0, chapterIdx);
-                        showSyncChapterOverlay(chapterName, bookUrl, url, syncId, apiUrl);
+                    action: "fetchSyllabus",
+                    data: { syncId, apiUrl }
+                }, (syllabusRes) => {
+                    const subjects = (syllabusRes && syllabusRes.success) ? (syllabusRes.data?.data || []) : [];
+                    const bookExists = subjects.some(s => {
+                        const books = s.books || [];
+                        return s.bookUrl === bookUrl || books.some(b => b.url === bookUrl);
+                    });
+
+                    if (bookExists) {
+                        showFloatingSyncButton('chapter', bookUrl, chapterUrl, syncId, apiUrl);
                     } else {
-                        console.log(`[Vinyas Tracker] Silent bypass: Chapter already synced.`);
+                        showFloatingSyncButton('book', bookUrl, null, syncId, apiUrl);
                     }
                 });
             });
-            lastCheckedChapterUrl = url;
-        }
+        });
+        lastCheckedChapterUrl = url;
     } catch (err) {
         console.error("[Vinyas Tracker] Error checking PW Book Chapter page:", err);
     }
 }
 
-function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, apiUrl) {
+async function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, apiUrl) {
     const existing = document.getElementById('vinyas-overlay-host');
     if (existing) existing.remove();
 
@@ -1630,6 +1825,37 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
     const shadow = host.attachShadow({ mode: 'closed' });
 
     const logoUrl = chrome.runtime.getURL('favicon.ico');
+
+    let subjects = [];
+    try {
+        const syllabusRes = await chrome.runtime.sendMessage({
+            action: "fetchSyllabus",
+            data: { syncId, apiUrl }
+        });
+        if (syllabusRes && syllabusRes.success && syllabusRes.data) {
+            subjects = syllabusRes.data.data || [];
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error loading subjects for chapter overlay:", e);
+    }
+
+    const parentSubject = subjects.find(s => {
+        const books = s.books || [];
+        return s.bookUrl === bookUrl || books.some(b => b.url === bookUrl);
+    });
+    const chapters = parentSubject ? parentSubject.chapters || [] : [];
+
+    let selectedChapterName = '';
+    const normDetected = detectedChapter.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matchedCh = chapters.find(ch => {
+        const normCh = ch.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normCh === normDetected || normCh.includes(normDetected) || normDetected.includes(normCh);
+    });
+    if (matchedCh) {
+        selectedChapterName = matchedCh.name;
+    } else if (chapters.length > 0) {
+        selectedChapterName = chapters[0].name;
+    }
 
     shadow.innerHTML = `
     <style>
@@ -1664,6 +1890,13 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
             border-radius:12px; color:#e2e8f0; font-size:13px; font-weight:600; outline:none; transition:all 0.2s;
         }
         .input-field:focus { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
+        select.input-field { cursor:pointer; }
+        select.input-field option { background:#0f172a; color:#e2e8f0; }
+
+        .sub-toggle-group { display:flex; gap:8px; margin-bottom:12px; }
+        .sub-toggle-btn { flex:1; padding:6px 0; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.2); color:#64748b; font-size:10px; font-weight:750; cursor:pointer; border-radius:10px; transition:all 0.2s; }
+        .sub-toggle-btn.active { border-color:#3b82f6; background:rgba(59,130,246,0.1); color:#60a5fa; }
+
         .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
         .btn {
             flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
@@ -1686,8 +1919,23 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
             </div>
             <div class="body">
                 <div class="input-group">
-                    <label class="input-label">Chapter Name</label>
-                    <input type="text" class="input-field" id="input-chapter" value="${escapeHTML(detectedChapter)}" placeholder="e.g. Units and Dimension" />
+                    <label class="input-label">Chapter Mode</label>
+                    <div class="sub-toggle-group">
+                        <button class="sub-toggle-btn active" id="toggle-mode-existing">Existing Chapter</button>
+                        <button class="sub-toggle-btn" id="toggle-mode-new">Create New Chapter</button>
+                    </div>
+                </div>
+
+                <div class="input-group" id="group-existing-chapter">
+                    <label class="input-label">Select Chapter</label>
+                    <select class="input-field" id="select-chapter">
+                        ${chapters.map(ch => `<option value="${escapeHTML(ch.name)}" ${ch.name === selectedChapterName ? 'selected' : ''}>${escapeHTML(ch.name)}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div class="input-group" id="group-new-chapter" style="display:none;">
+                    <label class="input-label">New Chapter Name</label>
+                    <input type="text" class="input-field" id="input-new-chapter" value="${escapeHTML(detectedChapter)}" placeholder="e.g. Kinematics" />
                 </div>
             </div>
             <div class="footer">
@@ -1697,68 +1945,53 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
         </div>
     </div>`;
 
-    shadow.getElementById('btn-dismiss').addEventListener('click', () => {
+    let chapterMode = 'existing'; // 'existing' or 'new'
+
+    const toggleModeExisting = shadow.getElementById('toggle-mode-existing');
+    const toggleModeNew = shadow.getElementById('toggle-mode-new');
+    const groupExistingChapter = shadow.getElementById('group-existing-chapter');
+    const groupNewChapter = shadow.getElementById('group-new-chapter');
+
+    const selectChapter = shadow.getElementById('select-chapter');
+    const inputNewChapter = shadow.getElementById('input-new-chapter');
+
+    const btnDismiss = shadow.getElementById('btn-dismiss');
+    const btnSend = shadow.getElementById('btn-send');
+
+    toggleModeExisting.addEventListener('click', () => {
+        chapterMode = 'existing';
+        toggleModeExisting.classList.add('active');
+        toggleModeNew.classList.remove('active');
+        groupExistingChapter.style.display = 'block';
+        groupNewChapter.style.display = 'none';
+    });
+
+    toggleModeNew.addEventListener('click', () => {
+        chapterMode = 'new';
+        toggleModeNew.classList.add('active');
+        toggleModeExisting.classList.remove('active');
+        groupExistingChapter.style.display = 'none';
+        groupNewChapter.style.display = 'block';
+    });
+
+    btnDismiss.addEventListener('click', () => {
         host.remove();
         console.log('[Vinyas Tracker] Chapter overlay dismissed by user.');
     });
 
-    shadow.getElementById('btn-send').addEventListener('click', async () => {
-        const editedChapter = shadow.getElementById('input-chapter').value.trim();
+    btnSend.addEventListener('click', async () => {
+        const editedChapter = chapterMode === 'existing' ? selectChapter.value : inputNewChapter.value.trim();
         if (!editedChapter) return;
 
-        const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
-        btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
+        btnSend.textContent = '...';
+        btnSend.style.pointerEvents = 'none';
+        btnSend.style.opacity = '0.7';
 
         try {
-            const syllabusRes = await chrome.runtime.sendMessage({
-                action: "fetchSyllabus",
-                data: { syncId, apiUrl }
-            });
+            const matches = findChapterMatchesInSyllabus(subjects, editedChapter);
 
-            if (syllabusRes && syllabusRes.success && syllabusRes.data) {
-                const subjects = syllabusRes.data.data || [];
-                const matches = findChapterMatchesInSyllabus(subjects, editedChapter);
-
-                if (matches.length === 1) {
-                    btn.textContent = '...';
-                    const response = await chrome.runtime.sendMessage({
-                        action: "logActivity",
-                        data: {
-                            syncId,
-                            apiUrl,
-                            type: "BOOK_CHAPTER_SUBMISSION",
-                            details: {
-                                chapterName: editedChapter,
-                                chapterUrl: chapterUrl,
-                                bookUrl: bookUrl
-                            }
-                        }
-                    });
-
-                    if (response && response.success) {
-                        btn.textContent = 'Synced!';
-                        setTimeout(() => host.remove(), 1200);
-                    } else {
-                        btn.textContent = 'Failed!';
-                        btn.style.pointerEvents = 'auto';
-                        btn.style.opacity = '1';
-                        setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
-                    }
-                } else {
-                    host.remove();
-                    showResolveMismatchOverlay(editedChapter, subjects, syncId, apiUrl, {
-                        type: "BOOK_CHAPTER_SUBMISSION",
-                        details: {
-                            chapterName: editedChapter,
-                            chapterUrl: chapterUrl,
-                            bookUrl: bookUrl
-                        }
-                    });
-                }
-            } else {
-                btn.textContent = '...';
+            if (matches.length === 1 || chapterMode === 'existing') {
+                btnSend.textContent = '...';
                 const response = await chrome.runtime.sendMessage({
                     action: "logActivity",
                     data: {
@@ -1774,25 +2007,36 @@ function showSyncChapterOverlay(detectedChapter, bookUrl, chapterUrl, syncId, ap
                 });
 
                 if (response && response.success) {
-                    btn.textContent = 'Synced!';
+                    btnSend.textContent = 'Synced!';
+                    const widget = document.getElementById('vinyas-sync-floating-container');
+                    if (widget) widget.remove();
+                    chrome.storage.local.remove(['capturedBookLink', 'capturedChapterLink']);
                     setTimeout(() => host.remove(), 1200);
                 } else {
-                    btn.textContent = 'Failed!';
-                    btn.style.pointerEvents = 'auto';
-                    btn.style.opacity = '1';
-                    setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
+                    btnSend.textContent = 'Failed!';
+                    btnSend.style.pointerEvents = 'auto';
+                    btnSend.style.opacity = '1';
+                    setTimeout(() => { btnSend.textContent = 'Sync Chapter'; }, 2000);
                 }
+            } else {
+                host.remove();
+                showResolveMismatchOverlay(editedChapter, subjects, syncId, apiUrl, {
+                    type: "BOOK_CHAPTER_SUBMISSION",
+                    details: {
+                        chapterName: editedChapter,
+                        chapterUrl: chapterUrl,
+                        bookUrl: bookUrl
+                    }
+                });
             }
         } catch (e) {
             console.error("[Vinyas Tracker] Error checking match for book chapter:", e);
-            btn.textContent = 'Error!';
-            btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-            setTimeout(() => { btn.textContent = 'Sync Chapter'; }, 2000);
+            btnSend.textContent = 'Error!';
+            btnSend.style.pointerEvents = 'auto';
+            btnSend.style.opacity = '1';
+            setTimeout(() => { btnSend.textContent = 'Sync Chapter'; }, 2000);
         }
     });
-
-    // backdrop click to dismiss removed
 }
 
 function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pendingActivity = null) {
@@ -2083,6 +2327,9 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
 
             if (response && response.success) {
                 btnSend.textContent = 'Resolved!';
+                const widget = document.getElementById('vinyas-sync-floating-container');
+                if (widget) widget.remove();
+                chrome.storage.local.remove(['capturedBookLink', 'capturedChapterLink']);
                 setTimeout(() => {
                     host.remove();
                     if (!pendingActivity) {
@@ -2110,7 +2357,7 @@ function showResolveMismatchOverlay(chapterTitle, subjects, syncId, apiUrl, pend
 }
 window.showResolveMismatchOverlay = showResolveMismatchOverlay;
 
-function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
+async function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
     const existing = document.getElementById('vinyas-overlay-host');
     if (existing) existing.remove();
 
@@ -2155,6 +2402,8 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
             border-radius:12px; color:#e2e8f0; font-size:13px; font-weight:600; outline:none; transition:all 0.2s;
         }
         .input-field:focus { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
+        select.input-field { cursor:pointer; }
+        select.input-field option { background:#0f172a; color:#e2e8f0; }
         .footer { padding:14px 22px 18px; display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.03); }
         .btn {
             flex:1; padding:12px 0; border:none; border-radius:12px; font-size:12px;
@@ -2172,7 +2421,7 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
                 <img class="logo" src="${logoUrl}" alt="Vinyas Logo" />
                 <div>
                     <div class="brand">Vinyas Tracker</div>
-                    <div class="subtitle">Sync Module Book</div>
+                    <div class="subtitle">Sync Book to Subject</div>
                 </div>
             </div>
             <div class="body">
@@ -2180,10 +2429,16 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
                     <label class="input-label">Book Name</label>
                     <input type="text" class="input-field" id="input-book" value="${escapeHTML(detectedBook)}" placeholder="e.g. Arjuna JEE Physics Module" />
                 </div>
+                <div class="input-group">
+                    <label class="input-label">Save to Subject</label>
+                    <select class="input-field" id="select-subject">
+                        <option value="">Loading subjects...</option>
+                    </select>
+                </div>
             </div>
             <div class="footer">
                 <button class="btn btn-dismiss" id="btn-dismiss">Dismiss</button>
-                <button class="btn btn-send" id="btn-send">Sync to Vinyas</button>
+                <button class="btn btn-send" id="btn-send" style="opacity: 0.6; pointer-events: none;">Sync to Vinyas</button>
             </div>
         </div>
     </div>`;
@@ -2193,14 +2448,38 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
         console.log('[Vinyas Tracker] Book overlay dismissed by user.');
     });
 
-    shadow.getElementById('btn-send').addEventListener('click', async () => {
-        const editedBook = shadow.getElementById('input-book').value.trim();
-        if (!editedBook) return;
+    let subjects = [];
+    try {
+        const syllabusRes = await chrome.runtime.sendMessage({
+            action: "fetchSyllabus",
+            data: { syncId, apiUrl }
+        });
+        if (syllabusRes && syllabusRes.success && syllabusRes.data) {
+            subjects = syllabusRes.data.data || [];
+        }
+    } catch (e) {
+        console.error("[Vinyas Tracker] Error loading subjects for book overlay:", e);
+    }
 
-        const btn = shadow.getElementById('btn-send');
-        btn.textContent = '...';
-        btn.style.pointerEvents = 'none';
-        btn.style.opacity = '0.7';
+    const selectEl = shadow.getElementById('select-subject');
+    const sendBtn = shadow.getElementById('btn-send');
+
+    if (subjects.length > 0) {
+        selectEl.innerHTML = subjects.map(s => `<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)}</option>`).join('');
+        sendBtn.style.opacity = '1';
+        sendBtn.style.pointerEvents = 'auto';
+    } else {
+        selectEl.innerHTML = '<option value="">No subjects found in syllabus</option>';
+    }
+
+    sendBtn.addEventListener('click', async () => {
+        const editedBook = shadow.getElementById('input-book').value.trim();
+        const selectedSubject = selectEl.value;
+        if (!editedBook || !selectedSubject) return;
+
+        sendBtn.textContent = '...';
+        sendBtn.style.pointerEvents = 'none';
+        sendBtn.style.opacity = '0.7';
 
         try {
             const response = await chrome.runtime.sendMessage({
@@ -2211,26 +2490,30 @@ function showSyncBookOverlay(detectedBook, bookUrl, syncId, apiUrl) {
                     type: "BOOK_SUBMISSION",
                     details: {
                         bookName: editedBook,
-                        url: bookUrl
+                        url: bookUrl,
+                        subjectName: selectedSubject
                     }
                 }
             });
 
             if (response && response.success) {
-                btn.textContent = 'Synced!';
+                sendBtn.textContent = 'Synced!';
+                const widget = document.getElementById('vinyas-sync-floating-container');
+                if (widget) widget.remove();
+                chrome.storage.local.remove(['capturedBookLink', 'capturedChapterLink']);
                 setTimeout(() => host.remove(), 1200);
             } else {
-                btn.textContent = 'Failed!';
-                btn.style.pointerEvents = 'auto';
-                btn.style.opacity = '1';
-                setTimeout(() => { btn.textContent = 'Sync to Vinyas'; }, 2000);
+                sendBtn.textContent = 'Failed!';
+                sendBtn.style.pointerEvents = 'auto';
+                sendBtn.style.opacity = '1';
+                setTimeout(() => { sendBtn.textContent = 'Sync to Vinyas'; }, 2000);
             }
         } catch (e) {
             console.error("[Vinyas Tracker] Error syncing book:", e);
-            btn.textContent = 'Error!';
-            btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-            setTimeout(() => { btn.textContent = 'Sync to Vinyas'; }, 2000);
+            sendBtn.textContent = 'Error!';
+            sendBtn.style.pointerEvents = 'auto';
+            sendBtn.style.opacity = '1';
+            setTimeout(() => { sendBtn.textContent = 'Sync to Vinyas'; }, 2000);
         }
     });
 

@@ -29,6 +29,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const discardResultsBtn = document.getElementById('discardResultsBtn');
   const sendResultsBtn = document.getElementById('sendResultsBtn');
 
+  // 💎 Captured Card Elements 💎
+  const capturedCard = document.getElementById('capturedCard');
+  const capturedMainTitle = document.getElementById('capturedMainTitle');
+  const capturedBadge = document.getElementById('capturedBadge');
+  const capturedName = document.getElementById('capturedName');
+  const capturedBookNameInput = document.getElementById('capturedBookNameInput');
+  const capturedSubjectSelect = document.getElementById('capturedSubjectSelect');
+  const capturedSubjectGroup = document.getElementById('capturedSubjectGroup');
+  const capturedChapterGroup = document.getElementById('capturedChapterGroup');
+  const capturedChapterTargetText = document.getElementById('capturedChapterTargetText');
+  const discardCapturedBtn = document.getElementById('discardCapturedBtn');
+  const syncCapturedBtn = document.getElementById('syncCapturedBtn');
+  const capturedNameLabel = document.getElementById('capturedNameLabel');
+  const capturedChapterSelect = document.getElementById('capturedChapterSelect');
+  const capturedChapterSelectGroup = document.getElementById('capturedChapterSelectGroup');
+
   let detectedConfig = null;
   let activeDppData = null;
   let detectedType = null; // 'DPP' or 'MODULE_CONFIG'
@@ -402,6 +418,284 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
       }
+    }
+  });
+
+  // 8. Handle Captured Links for Book/Chapter Sync
+  function populateSubjectSelect(subjects) {
+    capturedSubjectSelect.innerHTML = '';
+    if (subjects.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No subjects in syllabus';
+      capturedSubjectSelect.appendChild(opt);
+      return;
+    }
+    subjects.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.textContent = s.name;
+      capturedSubjectSelect.appendChild(opt);
+    });
+  }
+
+  function setupSyncCapturedListener(type, data, syncId, apiUrl, selectEl = null) {
+    const parent = syncCapturedBtn.parentNode;
+    const newBtn = syncCapturedBtn.cloneNode(true);
+    parent.replaceChild(newBtn, syncCapturedBtn);
+    
+    newBtn.addEventListener('click', () => {
+      let nameVal = '';
+      if (type === 'chapter') {
+        if (selectEl && selectEl.value !== '__new_chapter__') {
+          nameVal = selectEl.value;
+        } else {
+          nameVal = capturedBookNameInput.value.trim();
+        }
+      } else {
+        nameVal = capturedBookNameInput.value.trim();
+      }
+      
+      if (!nameVal) return;
+      
+      newBtn.textContent = '...';
+      newBtn.disabled = true;
+      
+      if (type === 'chapter') {
+        chrome.runtime.sendMessage({
+          action: "logActivity",
+          data: {
+            syncId,
+            apiUrl,
+            type: "BOOK_CHAPTER_SUBMISSION",
+            details: {
+              chapterName: nameVal,
+              chapterUrl: data.url,
+              bookUrl: data.bookUrl
+            }
+          }
+        }, (res) => {
+          if (res && res.success) {
+            newBtn.textContent = 'Synced! ✨';
+            chrome.storage.local.remove(['capturedChapterLink'], () => {
+              setTimeout(() => {
+                capturedCard.style.display = 'none';
+              }, 1000);
+            });
+          } else {
+            newBtn.textContent = 'Failed';
+            newBtn.disabled = false;
+          }
+        });
+      } else {
+        const subjectVal = capturedSubjectSelect.value;
+        if (!subjectVal) {
+          newBtn.textContent = 'Select Subject';
+          newBtn.disabled = false;
+          return;
+        }
+        
+        chrome.runtime.sendMessage({
+          action: "logActivity",
+          data: {
+            syncId,
+            apiUrl,
+            type: "BOOK_SUBMISSION",
+            details: {
+              bookName: nameVal,
+              url: data.url,
+              subjectName: subjectVal
+            }
+          }
+        }, (res) => {
+          if (res && res.success) {
+            newBtn.textContent = 'Synced! ✨';
+            chrome.storage.local.remove(['capturedBookLink', 'capturedChapterLink'], () => {
+              setTimeout(() => {
+                capturedCard.style.display = 'none';
+              }, 1000);
+            });
+          } else {
+            newBtn.textContent = 'Failed';
+            newBtn.disabled = false;
+          }
+        });
+      }
+    });
+  }
+
+  discardCapturedBtn.addEventListener('click', () => {
+    chrome.storage.local.remove(['capturedBookLink', 'capturedChapterLink'], () => {
+      capturedCard.style.display = 'none';
+    });
+  });
+
+  chrome.storage.local.get(['vinyasSyncId', 'vinyasApiUrl', 'capturedBookLink', 'capturedChapterLink'], (result) => {
+    const syncId = result.vinyasSyncId;
+    const apiUrl = result.vinyasApiUrl;
+    const capturedBook = result.capturedBookLink;
+    const capturedChapter = result.capturedChapterLink;
+
+    if (!syncId || !apiUrl) return;
+
+    if (capturedChapter) {
+      chrome.runtime.sendMessage({
+        action: "fetchSyllabus",
+        data: { syncId, apiUrl }
+      }, (syllabusRes) => {
+        const subjects = (syllabusRes && syllabusRes.success) ? (syllabusRes.data?.data || []) : [];
+        
+        let matchingSubjectName = '';
+        let matchingBookName = '';
+        const bookUrl = capturedChapter.bookUrl;
+        
+        const bookExists = subjects.some(s => {
+          const books = s.books || [];
+          const matchedBook = books.find(b => b.url === bookUrl);
+          if (matchedBook) {
+            matchingSubjectName = s.name;
+            matchingBookName = matchedBook.name;
+            return true;
+          }
+          if (s.bookUrl === bookUrl) {
+            matchingSubjectName = s.name;
+            matchingBookName = s.bookName || "Book";
+            return true;
+          }
+          return false;
+        });
+
+        if (bookExists) {
+          capturedCard.style.display = 'block';
+          capturedMainTitle.textContent = '📥 Captured Link for Sync';
+          capturedBadge.textContent = 'Chapter';
+          capturedBadge.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+          capturedBadge.style.color = '#10b981';
+          capturedBadge.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+          
+          capturedName.textContent = matchingBookName;
+          capturedNameLabel.textContent = 'Chapter Name';
+          capturedBookNameInput.value = capturedChapter.title;
+          
+          capturedSubjectGroup.style.display = 'none';
+          capturedChapterGroup.style.display = 'block';
+          capturedChapterTargetText.textContent = `${matchingSubjectName} -> ${matchingBookName}`;
+
+          // Locate subject chapters to populate select dropdown
+          const matchedSubject = subjects.find(s => s.name === matchingSubjectName);
+          const chList = matchedSubject ? matchedSubject.chapters || [] : [];
+          
+          // Populate select
+          capturedChapterSelect.innerHTML = '';
+          chList.forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch.name;
+            opt.textContent = ch.name;
+            capturedChapterSelect.appendChild(opt);
+          });
+          
+          // Add custom new chapter option
+          const optNew = document.createElement('option');
+          optNew.value = '__new_chapter__';
+          optNew.textContent = '+ Create New Chapter';
+          capturedChapterSelect.appendChild(optNew);
+          
+          // Pre-select matched or closest chapter
+          let selectedName = '';
+          const normDetected = capturedChapter.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const matchedCh = chList.find(ch => {
+            const normCh = ch.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return normCh === normDetected || normCh.includes(normDetected) || normDetected.includes(normCh);
+          });
+          if (matchedCh) {
+            selectedName = matchedCh.name;
+            capturedChapterSelect.value = selectedName;
+            // Hide the text field if matching existing
+            capturedBookNameGroup.style.display = 'none';
+          } else {
+            capturedChapterSelect.value = '__new_chapter__';
+            capturedBookNameGroup.style.display = 'block';
+          }
+          
+          // Display select dropdown group
+          capturedChapterSelectGroup.style.display = 'block';
+          
+          // Re-bind change listener
+          const newSelect = capturedChapterSelect.cloneNode(true);
+          capturedChapterSelect.parentNode.replaceChild(newSelect, capturedChapterSelect);
+          
+          newSelect.addEventListener('change', () => {
+            if (newSelect.value === '__new_chapter__') {
+              capturedBookNameGroup.style.display = 'block';
+              capturedBookNameInput.value = capturedChapter.title;
+            } else {
+              capturedBookNameGroup.style.display = 'none';
+            }
+          });
+
+          const syncBtn = document.getElementById('syncCapturedBtn');
+          syncBtn.textContent = 'Add Chapter';
+          syncBtn.style.background = 'linear-gradient(135deg, var(--color-accent), #059669)';
+          syncBtn.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.2)';
+          
+          setupSyncCapturedListener('chapter', capturedChapter, syncId, apiUrl, newSelect);
+        } else {
+          capturedCard.style.display = 'block';
+          capturedMainTitle.textContent = '📥 Captured Link for Sync';
+          capturedBadge.textContent = 'Book Sync Required';
+          capturedBadge.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+          capturedBadge.style.color = '#f59e0b';
+          capturedBadge.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+          
+          capturedName.textContent = 'Book Sync Required (for this chapter)';
+          capturedNameLabel.textContent = 'Book Name';
+          capturedBookNameInput.value = 'PW Book';
+          
+          capturedChapterSelectGroup.style.display = 'none';
+          capturedBookNameGroup.style.display = 'block';
+          capturedSubjectGroup.style.display = 'block';
+          capturedChapterGroup.style.display = 'none';
+          populateSubjectSelect(subjects);
+          
+          const syncBtn = document.getElementById('syncCapturedBtn');
+          syncBtn.textContent = 'Sync Book';
+          syncBtn.style.background = 'linear-gradient(135deg, var(--color-amber), #d97706)';
+          syncBtn.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.2)';
+          
+          setupSyncCapturedListener('book', { url: bookUrl, title: 'PW Book' }, syncId, apiUrl);
+        }
+      });
+    } else if (capturedBook) {
+      chrome.runtime.sendMessage({
+        action: "fetchSyllabus",
+        data: { syncId, apiUrl }
+      }, (syllabusRes) => {
+        const subjects = (syllabusRes && syllabusRes.success) ? (syllabusRes.data?.data || []) : [];
+        
+        capturedCard.style.display = 'block';
+        capturedMainTitle.textContent = '📥 Captured Link for Sync';
+        capturedBadge.textContent = 'Book';
+        capturedBadge.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+        capturedBadge.style.color = '#f59e0b';
+        capturedBadge.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+        
+        capturedName.textContent = capturedBook.title;
+        capturedNameLabel.textContent = 'Book Name';
+        capturedBookNameInput.value = capturedBook.title;
+        
+        capturedChapterSelectGroup.style.display = 'none';
+        capturedBookNameGroup.style.display = 'block';
+        capturedSubjectGroup.style.display = 'block';
+        capturedChapterGroup.style.display = 'none';
+        populateSubjectSelect(subjects);
+        
+        const syncBtn = document.getElementById('syncCapturedBtn');
+        syncBtn.textContent = 'Sync Book';
+        syncBtn.style.background = 'linear-gradient(135deg, var(--color-amber), #d97706)';
+        syncBtn.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.2)';
+        
+        setupSyncCapturedListener('book', capturedBook, syncId, apiUrl);
+      });
     }
   });
 });

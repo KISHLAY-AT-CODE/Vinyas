@@ -1,21 +1,20 @@
-export const VINYAS_APP_VERSION = '2.3.1';
-export const VINYAS_EXTENSION_VERSION = '2.3.1';
+export const VINYAS_APP_VERSION = '2.3.2';
+export const VINYAS_EXTENSION_VERSION = '2.3.2';
 
 export const WHATS_NEW_CHANGELOG = {
-  version: '2.3.1',
-  date: 'June 28, 2026',
+  version: '2.3.2',
+  date: 'June 29, 2026',
   coreChanges: [
-    '📊 Standalone Recent Activity Dashboard: Introduced a consolidated recent activity card listing the 5 latest active chapters from each subject based on automatic study tracker triggers and manual status overrides.',
-    '🔁 Segmented View Switcher Navbar: Added a premium glassmorphic navbar switcher at the top of the workspace to toggle between the main syllabus Chapter Table and the Recent Activity dashboard like separate pages.',
-    '🔍 Search-to-Chapter Page Routing: Selecting a chapter from search query suggestions or overlays automatically redirects you to the Chapter Table view tab and scrolls/highlights the corresponding row.'
+    '📚 Multi-Book Support: You can now configure multiple textbooks per subject. Each book maintains its own set of chapter-to-URL mappings independently.',
+    '⚙️ Book Settings Panel: New gear icon next to each subject header opens a dedicated configuration modal — add new textbooks, view mapped chapter counts, and delete books with cascading chapter link cleanup.',
+    '🔗 Bulk Chapter Link Editor: Clicking the book icon on any chapter now opens a unified editor showing all configured textbooks, letting you set or clear reading URLs for that chapter across all books in one go.'
   ],
   clientChanges: [
-    '🎯 Subject Chapter sorting: Added a custom sort selector in the subject table headers to sort chapters alphabetically (A-Z) or by Master Score (Ascending/Descending).',
-    '💾 Persistent Sorting Preferences: Your chosen sort criteria is automatically saved in browser local storage and loaded when you return to the app or switch subjects.',
-    '🗂️ Categorized Section Grouping: Chapters are divided into "Active Chapters" (those with progress) and "No Data Available" (unstarted chapters) divider rows, where score-sorting only reorganizes started chapters.',
-    '🛡️ Thicker Master Status Bar Outline: The row segmented progress bars are now 3.5px thick and have a dark top-border outline to guarantee sharp contrast on light dashboard backgrounds.'
+    '📖 Active Book Selector: When multiple books are configured, a dropdown lets you switch the active textbook view without navigating away. Your choice is remembered across sessions via localStorage.',
+    '🔄 Textbook Sync from Extension: The SYNC and Add Chapter buttons on PW Books pages now support linking to any of your configured textbooks, not just a single default book.',
+    '🛠️ UI Overflow Fix: Fixed dropdown menus getting clipped inside sticky subject headers by dynamically toggling overflow visibility.'
   ],
   actionRequired: [
-    'Please refresh your dashboard page and verify that your browser Chrome extension has updated to version 2.3.1 to get these dashboard routing and sorting upgrades.'
+    'Please refresh your dashboard and update your Chrome extension to version 2.3.2 to get the new multi-book configuration features.'
   ]
 };

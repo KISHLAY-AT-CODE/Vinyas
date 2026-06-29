@@ -372,6 +372,30 @@
       background: rgba(0, 0, 0, 0.45);
     }
 
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: white;
+      border-radius: 10px;
+      font-size: 11px;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    select:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      background: rgba(0, 0, 0, 0.45);
+    }
+    select option {
+      background: var(--bg-dark);
+      color: white;
+    }
+
     input.mono {
       font-family: 'Outfit', monospace;
       font-size: 10px;
@@ -510,6 +534,42 @@
       <div style="display:flex; gap:8px; margin-top:12px;">
         <button id="discardResultsBtn" class="btn btn-test" style="margin:0; flex:1;">Discard</button>
         <button id="sendResultsBtn" class="btn-send-results" style="flex:2;">🚀 Send to Vinyas</button>
+      </div>
+    </div>
+
+    <!-- 💎 CAPTURED BOOK/CHAPTER CARD 💎 -->
+    <div id="capturedCard" class="results-card" style="border-color: rgba(245, 158, 11, 0.25);">
+      <div class="results-title-row">
+        <span class="results-main-title" id="capturedMainTitle" style="color: var(--color-amber);">📖 Captured Link for Sync</span>
+        <span id="capturedBadge" class="results-badge module" style="background: rgba(245, 158, 11, 0.15); color: var(--color-amber); border-color: rgba(245, 158, 11, 0.25);">Book</span>
+      </div>
+      <div id="capturedName" class="results-name" style="margin-bottom: 8px;">Captured Book Name</div>
+      
+      <div id="capturedForm" style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="form-group" id="capturedBookNameGroup">
+          <label id="capturedNameLabel" for="capturedBookNameInput">Book Name</label>
+          <input type="text" id="capturedBookNameInput" placeholder="Enter name" />
+        </div>
+        <div class="form-group" id="capturedChapterSelectGroup" style="display: none;">
+          <label for="capturedChapterSelect">Select Chapter</label>
+          <select id="capturedChapterSelect">
+            <!-- Will be populated dynamically -->
+          </select>
+        </div>
+        <div class="form-group" id="capturedSubjectGroup">
+          <label for="capturedSubjectSelect">Select Subject</label>
+          <select id="capturedSubjectSelect">
+            <!-- Will be populated dynamically -->
+          </select>
+        </div>
+        <div id="capturedChapterGroup" style="display: none; font-size: 11px; color: var(--color-text-dim); margin-top: 4px; line-height: 1.4;">
+          Book exists! Syncing chapter to: <strong id="capturedChapterTargetText">...</strong>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button id="discardCapturedBtn" class="btn btn-test" style="margin:0; flex:1;">Clear</button>
+        <button id="syncCapturedBtn" class="btn-send-results" style="flex:2; background: linear-gradient(135deg, var(--color-amber), #d97706); box-shadow: 0 4px 15px rgba(245,158,11,0.2);">Sync Book</button>
       </div>
     </div>
     

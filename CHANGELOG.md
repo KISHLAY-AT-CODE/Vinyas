@@ -5,6 +5,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.3.2] — June 29, 2026 · Books Update
+
+### Added
+- Multi-book support per subject: configure as many textbooks as needed, each with independent chapter-to-URL mappings.
+- Subject-level Book Settings panel (gear icon) for adding, viewing, and deleting textbooks with cascading chapter link cleanup on deletion.
+- Bulk Chapter Link Editor: unified modal per chapter listing all configured textbooks, allowing simultaneous URL mapping or clearing across all books.
+- Active book selector dropdown with localStorage persistence — remembers your chosen textbook across sessions and page reloads.
+- External link icon in book dropdown for opening textbook URLs without switching the active book selection.
+
+### Fixed
+- Dropdown menus clipped inside sticky subject headers — dynamically toggles `overflow-visible` when dropdown is open.
+
+---
+
 ## [2.3.1] — June 28, 2026 · Dynamic Dashboard Pages & Interactive Sorting
 
 ### Added
