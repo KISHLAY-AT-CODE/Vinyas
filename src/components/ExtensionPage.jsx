@@ -6,7 +6,7 @@ const ExtensionPage = ({ onBack }) => {
     const [workSlide, setWorkSlide] = useState(0);
     const [metadata, setMetadata] = useState({
         extension: { version: '2.0.0', formattedSize: '95.8 KB' },
-        apk: { version: 'v1.0.0' /* APK_VERSION_META */, formattedSize: '132.00 MB' }
+        apk: { version: 'v1.0.1' /* APK_VERSION_META */, formattedSize: '132.37 MB' }
     });
 
     useEffect(() => {
@@ -118,10 +118,10 @@ const ExtensionPage = ({ onBack }) => {
             {/* Ambient decorative background glows */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-500/10 rounded-full blur-[150px] pointer-events-none"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full blur-[150px] pointer-events-none"></div>
-            
+
             <div className="max-w-5xl mx-auto relative z-10">
                 {/* Back Button */}
-                <button 
+                <button
                     onClick={onBack}
                     className="mb-8 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-md"
                 >
@@ -152,11 +152,10 @@ const ExtensionPage = ({ onBack }) => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                                    activeTab === tab.id 
-                                        ? 'bg-gradient-to-r from-orange-600/90 to-red-650/90 text-white shadow-lg shadow-orange-950/20' 
-                                        : 'text-slate-500 hover:text-slate-350 hover:bg-slate-800/30'
-                                }`}
+                                className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeTab === tab.id
+                                    ? 'bg-gradient-to-r from-orange-600/90 to-red-650/90 text-white shadow-lg shadow-orange-950/20'
+                                    : 'text-slate-500 hover:text-slate-350 hover:bg-slate-800/30'
+                                    }`}
                             >
                                 <i className={`ph-bold ${tab.icon}`}></i>
                                 <span>{tab.label}</span>
@@ -173,7 +172,7 @@ const ExtensionPage = ({ onBack }) => {
                         <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between shadow-2xl relative overflow-hidden group hover:border-orange-500/20 transition-all duration-300">
                             {/* Corner Glow */}
                             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-500/10 to-red-500/0 blur-xl group-hover:opacity-100 transition-opacity"></div>
-                            
+
                             <div>
                                 <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-5 shadow-inner shadow-orange-950/20">
                                     <i className="ph-fill ph-download-simple text-2xl animate-pulse"></i>
@@ -201,9 +200,9 @@ const ExtensionPage = ({ onBack }) => {
                                         <span className="text-slate-350">{metadata.extension.formattedSize}</span>
                                     </div>
                                 </div>
-                                
-                                <a 
-                                    href="/Vinyas_Extension.zip" 
+
+                                <a
+                                    href="/Vinyas_Extension.zip"
                                     download="Vinyas_Extension.zip"
                                     className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-red-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-orange-950/25 hover:shadow-orange-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
                                 >
@@ -217,7 +216,7 @@ const ExtensionPage = ({ onBack }) => {
                         <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between shadow-2xl relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
                             {/* Corner Glow */}
                             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 blur-xl group-hover:opacity-100 transition-opacity"></div>
-                            
+
                             <div>
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 shadow-inner shadow-emerald-950/20">
                                     <img src="/icon.svg" alt="Vinyas Logo" className="w-6 h-6 object-contain animate-pulse" />
@@ -245,9 +244,9 @@ const ExtensionPage = ({ onBack }) => {
                                         <span className="text-slate-350">{metadata.apk.formattedSize}</span>
                                     </div>
                                 </div>
-                                
-                                <a 
-                                    href={"https://github.com/KISHLAY-AT-CODE/VinyasApp/releases/download/v1.0.0/application-4fd94fa9-30d5-4484-a4b8-9d9a09ae56c0.apk" /* APK_DOWNLOAD_URL */}
+
+                                <a
+                                    href={"https://github.com/KISHLAY-AT-CODE/VinyasApp/releases/download/v1.0.1/application-4f1442c5-e7b2-419b-92fc-e68bd9c8ae89.apk" /* APK_DOWNLOAD_URL */}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-950/25 hover:shadow-emerald-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
@@ -256,14 +255,14 @@ const ExtensionPage = ({ onBack }) => {
                                     <i className="ph-bold ph-download-simple text-sm group-hover:translate-y-0.5 transition-transform"></i>
                                 </a>
                                 <div className="text-center text-[10px] text-emerald-500 font-semibold mt-1">
-                                    Initial Release: v1.0.0 {/* APK_VERSION_LABEL */}
+                                    Initial Release: v1.0.1 {/* APK_VERSION_LABEL */}
                                 </div>
                             </div>
                         </div>
 
                         {/* GitHub Button */}
-                        <a 
-                            href="https://github.com/KISHLAY-AT-CODE/Vinyas" 
+                        <a
+                            href="https://github.com/KISHLAY-AT-CODE/Vinyas"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full py-3.5 bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 text-slate-450 hover:text-white font-extrabold rounded-xl shadow-inner transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
@@ -328,18 +327,17 @@ const ExtensionPage = ({ onBack }) => {
                                                     Follow this quick 6-step visual tour showing how tracking progress automatically reflects on your syllabus portal.
                                                 </p>
                                             </div>
-                                            
+
                                             {/* Slide indicator dots */}
                                             <div className="flex gap-1.5">
                                                 {workScreenshots.map((_, idx) => (
                                                     <button
                                                         key={idx}
                                                         onClick={() => setWorkSlide(idx)}
-                                                        className={`w-2.5 h-2.5 rounded-full transition-all border ${
-                                                            workSlide === idx 
-                                                                ? 'bg-orange-500 border-orange-400 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.4)]' 
-                                                                : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
-                                                        }`}
+                                                        className={`w-2.5 h-2.5 rounded-full transition-all border ${workSlide === idx
+                                                            ? 'bg-orange-500 border-orange-400 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.4)]'
+                                                            : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
+                                                            }`}
                                                         title={`Go to Step ${idx + 1}`}
                                                     />
                                                 ))}
@@ -348,16 +346,16 @@ const ExtensionPage = ({ onBack }) => {
 
                                         {/* Slider Display Container */}
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center bg-slate-950/40 border border-slate-900/60 p-6 sm:p-8 rounded-3xl relative">
-                                            
+
                                             {/* Left/Right Action Arrows */}
-                                            <button 
+                                            <button
                                                 onClick={handlePrevWorkSlide}
                                                 className="absolute left-3 w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center hover:bg-slate-800 hover:border-slate-700 shadow-lg active:scale-90 transition-all z-10 cursor-pointer"
                                                 title="Previous Step"
                                             >
                                                 <i className="ph-bold ph-caret-left text-lg"></i>
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={handleNextWorkSlide}
                                                 className="absolute right-3 w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center hover:bg-slate-800 hover:border-slate-700 shadow-lg active:scale-90 transition-all z-10 cursor-pointer"
                                                 title="Next Step"
@@ -381,9 +379,9 @@ const ExtensionPage = ({ onBack }) => {
                                             {/* Step Screenshot Image */}
                                             <div className="md:col-span-7 flex flex-col items-center justify-center px-4">
                                                 <div className="bg-slate-950 border border-slate-800/80 rounded-2xl overflow-hidden p-2.5 shadow-2xl relative group hover:border-slate-700 transition-all w-full max-w-[520px] flex items-center justify-center">
-                                                    <img 
-                                                        src={workScreenshots[workSlide].src} 
-                                                        alt={workScreenshots[workSlide].title} 
+                                                    <img
+                                                        src={workScreenshots[workSlide].src}
+                                                        alt={workScreenshots[workSlide].title}
                                                         className="w-full h-auto rounded-xl object-contain max-h-[340px] border border-slate-900 group-hover:scale-[1.015] transition-transform duration-300"
                                                     />
                                                     <div className="absolute inset-0 bg-slate-950/10 group-hover:bg-transparent transition-colors pointer-events-none"></div>
@@ -419,18 +417,17 @@ const ExtensionPage = ({ onBack }) => {
                                                 Follow the visual slides showing exactly how to load and pair the extension in Google Chrome.
                                             </p>
                                         </div>
-                                        
+
                                         {/* Slide indicator dots */}
                                         <div className="flex gap-1.5">
                                             {screenshots.map((_, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => setCurrentSlide(idx)}
-                                                    className={`w-2.5 h-2.5 rounded-full transition-all border ${
-                                                        currentSlide === idx 
-                                                            ? 'bg-orange-500 border-orange-400 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.4)]' 
-                                                            : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
-                                                    }`}
+                                                    className={`w-2.5 h-2.5 rounded-full transition-all border ${currentSlide === idx
+                                                        ? 'bg-orange-500 border-orange-400 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.4)]'
+                                                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
+                                                        }`}
                                                     title={`Go to Step ${idx + 1}`}
                                                 />
                                             ))}
@@ -439,16 +436,16 @@ const ExtensionPage = ({ onBack }) => {
 
                                     {/* Slider Display Container */}
                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center bg-slate-950/40 border border-slate-900/60 p-6 sm:p-8 rounded-3xl relative">
-                                        
+
                                         {/* Left/Right Action Arrows */}
-                                        <button 
+                                        <button
                                             onClick={handlePrevSlide}
                                             className="absolute left-3 w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center hover:bg-slate-800 hover:border-slate-700 shadow-lg active:scale-90 transition-all z-10 cursor-pointer"
                                             title="Previous Step"
                                         >
                                             <i className="ph-bold ph-caret-left text-lg"></i>
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={handleNextSlide}
                                             className="absolute right-3 w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center hover:bg-slate-800 hover:border-slate-700 shadow-lg active:scale-90 transition-all z-10 cursor-pointer"
                                             title="Next Step"
@@ -472,9 +469,9 @@ const ExtensionPage = ({ onBack }) => {
                                         {/* Step Screenshot Image */}
                                         <div className="md:col-span-7 flex flex-col items-center justify-center px-4">
                                             <div className="bg-slate-950 border border-slate-800/80 rounded-2xl overflow-hidden p-2.5 shadow-2xl relative group hover:border-slate-700 transition-all w-full max-w-[520px] flex items-center justify-center">
-                                                <img 
-                                                    src={screenshots[currentSlide].src} 
-                                                    alt={screenshots[currentSlide].title} 
+                                                <img
+                                                    src={screenshots[currentSlide].src}
+                                                    alt={screenshots[currentSlide].title}
                                                     className="w-full h-auto rounded-xl object-contain max-h-[340px] border border-slate-900 group-hover:scale-[1.015] transition-transform duration-300"
                                                 />
                                                 <div className="absolute inset-0 bg-slate-950/10 group-hover:bg-transparent transition-colors pointer-events-none"></div>

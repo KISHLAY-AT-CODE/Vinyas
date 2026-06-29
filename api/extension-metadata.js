@@ -9,8 +9,8 @@ export default async function handler(req, res) {
   // Fallbacks corresponding to current status
   let extVersion = '2.3.1';
   let extSizeBytes = 98103;
-  let apkVersion = 'v1.0.0'; /* APK_VERSION_API */
-  let apkSizeBytes = 138412032; /* APK_SIZE_API */
+  let apkVersion = 'v1.0.1'; /* APK_VERSION_API */
+  let apkSizeBytes = 138800005; /* APK_SIZE_API */
 
   try {
     // Attempt to read manifest.json

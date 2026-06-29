@@ -1027,7 +1027,7 @@ const App = () => {
         );
     }
 
-    if (loadError) {
+    if (loadError && currentPath !== '/extension') {
         return (
             <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col items-center justify-center p-6">
                 <div className="max-w-md bg-slate-800 p-8 rounded-2xl shadow-2xl border border-red-500 text-center animate-pop-in">
@@ -1058,7 +1058,7 @@ const App = () => {
         );
     }
 
-    if (!isLoaded) {
+    if (!isLoaded && currentPath !== '/extension') {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-[#070a13]">
                 <div className="flex flex-col items-center select-none">
