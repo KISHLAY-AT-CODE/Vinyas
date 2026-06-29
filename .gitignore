@@ -97,3 +97,5 @@ git_push.py
 bump_version.py
 
 VinyasApp/
+
+scripts/update_release.py

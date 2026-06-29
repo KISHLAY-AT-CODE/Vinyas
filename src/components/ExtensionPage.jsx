@@ -6,7 +6,7 @@ const ExtensionPage = ({ onBack }) => {
     const [workSlide, setWorkSlide] = useState(0);
     const [metadata, setMetadata] = useState({
         extension: { version: '2.0.0', formattedSize: '95.8 KB' },
-        apk: { version: 'v1.0.0' /* APK_VERSION_META */, formattedSize: '2.97 MB' }
+        apk: { version: 'v1.0.0' /* APK_VERSION_META */, formattedSize: '132.00 MB' }
     });
 
     useEffect(() => {
