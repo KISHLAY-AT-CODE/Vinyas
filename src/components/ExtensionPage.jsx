@@ -6,7 +6,7 @@ const ExtensionPage = ({ onBack }) => {
     const [workSlide, setWorkSlide] = useState(0);
     const [metadata, setMetadata] = useState({
         extension: { version: '2.0.0', formattedSize: '95.8 KB' },
-        apk: { version: '2.0.0', formattedSize: '2.97 MB' }
+        apk: { version: 'v1.0.0' /* APK_VERSION_META */, formattedSize: '2.97 MB' }
     });
 
     useEffect(() => {
@@ -247,13 +247,17 @@ const ExtensionPage = ({ onBack }) => {
                                 </div>
                                 
                                 <a 
-                                    href="/Vinyas.apk" 
-                                    download="Vinyas.apk"
+                                    href={"https://github.com/KISHLAY-AT-CODE/VinyasApp/releases/download/v1.0.0/application-4fd94fa9-30d5-4484-a4b8-9d9a09ae56c0.apk" /* APK_DOWNLOAD_URL */}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-650/90 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-950/25 hover:shadow-emerald-950/45 hover:scale-[1.02] active:scale-98 transition-all text-xs flex items-center justify-center gap-2 group cursor-pointer"
                                 >
                                     <span>Download Android APK</span>
                                     <i className="ph-bold ph-download-simple text-sm group-hover:translate-y-0.5 transition-transform"></i>
                                 </a>
+                                <div className="text-center text-[10px] text-emerald-500 font-semibold mt-1">
+                                    Initial Release: v1.0.0 {/* APK_VERSION_LABEL */}
+                                </div>
                             </div>
                         </div>
 

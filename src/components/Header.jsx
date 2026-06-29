@@ -1125,7 +1125,7 @@ const Header = ({
                         </div>
                     </div>
 
-                    {/* Android Companion Sync QR Button */}
+                    {/* Android Vinyas Sathi Sync QR Button */}
                     {syncId && (
                         <button
                             type="button"
@@ -1133,7 +1133,7 @@ const Header = ({
                             className={`px-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-md shrink-0 ${
                                 isHeaderCollapsed ? 'h-12' : 'h-14'
                             } bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 text-emerald-400 hover:text-emerald-350 hover:border-emerald-700/80`}
-                            title="Sync Android Companion App"
+                            title="Sync Vinyas Sathi App"
                         >
                             <i className="ph-bold ph-android-logo text-lg"></i>
                         </button>
@@ -1236,7 +1236,7 @@ const Header = ({
                         <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
                             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                                 <i className="ph-bold ph-android-logo text-emerald-400 text-base"></i>
-                                Companion App Sync
+                                Vinyas Sathi Sync
                             </h3>
                             <button 
                                 onClick={() => setShowAndroidSyncModal(false)}
@@ -1247,7 +1247,7 @@ const Header = ({
                         </div>
 
                         <p className="text-xs text-slate-400 mb-4 leading-relaxed text-center">
-                            Scan this QR code with the Vinyas Companion App on your phone to automatically link your syllabus trackers, test logs, and achievements.
+                            Scan this QR code with Vinyas Sathi on your phone to automatically link your syllabus trackers, test logs, and achievements.
                         </p>
 
                         <div className="flex justify-center items-center my-4 bg-white p-3 rounded-2xl w-[220px] h-[220px] mx-auto shadow-inner">
