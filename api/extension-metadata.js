@@ -26,8 +26,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Attempt to read package.json for APK version
-    const pkgPath = path.join(process.cwd(), 'package.json');
+    // Attempt to read VinyasApp/package.json for APK version
+    const pkgPath = path.join(process.cwd(), 'VinyasApp', 'package.json');
     if (fs.existsSync(pkgPath)) {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
       if (pkg && pkg.version) {
