@@ -930,7 +930,7 @@ const App = () => {
         }));
     };
 
-    if (!isSyncIdSet) {
+    if (!isSyncIdSet && currentPath !== '/extension') {
         return (
             <div className="min-h-screen bg-slate-955 text-slate-200 flex flex-col items-center justify-center p-6 relative overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>

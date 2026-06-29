@@ -1,100 +1,73 @@
-import urllib.request
 import json
 import re
 import os
 
-def load_env_token():
-    # Attempt to load GITHUB_TOKEN from local .env
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        return token
-    
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(script_dir)
-    env_path = os.path.join(root_dir, '.env')
-    
-    if os.path.exists(env_path):
+def parse_size_input(size_str):
+    size_str = size_str.lower().replace(" ", "").strip()
+    if not size_str:
+        return 24103822, "22.99 MB" # Default fallback
+    if "mb" in size_str:
         try:
-            with open(env_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("GITHUB_TOKEN="):
-                        return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except Exception as e:
-            print(f"Warning: Could not read .env file: {e}")
-    return None
+            val = float(size_str.replace("mb", ""))
+            return int(val * 1024 * 1024), f"{val:.2f} MB"
+        except ValueError:
+            pass
+    elif "kb" in size_str:
+        try:
+            val = float(size_str.replace("kb", ""))
+            return int(val * 1024), f"{val:.1f} KB"
+        except ValueError:
+            pass
+    
+    try:
+        val = float(size_str)
+        if val > 100000: # assume raw bytes
+            bytes_val = int(val)
+            if bytes_val >= 1024 * 1024:
+                return bytes_val, f"{bytes_val / (1024*1024):.2f} MB"
+            return bytes_val, f"{bytes_val / 1024:.1f} KB"
+        else: # assume MB value (e.g. 22.5)
+            return int(val * 1024 * 1024), f"{val:.2f} MB"
+    except ValueError:
+        print("Invalid size format. Defaulting to 22.99 MB.")
+        return 24103822, "22.99 MB"
 
 def update_release_metadata():
-    url = "https://api.github.com/repos/KISHLAY-AT-CODE/VinyasApp/releases/latest"
-    headers = {
-        'User-Agent': 'VinyasReleaseUpdater/1.0',
-        'Accept': 'application/vnd.github.v3+json'
-    }
-    
-    token = load_env_token()
-    if token:
-        print("Using GITHUB_TOKEN for authenticated API request.")
-        headers['Authorization'] = f"token {token}"
-    else:
-        print("Warning: GITHUB_TOKEN not found. Requesting anonymously. (Will fail if repository is private).")
-
-    req = urllib.request.Request(url, headers=headers)
-    
-    print(f"Requesting latest release details from GitHub API: {url}")
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_data = response.read().decode('utf-8')
-            data = json.loads(res_data)
-    except Exception as e:
-        print(f"Error calling GitHub API: {e}")
-        if not token:
-            print("Tip: If the repository is private, please add GITHUB_TOKEN=your_token to your .env file.")
-        return
-
-    apk_version = data.get("tag_name") # e.g. "v1.0.0"
-    assets = data.get("assets", [])
-    
-    apk_asset = None
-    for asset in assets:
-        if asset.get("name", "").endswith(".apk"):
-            apk_asset = asset
-            break
-            
-    if not apk_asset:
-        print("No APK asset found in the latest release details.")
-        return
-
-    apk_url = apk_asset.get("browser_download_url")
-    size_bytes = apk_asset.get("size", 0)
-
-    print(f"Found latest release version: {apk_version}")
-    print(f"Latest APK URL: {apk_url}")
-    print(f"File size: {size_bytes} bytes")
-
-    # Formatting helper
-    def format_size(bytes_val):
-        if bytes_val >= 1024 * 1024:
-            return f"{bytes_val / (1024 * 1024):.2f} MB"
-        return f"{bytes_val / 1024:.1f} KB"
-
-    formatted_size = format_size(size_bytes) if size_bytes > 0 else "2.97 MB"
-
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
+    pkg_path = os.path.join(root_dir, 'VinyasApp', 'package.json')
+    
+    # 1. Read version from VinyasApp package.json
+    apk_version = "v1.0.0"
+    if os.path.exists(pkg_path):
+        try:
+            with open(pkg_path, 'r', encoding='utf-8') as f:
+                pkg_data = json.load(f)
+                version_raw = pkg_data.get("version", "1.0.0")
+                apk_version = f"v{version_raw}" if not version_raw.startswith("v") else version_raw
+            print(f"Loaded client version from VinyasApp/package.json: {apk_version}")
+        except Exception as e:
+            print(f"Warning: Could not read VinyasApp/package.json: {e}. Defaulting to v1.0.0")
+    else:
+        print(f"Warning: VinyasApp/package.json not found at {pkg_path}. Defaulting to v1.0.0")
+
+    # 2. Get input from developer on APK file size
+    try:
+        size_input = input("Enter the APK file size (e.g. '22.5', '22.5 MB', or raw bytes): ").strip()
+    except EOFError:
+        size_input = "22.5 MB" # Fallback if run in non-interactive environment
+        print(f"Non-interactive session: Defaulting size to {size_input}")
+        
+    size_bytes, formatted_size = parse_size_input(size_input)
+    print(f"Parsed Size: {formatted_size} ({size_bytes} bytes)")
+
     ext_page_path = os.path.join(root_dir, 'src', 'components', 'ExtensionPage.jsx')
     metadata_api_path = os.path.join(root_dir, 'api', 'extension-metadata.js')
 
-    # 1. Update ExtensionPage.jsx
+    # 3. Update ExtensionPage.jsx
     if os.path.exists(ext_page_path):
         with open(ext_page_path, 'r', encoding='utf-8') as f:
             content = f.read()
-
-        # Update download link URL
-        content = re.sub(
-            r'href=\{\s*"[^"]+"\s*/\*\s*APK_DOWNLOAD_URL\s*\*/\s*\}',
-            f'href={{"{apk_url}" /* APK_DOWNLOAD_URL */}}',
-            content
-        )
 
         # Update metadata state block (version and size)
         content = re.sub(
@@ -116,7 +89,7 @@ def update_release_metadata():
     else:
         print(f"Error: Could not locate {ext_page_path}")
 
-    # 2. Update api/extension-metadata.js fallback fields
+    # 4. Update api/extension-metadata.js fallback fields
     if os.path.exists(metadata_api_path):
         with open(metadata_api_path, 'r', encoding='utf-8') as f:
             content = f.read()
