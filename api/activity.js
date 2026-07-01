@@ -102,6 +102,21 @@ export default async function handler(req, res) {
     const db = await connectToDatabase();
     const collection = db.collection('users');
 
+    if (req.method === 'GET') {
+      const rawSyncId = req.query.syncId;
+      if (!rawSyncId || typeof rawSyncId !== 'string') {
+        return res.status(400).json({ error: 'Invalid or missing syncId' });
+      }
+      const syncId = String(rawSyncId).trim();
+      if (!syncId) return res.status(400).json({ error: 'syncId cannot be empty' });
+
+      const userDoc = await resolveUser(db, syncId);
+      if (!userDoc) {
+        return res.status(200).json([]);
+      }
+      return res.status(200).json(userDoc.activities || []);
+    }
+
     if (req.method === 'POST') {
       const { syncId: rawSyncId, type, details, timestamp } = req.body;
       
